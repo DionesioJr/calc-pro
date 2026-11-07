@@ -763,6 +763,16 @@ describe("CALC-9: estilo do feedback visual no CSS", () => {
   });
 });
 
+describe("CALC-18: cores de fundo da página e da calculadora", () => {
+  test("página tem fundo #686868 (cinza que a calculadora tinha) e texto #ffffff", () => {
+    assert.match(CSS_SOURCE, /body\s*\{[^}]*background:\s*#686868;[^}]*color:\s*#ffffff;[^}]*\}/);
+  });
+
+  test("calculadora tem fundo #000000 (preto que a página tinha)", () => {
+    assert.match(CSS_SOURCE, /\.calculator\s*\{[^}]*background:\s*#000000;[^}]*\}/);
+  });
+});
+
 describe("CALC-16: critérios de aceite do limite de resultado (2^53)", () => {
   test("999999999 × 999999999 mostra Erro (e não 999999998000000000)", () => {
     const calc = createCalculator();

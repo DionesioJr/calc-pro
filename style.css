@@ -11,14 +11,14 @@ body {
   align-items: center;
   justify-content: center;
   font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
-  background: #000000;
+  background: #686868;
   color: #ffffff;
 }
 
 .calculator {
   width: min(360px, 100% - 2rem);
   padding: 1rem;
-  background: transparent;
+  background: #000000;
 }
 
 /* Título mantido para leitores de tela; fora da área visível, como na referência iOS. */
@@ -115,11 +115,9 @@ body {
   outline-offset: 2px;
 }
 
-/* Desktop: fundo mais claro atrás do visor e do teclado, para destacar a área da calculadora do fundo preto da página.
-   Tom escolhido para equilibrar o contraste das teclas (#333, cinza claro e laranja) sobre ele: ~2,3:1 para #333 e cinza claro, ~2,7:1 para o laranja, sem mudar a cor das teclas. */
+/* Desktop: cantos arredondados na calculadora preta, sobre a página cinza. */
 @media (min-width: 768px) {
   .calculator {
-    background: #686868;
     border-radius: 1.5rem;
   }
 }
