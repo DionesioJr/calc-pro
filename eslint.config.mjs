@@ -18,7 +18,7 @@ export default [
     // Testes em CommonJS (require) no Node.
     files: ["test/**/*.js"],
     languageOptions: {
-      sourceType: "module",
+      sourceType: "commonjs",
       globals: globals.node,
     },
   },
