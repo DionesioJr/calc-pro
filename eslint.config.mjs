@@ -15,8 +15,8 @@ export default [
     },
   },
   {
-    // Testes em CommonJS (require) e ferramentas em ESM, ambos no Node.
-    files: ["test/**/*.js", "scripts/**/*.mjs", "eslint.config.mjs"],
+    // Testes em CommonJS (require) no Node.
+    files: ["test/**/*.js"],
     languageOptions: {
       sourceType: "module",
       globals: globals.node,

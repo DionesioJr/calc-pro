@@ -5,12 +5,14 @@
   "description": "Calculadora Pro",
   "scripts": {
     "test": "node --test",
-    "lint": "eslint .",
-    "format:check": "node scripts/format-check.mjs"
+    "lint": "eslint script.js test/",
+    "format": "prettier --write script.js test/",
+    "format:check": "prettier --check script.js test/"
   },
   "devDependencies": {
     "@eslint/js": "^9.0.0",
     "eslint": "^9.0.0",
-    "globals": "^15.0.0"
+    "globals": "^15.0.0",
+    "prettier": "^3.0.0"
   }
 }

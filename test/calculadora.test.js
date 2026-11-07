@@ -538,7 +538,6 @@ describe("CALC-7: critérios de aceite de erro, dígitos, arredondamento e fonte
 });
 
 describe("CALC-5: formatação de resultados", () => {
-
   test("0.1 + 0.2 = resulta em 0.3, sem ruído de ponto flutuante", () => {
     const calc = createCalculator();
     assert.equal(calc.press("0", ".", "1", "+", "0", ".", "2", "="), "0.3");
