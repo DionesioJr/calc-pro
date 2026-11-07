@@ -39,13 +39,22 @@ body {
   min-height: 6rem;
   padding: 0 0.5rem;
   text-align: right;
-  font-size: 4.5rem;
+  font-size: 4rem; /* 64px: até 6 caracteres */
   font-weight: 300;
   line-height: 1.1;
   color: #ffffff;
   font-variant-numeric: tabular-nums;
   background: transparent;
   overflow-wrap: anywhere;
+}
+
+/* Tamanho definido pelo script.js conforme o número de caracteres exibidos. */
+.display-48 {
+  font-size: 3rem; /* 48px: 7 ou 8 caracteres */
+}
+
+.display-40 {
+  font-size: 2.5rem; /* 40px: 9 ou mais caracteres */
 }
 
 .keypad {

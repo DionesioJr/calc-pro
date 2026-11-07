@@ -1,7 +1,8 @@
 "use strict";
 
 // Testes da entrada de dígitos e ponto decimal (CALC-4), da lógica de operações (CALC-5),
-// de AC/+/-/% (CALC-6) e do teclado físico (CALC-8).
+// de AC/+/-/% (CALC-6), do teclado físico (CALC-8) e de erro, limite de dígitos,
+// arredondamento e tamanho da fonte (CALC-7).
 // Executa script.js real num contexto isolado, com um DOM mínimo, e aperta
 // os botões pelo mesmo caminho de clique que o navegador usa; o teclado usa o mesmo
 // caminho de keydown.
@@ -40,8 +41,20 @@ const KEY_DATASET = {
   "=": { action: "equals" },
 };
 
+// classList mínimo, com o que o script.js usa (add, remove, contains).
+function createClassList() {
+  const names = new Set();
+  return {
+    add: (...list) => list.forEach((name) => names.add(name)),
+    remove: (...list) => list.forEach((name) => names.delete(name)),
+    contains: (name) => names.has(name),
+  };
+}
+
+const DISPLAY_SIZE_CLASSES = ["display-64", "display-48", "display-40"];
+
 function createCalculator() {
-  const display = { textContent: "" };
+  const display = { textContent: "", classList: createClassList() };
   let onKeypadClick = null;
   let onKeyDown = null;
 
@@ -75,6 +88,13 @@ function createCalculator() {
     return display.textContent;
   }
 
+  // Classe de tamanho de fonte que o display tem agora (uma só).
+  function fontSizeClass() {
+    const active = DISPLAY_SIZE_CLASSES.filter((name) => display.classList.contains(name));
+    assert.equal(active.length, 1, "o display deve ter exatamente uma classe de tamanho");
+    return active[0];
+  }
+
   // Dispara um keydown do teclado físico e devolve o evento (para checar preventDefault).
   function keyDown(key, modifiers = {}) {
     const event = {
@@ -100,7 +120,7 @@ function createCalculator() {
     return display.textContent;
   }
 
-  return { press, keyDown, type };
+  return { press, keyDown, type, fontSizeClass };
 }
 
 describe("index.html expõe os botões usados pelos testes", () => {
@@ -277,10 +297,14 @@ describe("CALC-6: casos de borda de AC, +/- e %", () => {
     assert.equal(calc.press("5", "+", "%", "="), "5.05");
   });
 
-  test("+/- e % após erro não alteram a mensagem: 5, ÷, 0, =, +/- resulta em Erro", () => {
+  test("+/- após erro reinicia a calculadora: 5, ÷, 0, =, +/- resulta em 0", () => {
     const calc = createCalculator();
-    assert.equal(calc.press("5", "÷", "0", "=", "+/-"), "Erro");
-    assert.equal(calc.press("%"), "Erro");
+    assert.equal(calc.press("5", "÷", "0", "=", "+/-"), "0");
+  });
+
+  test("% após erro reinicia a calculadora: 5, ÷, 0, =, % resulta em 0", () => {
+    const calc = createCalculator();
+    assert.equal(calc.press("5", "÷", "0", "=", "%"), "0");
   });
 });
 
@@ -367,14 +391,14 @@ describe("CALC-8: casos de borda do teclado físico", () => {
     assert.equal(calc.type("2", "+", "3", "=", "Backspace"), "5");
   });
 
-  test("Backspace após erro não altera a mensagem: 5, ÷, 0, =, Backspace resulta em Erro", () => {
+  test("Backspace após erro reinicia a calculadora: 5, ÷, 0, =, Backspace resulta em 0", () => {
     const calc = createCalculator();
-    assert.equal(calc.type("5", "/", "0", "=", "Backspace"), "Erro");
+    assert.equal(calc.type("5", "/", "0", "=", "Backspace"), "0");
   });
 
-  test("Backspace sobre notação científica volta para 0: 0.0000001 seguido de % (1e-9), Backspace resulta em 0", () => {
+  test("resultado pequeno arredondado a 8 casas não vira notação científica: 0.00000015 seguido de % resulta em 0", () => {
     const calc = createCalculator();
-    assert.equal(calc.press("0", ".", "0", "0", "0", "0", "0", "0", "1", "%"), "1e-9");
+    assert.equal(calc.press("0", ".", "0", "0", "0", "0", "0", "0", "1", "5", "%"), "0");
     assert.equal(calc.type("Backspace"), "0");
   });
 
@@ -404,16 +428,116 @@ describe("CALC-8: casos de borda do teclado físico", () => {
   });
 });
 
-describe("CALC-5: formatação com 12 algarismos significativos", () => {
-  test("1 ÷ 3 = resulta em 0.333333333333 (12 algarismos)", () => {
+describe("CALC-7: critérios de aceite de erro, dígitos, arredondamento e fonte", () => {
+  test("5 ÷ 0 = mostra Erro", () => {
     const calc = createCalculator();
-    assert.equal(calc.press("1", "÷", "3", "="), "0.333333333333");
+    assert.equal(calc.press("5", "÷", "0", "="), "Erro");
   });
 
-  test("2 ÷ 3 = arredonda o 12º algarismo: resulta em 0.666666666667", () => {
+  test("a próxima tecla após Erro reinicia a calculadora: 5, ÷, 0, =, 7 resulta em 7", () => {
     const calc = createCalculator();
-    assert.equal(calc.press("2", "÷", "3", "="), "0.666666666667");
+    assert.equal(calc.press("5", "÷", "0", "=", "7"), "7");
   });
+
+  test("operador após Erro começa do zero: 5, ÷, 0, =, −, 3, = resulta em -3", () => {
+    const calc = createCalculator();
+    assert.equal(calc.press("5", "÷", "0", "=", "−", "3", "="), "-3");
+  });
+
+  test("1 ÷ 3 mostra 0.33333333 (8 casas decimais)", () => {
+    const calc = createCalculator();
+    assert.equal(calc.press("1", "÷", "3", "="), "0.33333333");
+  });
+
+  test("2 ÷ 3 arredonda a 8ª casa: resulta em 0.66666667", () => {
+    const calc = createCalculator();
+    assert.equal(calc.press("2", "÷", "3", "="), "0.66666667");
+  });
+
+  test("zeros à direita são removidos após o arredondamento: 1 ÷ 4 resulta em 0.25", () => {
+    const calc = createCalculator();
+    assert.equal(calc.press("1", "÷", "4", "="), "0.25");
+  });
+
+  test("digitar 1234567890 mostra 123456789 (o 10º dígito é ignorado)", () => {
+    const calc = createCalculator();
+    assert.equal(calc.press("1", "2", "3", "4", "5", "6", "7", "8", "9", "0"), "123456789");
+  });
+
+  test("o limite de 9 dígitos vale também depois do ponto: 0.123456789 e o próximo dígito é ignorado", () => {
+    const calc = createCalculator();
+    assert.equal(calc.press("0", ".", "1", "2", "3", "4", "5", "6", "7", "8", "9", "0"), "0.123456789");
+  });
+
+  test("o sinal não conta no limite: 1, +/-, 2 a 9 e 0 resulta em -123456789", () => {
+    const calc = createCalculator();
+    assert.equal(calc.press("1", "+/-", "2", "3", "4", "5", "6", "7", "8", "9", "0"), "-123456789");
+  });
+
+  test("o limite também vale para o segundo operando: 1, +, 1234567890, = resulta em 123456790", () => {
+    const calc = createCalculator();
+    assert.equal(calc.press("1", "+", "1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "="), "123456790");
+  });
+
+  test("zeros à esquerda da parte inteira não contam: 0.1234567 ainda aceita mais um dígito (0.12345678)", () => {
+    const calc = createCalculator();
+    assert.equal(calc.press("0", ".", "1", "2", "3", "4", "5", "6", "7", "8"), "0.12345678");
+  });
+
+  test("fonte de 64px com até 6 caracteres: 12345 e 12345. (6 caracteres) usam display-64", () => {
+    const calc = createCalculator();
+    assert.equal(calc.press("1", "2", "3", "4", "5"), "12345");
+    assert.equal(calc.fontSizeClass(), "display-64");
+    assert.equal(calc.press("."), "12345.");
+    assert.equal(calc.fontSizeClass(), "display-64");
+  });
+
+  test("o sinal conta no tamanho: -12345 (6 caracteres) usa display-64 e -123456 (7) usa display-48", () => {
+    const calc = createCalculator();
+    assert.equal(calc.press("1", "2", "3", "4", "5", "+/-"), "-12345");
+    assert.equal(calc.fontSizeClass(), "display-64");
+    assert.equal(calc.press("6"), "-123456");
+    assert.equal(calc.fontSizeClass(), "display-48");
+  });
+
+  test("Erro usa a fonte de 64px (5 caracteres)", () => {
+    const calc = createCalculator();
+    calc.press("5", "÷", "0", "=");
+    assert.equal(calc.fontSizeClass(), "display-64");
+  });
+
+  test("fonte de 48px com 7 ou 8 caracteres: 1234567 e -1234567 usam display-48", () => {
+    const calc = createCalculator();
+    assert.equal(calc.press("1", "2", "3", "4", "5", "6", "7"), "1234567");
+    assert.equal(calc.fontSizeClass(), "display-48");
+    assert.equal(calc.press("8"), "12345678");
+    assert.equal(calc.fontSizeClass(), "display-48");
+  });
+
+  test("fonte de 40px com 9 caracteres: 123456789 usa display-40", () => {
+    const calc = createCalculator();
+    assert.equal(calc.press("1", "2", "3", "4", "5", "6", "7", "8", "9"), "123456789");
+    assert.equal(calc.fontSizeClass(), "display-40");
+  });
+
+  test("sinal e ponto contam como caracteres: -1234567 (8 caracteres) usa display-48 e 1234567. (8) também", () => {
+    const calc = createCalculator();
+    calc.press("1", "2", "3", "4", "5", "6", "7", "+/-");
+    assert.equal(calc.fontSizeClass(), "display-48");
+    const calc2 = createCalculator();
+    calc2.press("1", "2", "3", "4", "5", "6", "7", ".");
+    assert.equal(calc2.fontSizeClass(), "display-48");
+  });
+
+  test("a fonte volta a diminuir ao apagar: 123456789 com Backspace usa display-48", () => {
+    const calc = createCalculator();
+    calc.press("1", "2", "3", "4", "5", "6", "7", "8", "9");
+    assert.equal(calc.type("Backspace"), "12345678");
+    assert.equal(calc.fontSizeClass(), "display-48");
+  });
+});
+
+describe("CALC-5: formatação de resultados", () => {
 
   test("0.1 + 0.2 = resulta em 0.3, sem ruído de ponto flutuante", () => {
     const calc = createCalculator();

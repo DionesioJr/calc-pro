@@ -5,6 +5,19 @@ const keypad = document.querySelector(".keypad");
 
 const ERROR_TEXT = "Erro";
 
+// Máximo de algarismos digitados num número (sinal, ponto e zeros à esquerda da parte inteira não contam).
+const MAX_DIGITS = 9;
+
+// Resultados são arredondados para no máximo 8 casas decimais.
+const DECIMAL_PLACES = 8;
+
+// Tamanho do display pelo número de caracteres exibidos (sinal e ponto contam).
+const DISPLAY_SIZES = [
+  { maxLength: 6, className: "display-64" },
+  { maxLength: 8, className: "display-48" },
+  { maxLength: Infinity, className: "display-40" },
+];
+
 const state = {
   current: "0",
   // Operando à esquerda aguardando o operador seguinte (ou o igual).
@@ -24,9 +37,17 @@ const OPERATIONS = {
   divide: (a, b) => (b === 0 ? null : a / b),
 };
 
+function displaySizeClass(text) {
+  return DISPLAY_SIZES.find((size) => text.length <= size.maxLength).className;
+}
+
 function render() {
   if (display) {
     display.textContent = state.current;
+    for (const size of DISPLAY_SIZES) {
+      display.classList.remove(size.className);
+    }
+    display.classList.add(displaySizeClass(state.current));
   }
 }
 
@@ -46,9 +67,17 @@ function setError() {
   state.error = true;
 }
 
-// Limita a 12 algarismos significativos para evitar ruído de ponto flutuante (ex.: 0.1 + 0.2).
+// Arredonda para no máximo 8 casas decimais e remove os zeros à direita (0.1 + 0.2 → 0.3; 1 ÷ 3 → 0.33333333).
+// O arredondamento também elimina o ruído de ponto flutuante. Sem notação científica.
 function formatResult(value) {
-  return String(Number(value.toPrecision(12)));
+  const fixed = value.toFixed(DECIMAL_PLACES).replace(/\.?0+$/, "");
+  return fixed === "-0" ? "0" : fixed;
+}
+
+// Conta os algarismos digitados: sinal e ponto não contam, nem os zeros à esquerda da parte inteira.
+function countDigits(entry) {
+  const [integerPart, fractionPart = ""] = entry.replace("-", "").split(".");
+  return integerPart.replace(/^0+/, "").length + fractionPart.length;
 }
 
 function inputDigit(digit) {
@@ -58,6 +87,10 @@ function inputDigit(digit) {
   if (state.waitingForOperand) {
     state.current = digit;
     state.waitingForOperand = false;
+    return;
+  }
+  // Com 9 algarismos, o próximo dígito é ignorado.
+  if (countDigits(state.current) >= MAX_DIGITS) {
     return;
   }
   // O "0" inicial é substituído pelo primeiro dígito digitado.
@@ -80,19 +113,25 @@ function inputDecimal() {
   state.current += ".";
 }
 
-// +/-: inverte o sinal do número exibido. Com o zero não há sinal a inverter, e após erro o botão não faz nada.
+// +/-: inverte o sinal do número exibido. Com o zero não há sinal a inverter.
+// Após erro, a tecla reinicia a calculadora.
 // Depois de um operador, o número exibido vira o segundo operando (o que se vê é o que será usado).
 function toggleSign() {
-  if (state.error || state.current === "0") {
+  if (state.error) {
+    reset();
+    return;
+  }
+  if (state.current === "0") {
     return;
   }
   state.current = state.current.startsWith("-") ? state.current.slice(1) : "-" + state.current;
   state.waitingForOperand = false;
 }
 
-// %: divide o número exibido por 100. Mesma regra de segundo operando do +/-.
+// %: divide o número exibido por 100. Mesma regra de segundo operando do +/-. Após erro, reinicia.
 function percent() {
   if (state.error) {
+    reset();
     return;
   }
   state.current = formatResult(Number(state.current) / 100);
@@ -100,12 +139,16 @@ function percent() {
 }
 
 // Backspace (teclado): apaga o último caractere do número em edição.
-// Sem número em edição (após operador ou igual, ou após erro) não faz nada.
+// Sem número em edição (após operador ou igual) não faz nada. Após erro, reinicia a calculadora.
 // Se sobrar algo que não é um número válido (ex.: "-" ou notação científica), volta para 0.
 const VALID_ENTRY = /^-?\d+(\.\d*)?$/;
 
 function deleteDigit() {
-  if (state.error || state.waitingForOperand) {
+  if (state.error) {
+    reset();
+    return;
+  }
+  if (state.waitingForOperand) {
     return;
   }
   const remaining = state.current.slice(0, -1);
