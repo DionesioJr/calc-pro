@@ -99,6 +99,19 @@ function percent() {
   state.waitingForOperand = false;
 }
 
+// Backspace (teclado): apaga o último caractere do número em edição.
+// Sem número em edição (após operador ou igual, ou após erro) não faz nada.
+// Se sobrar algo que não é um número válido (ex.: "-" ou notação científica), volta para 0.
+const VALID_ENTRY = /^-?\d+(\.\d*)?$/;
+
+function deleteDigit() {
+  if (state.error || state.waitingForOperand) {
+    return;
+  }
+  const remaining = state.current.slice(0, -1);
+  state.current = VALID_ENTRY.test(remaining) ? remaining : "0";
+}
+
 // Aplica o operador pendente: left (operando à esquerda) op right.
 // Retorna false se a operação falhou e o erro foi exibido.
 function evaluatePending(right) {
@@ -185,6 +198,36 @@ function handleButton(button) {
   }
 }
 
+// Teclado físico: cada tecla executa a mesma ação do botão correspondente (mesmo caminho do clique).
+const KEY_BUTTONS = {
+  "+": { action: "add" },
+  "-": { action: "subtract" },
+  "*": { action: "multiply" },
+  "/": { action: "divide" },
+  "=": { action: "equals" },
+  Enter: { action: "equals" },
+  Escape: { action: "all-clear" },
+  ".": { value: "." },
+  ",": { value: "." },
+};
+
+// Devolve true se a tecla é uma das usadas pela calculadora.
+function handleKey(key) {
+  if (/^[0-9]$/.test(key)) {
+    inputDigit(key);
+    return true;
+  }
+  if (key === "Backspace") {
+    deleteDigit();
+    return true;
+  }
+  if (!(key in KEY_BUTTONS)) {
+    return false;
+  }
+  handleButton({ dataset: KEY_BUTTONS[key] });
+  return true;
+}
+
 if (keypad) {
   keypad.addEventListener("click", (event) => {
     const button = event.target.closest("button");
@@ -196,5 +239,19 @@ if (keypad) {
     render();
   });
 }
+
+document.addEventListener("keydown", (event) => {
+  // Atalhos do navegador (Ctrl+C, Cmd+R etc.) continuam funcionando.
+  if (event.ctrlKey || event.metaKey || event.altKey) {
+    return;
+  }
+  if (!handleKey(event.key)) {
+    return;
+  }
+
+  // Impede que Enter, com um botão da calculadora focado, dispare também o clique desse botão.
+  event.preventDefault();
+  render();
+});
 
 render();

@@ -1,8 +1,10 @@
 "use strict";
 
-// Testes da entrada de dígitos e ponto decimal (CALC-4) e da lógica de operações (CALC-5).
+// Testes da entrada de dígitos e ponto decimal (CALC-4), da lógica de operações (CALC-5),
+// de AC/+/-/% (CALC-6) e do teclado físico (CALC-8).
 // Executa script.js real num contexto isolado, com um DOM mínimo, e aperta
-// os botões pelo mesmo caminho de clique que o navegador usa.
+// os botões pelo mesmo caminho de clique que o navegador usa; o teclado usa o mesmo
+// caminho de keydown.
 // Sem dependências: rodar com `npm test` (node --test, Node 18+).
 
 const { describe, test } = require("node:test");
@@ -41,6 +43,7 @@ const KEY_DATASET = {
 function createCalculator() {
   const display = { textContent: "" };
   let onKeypadClick = null;
+  let onKeyDown = null;
 
   const keypad = {
     addEventListener(type, listener) {
@@ -54,6 +57,11 @@ function createCalculator() {
   const document = {
     getElementById: (id) => (id === "display" ? display : null),
     querySelector: (selector) => (selector === ".keypad" ? keypad : null),
+    addEventListener(type, listener) {
+      if (type === "keydown") {
+        onKeyDown = listener;
+      }
+    },
   };
 
   vm.runInNewContext(SCRIPT_SOURCE, { document }, { filename: "script.js" });
@@ -67,7 +75,32 @@ function createCalculator() {
     return display.textContent;
   }
 
-  return { press };
+  // Dispara um keydown do teclado físico e devolve o evento (para checar preventDefault).
+  function keyDown(key, modifiers = {}) {
+    const event = {
+      key,
+      ctrlKey: false,
+      metaKey: false,
+      altKey: false,
+      ...modifiers,
+      defaultPrevented: false,
+      preventDefault() {
+        this.defaultPrevented = true;
+      },
+    };
+    onKeyDown(event);
+    return event;
+  }
+
+  // Digita teclas do teclado físico em sequência e devolve o texto final do display.
+  function type(...keys) {
+    for (const key of keys) {
+      keyDown(key);
+    }
+    return display.textContent;
+  }
+
+  return { press, keyDown, type };
 }
 
 describe("index.html expõe os botões usados pelos testes", () => {
@@ -248,6 +281,126 @@ describe("CALC-6: casos de borda de AC, +/- e %", () => {
     const calc = createCalculator();
     assert.equal(calc.press("5", "÷", "0", "=", "+/-"), "Erro");
     assert.equal(calc.press("%"), "Erro");
+  });
+});
+
+describe("CALC-8: critérios de aceite do teclado físico", () => {
+  test("dígitos e ponto pelo teclado: 7, 8, ponto, 5 resulta em 78.5", () => {
+    const calc = createCalculator();
+    assert.equal(calc.type("7", "8", ".", "5"), "78.5");
+  });
+
+  test("vírgula tem o mesmo efeito do ponto: 7, 8, vírgula, 5 resulta em 78.5", () => {
+    const calc = createCalculator();
+    assert.equal(calc.type("7", "8", ",", "5"), "78.5");
+  });
+
+  test("operadores pelo teclado: 7 + 2 resulta em 9, 7 - 2 resulta em 5, 7 * 2 resulta em 14, 8 / 2 resulta em 4", () => {
+    assert.equal(createCalculator().type("7", "+", "2", "="), "9");
+    assert.equal(createCalculator().type("7", "-", "2", "="), "5");
+    assert.equal(createCalculator().type("7", "*", "2", "="), "14");
+    assert.equal(createCalculator().type("8", "/", "2", "="), "4");
+  });
+
+  test("= e Enter resultam no mesmo valor: 2 + 3 = resulta em 5, 2 + 3 Enter resulta em 5", () => {
+    assert.equal(createCalculator().type("2", "+", "3", "="), "5");
+    assert.equal(createCalculator().type("2", "+", "3", "Enter"), "5");
+  });
+
+  test("Escape limpa tudo como AC: 7, 8, Escape resulta em 0", () => {
+    const calc = createCalculator();
+    assert.equal(calc.type("7", "8", "Escape"), "0");
+  });
+
+  test("Escape limpa a operação pendente como AC: 5, +, Escape, 3, = resulta em 3 (e não 8)", () => {
+    const calc = createCalculator();
+    assert.equal(calc.type("5", "+", "Escape", "3", "="), "3");
+  });
+
+  test("Backspace apaga o último dígito: 7, 8, Backspace resulta em 7", () => {
+    const calc = createCalculator();
+    assert.equal(calc.type("7", "8", "Backspace"), "7");
+  });
+
+  test("teclado e botões se misturam no mesmo cálculo: 2, +, 3, Enter, mesmo resultado que 2, +, 3, =", () => {
+    const calc = createCalculator();
+    assert.equal(calc.press("2"), "2");
+    assert.equal(calc.type("+", "3", "Enter"), "5");
+  });
+});
+
+describe("CALC-8: casos de borda do teclado físico", () => {
+  test("Backspace com um único dígito volta para 0: 7, Backspace resulta em 0", () => {
+    const calc = createCalculator();
+    assert.equal(calc.type("7", "Backspace"), "0");
+  });
+
+  test("Backspace no zero não faz nada: 0, Backspace resulta em 0", () => {
+    const calc = createCalculator();
+    assert.equal(calc.type("0", "Backspace"), "0");
+  });
+
+  test("Backspace sobre ponto decimal: 7, ponto, 5, Backspace resulta em 7. e depois em 7", () => {
+    const calc = createCalculator();
+    assert.equal(calc.type("7", ".", "5", "Backspace"), "7.");
+    assert.equal(calc.type("Backspace"), "7");
+  });
+
+  test("Backspace com número negativo: 5, +/-, Backspace resulta em 0 (e não -)", () => {
+    const calc = createCalculator();
+    assert.equal(calc.press("5", "+/-"), "-5");
+    assert.equal(calc.type("Backspace"), "0");
+  });
+
+  test("Backspace após apagar tudo e digitar de novo começa do zero: 5, Backspace, 7 resulta em 7", () => {
+    const calc = createCalculator();
+    assert.equal(calc.type("5", "Backspace", "7"), "7");
+  });
+
+  test("Backspace após operador não apaga o primeiro operando: 2, +, Backspace, 3, = resulta em 5", () => {
+    const calc = createCalculator();
+    assert.equal(calc.type("2", "+", "Backspace", "3", "="), "5");
+  });
+
+  test("Backspace após igual não altera o resultado: 2, +, 3, =, Backspace resulta em 5", () => {
+    const calc = createCalculator();
+    assert.equal(calc.type("2", "+", "3", "=", "Backspace"), "5");
+  });
+
+  test("Backspace após erro não altera a mensagem: 5, ÷, 0, =, Backspace resulta em Erro", () => {
+    const calc = createCalculator();
+    assert.equal(calc.type("5", "/", "0", "=", "Backspace"), "Erro");
+  });
+
+  test("Backspace sobre notação científica volta para 0: 0.0000001 seguido de % (1e-9), Backspace resulta em 0", () => {
+    const calc = createCalculator();
+    assert.equal(calc.press("0", ".", "0", "0", "0", "0", "0", "0", "1", "%"), "1e-9");
+    assert.equal(calc.type("Backspace"), "0");
+  });
+
+  test("Enter e dígitos marcam o evento como tratado (evita clique duplicado com botão focado)", () => {
+    const calc = createCalculator();
+    assert.equal(calc.keyDown("7").defaultPrevented, true);
+    assert.equal(calc.keyDown("Enter").defaultPrevented, true);
+  });
+
+  test("teclas que a calculadora não usa são ignoradas: a, Tab e Shift não mudam o display nem são tratadas", () => {
+    const calc = createCalculator();
+    calc.press("4");
+    for (const key of ["a", "Tab", "Shift"]) {
+      assert.equal(calc.keyDown(key).defaultPrevented, false);
+    }
+    assert.equal(calc.type("a", "Tab", "Shift"), "4");
+  });
+
+  test("atalhos com Ctrl, Cmd ou Alt são deixados para o navegador: Ctrl+7 e Ctrl+Backspace não mexem no display", () => {
+    const calc = createCalculator();
+    calc.press("4");
+    const event = calc.keyDown("7", { ctrlKey: true });
+    assert.equal(event.defaultPrevented, false);
+    assert.equal(calc.keyDown("Backspace", { metaKey: true }).defaultPrevented, false);
+    assert.equal(calc.keyDown("Escape", { altKey: true }).defaultPrevented, false);
+    assert.equal(calc.type(), "4");
   });
 });
 
