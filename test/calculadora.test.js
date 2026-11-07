@@ -749,7 +749,7 @@ describe("CALC-9: estilo do feedback visual no CSS", () => {
     assert.match(CSS_SOURCE, /\.btn:active,\s*\.btn\.is-pressed\s*\{\s*filter:\s*brightness\(0\.8\);\s*\}/);
   });
 
-  test("operador destacado tem fundo #ffffff e texto #ff9500", () => {
-    assert.match(CSS_SOURCE, /\.btn-operator\[aria-pressed="true"\]\s*\{\s*background:\s*#ffffff;\s*color:\s*#ff9500;\s*\}/);
+  test("operador destacado tem fundo #ffffff e texto #b35c00 (contraste >= 4,5:1 sobre branco)", () => {
+    assert.match(CSS_SOURCE, /\.btn-operator\[aria-pressed="true"\]\s*\{\s*background:\s*#ffffff;\s*color:\s*#b35c00;\s*\}/);
   });
 });
