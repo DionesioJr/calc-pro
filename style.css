@@ -183,6 +183,11 @@ body {
   list-style: none;
 }
 
+/* Lista vazia (hidden): sem display flex acima, some de vez, inclusive do foco por teclado. */
+.history-list[hidden] {
+  display: none;
+}
+
 /* Lista com rolagem precisa ser alcançável pelo teclado, então mostra o foco. */
 .history-list:focus-visible {
   outline: 3px solid #ffffff;

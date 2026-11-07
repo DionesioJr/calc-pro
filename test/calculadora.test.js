@@ -1059,6 +1059,13 @@ describe("CALC-19: estrutura e estilo do histórico", () => {
     assert.match(desktop, /\.history\s*\{[^}]*display:\s*flex;/);
   });
 
+  test("lista vazia (hidden) fica fora da renderização: a regra [hidden] vence o display flex da lista", () => {
+    assert.match(CSS_SOURCE, /\.history-list\s*\{[^}]*display:\s*flex;[^}]*\}/);
+    assert.match(CSS_SOURCE, /\.history-list\[hidden\]\s*\{\s*display:\s*none;\s*\}/);
+    // Especificidade: .history-list[hidden] (0,2,0) vence .history-list (0,1,0); a ordem abaixo mantém a regra junto dela no arquivo.
+    assert.ok(CSS_SOURCE.indexOf(".history-list[hidden]") > CSS_SOURCE.indexOf(".history-list {"));
+  });
+
   test("histórico usa o fundo escuro, o cinza do texto de apoio e o laranja do botão de limpar", () => {
     assert.match(CSS_SOURCE, /\.history-item\s*\{[^}]*background:\s*#333333;[^}]*color:\s*#ffffff;[^}]*\}/);
     assert.match(CSS_SOURCE, /\.history-empty\s*\{[^}]*color:\s*#a5a5a5;[^}]*\}/);
