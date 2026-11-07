@@ -374,12 +374,15 @@ describe("CALC-8: critérios de aceite do teclado físico", () => {
     assert.equal(calc.type("7", "8", ",", "5"), "78.5");
   });
 
-  test("operadores pelo teclado: 7 + 2 resulta em 9, 7 - 2 resulta em 5, 7 * 2 resulta em 14, 8 / 2 resulta em 4", () => {
-    assert.equal(createCalculator().type("7", "+", "2", "="), "9");
-    assert.equal(createCalculator().type("7", "-", "2", "="), "5");
-    assert.equal(createCalculator().type("7", "*", "2", "="), "14");
-    assert.equal(createCalculator().type("8", "/", "2", "="), "4");
-  });
+  test(
+    "operadores pelo teclado: 7 + 2 resulta em 9, 7 - 2 resulta em 5, 7 * 2 resulta em 14, 8 / 2 resulta em 4",
+    () => {
+      assert.equal(createCalculator().type("7", "+", "2", "="), "9");
+      assert.equal(createCalculator().type("7", "-", "2", "="), "5");
+      assert.equal(createCalculator().type("7", "*", "2", "="), "14");
+      assert.equal(createCalculator().type("8", "/", "2", "="), "4");
+    },
+  );
 
   test("= e Enter resultam no mesmo valor: 2 + 3 = resulta em 5, 2 + 3 Enter resulta em 5", () => {
     assert.equal(createCalculator().type("2", "+", "3", "="), "5");
@@ -451,11 +454,14 @@ describe("CALC-8: casos de borda do teclado físico", () => {
     assert.equal(calc.type("5", "/", "0", "=", "Backspace"), "0");
   });
 
-  test("resultado pequeno arredondado a 8 casas não vira notação científica: 0.00000015 seguido de % resulta em 0", () => {
-    const calc = createCalculator();
-    assert.equal(calc.press("0", ".", "0", "0", "0", "0", "0", "0", "1", "5", "%"), "0");
-    assert.equal(calc.type("Backspace"), "0");
-  });
+  test(
+    "resultado pequeno arredondado a 8 casas não vira notação científica: 0.00000015 seguido de % resulta em 0",
+    () => {
+      const calc = createCalculator();
+      assert.equal(calc.press("0", ".", "0", "0", "0", "0", "0", "0", "1", "5", "%"), "0");
+      assert.equal(calc.type("Backspace"), "0");
+    },
+  );
 
   test("Enter e dígitos marcam o evento como tratado (evita clique duplicado com botão focado)", () => {
     const calc = createCalculator();
@@ -472,15 +478,18 @@ describe("CALC-8: casos de borda do teclado físico", () => {
     assert.equal(calc.type("a", "Tab", "Shift"), "4");
   });
 
-  test("atalhos com Ctrl, Cmd ou Alt são deixados para o navegador: Ctrl+7 e Ctrl+Backspace não mexem no display", () => {
-    const calc = createCalculator();
-    calc.press("4");
-    const event = calc.keyDown("7", { ctrlKey: true });
-    assert.equal(event.defaultPrevented, false);
-    assert.equal(calc.keyDown("Backspace", { metaKey: true }).defaultPrevented, false);
-    assert.equal(calc.keyDown("Escape", { altKey: true }).defaultPrevented, false);
-    assert.equal(calc.type(), "4");
-  });
+  test(
+    "atalhos com Ctrl, Cmd ou Alt são deixados para o navegador: Ctrl+7 e Ctrl+Backspace não mexem no display",
+    () => {
+      const calc = createCalculator();
+      calc.press("4");
+      const event = calc.keyDown("7", { ctrlKey: true });
+      assert.equal(event.defaultPrevented, false);
+      assert.equal(calc.keyDown("Backspace", { metaKey: true }).defaultPrevented, false);
+      assert.equal(calc.keyDown("Escape", { altKey: true }).defaultPrevented, false);
+      assert.equal(calc.type(), "4");
+    },
+  );
 });
 
 describe("CALC-7: critérios de aceite de erro, dígitos, arredondamento e fonte", () => {
@@ -593,7 +602,6 @@ describe("CALC-7: critérios de aceite de erro, dígitos, arredondamento e fonte
 });
 
 describe("CALC-5: formatação de resultados", () => {
-
   test("0.1 + 0.2 = resulta em 0.3, sem ruído de ponto flutuante", () => {
     const calc = createCalculator();
     assert.equal(calc.press("0", ".", "1", "+", "0", ".", "2", "="), "0.3");
