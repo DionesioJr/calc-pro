@@ -3,7 +3,7 @@
 // Testes da entrada de dígitos e ponto decimal (CALC-4), da lógica de operações (CALC-5),
 // de AC/+/-/% (CALC-6), do teclado físico (CALC-8), de erro, limite de dígitos,
 // arredondamento e tamanho da fonte (CALC-7), do feedback visual dos botões (CALC-9),
-// e do limite de 2^53 para resultados (CALC-16).
+// do limite de 2^53 para resultados (CALC-16), e do histórico de cálculos no localStorage (CALC-19).
 // Executa script.js real num contexto isolado, com um DOM mínimo, e aperta
 // os botões pelo mesmo caminho de clique que o navegador usa; o teclado usa o mesmo
 // caminho de keydown.
@@ -68,8 +68,46 @@ function createButton(dataset) {
   };
 }
 
-function createCalculator() {
+// Elemento do DOM mínimo para o histórico: texto, filhos, atributo hidden e listeners.
+function createElementMock(tagName) {
+  const listeners = {};
+  return {
+    tagName: tagName.toUpperCase(),
+    textContent: "",
+    className: "",
+    hidden: false,
+    children: [],
+    replaceChildren(...nodes) {
+      this.children = nodes;
+    },
+    addEventListener(type, listener) {
+      listeners[type] = listener;
+    },
+    dispatch(type) {
+      listeners[type]({});
+    },
+  };
+}
+
+// localStorage mínimo, com o mesmo objeto de armazenamento exposto para o teste ler e pré-carregar.
+function createLocalStorage(storage) {
+  return {
+    getItem: (key) => (key in storage ? storage[key] : null),
+    setItem: (key, value) => {
+      storage[key] = String(value);
+    },
+    removeItem: (key) => {
+      delete storage[key];
+    },
+  };
+}
+
+// storage: objeto que faz o papel do localStorage; passe o mesmo objeto para simular recarregar a página.
+function createCalculator({ storage = {} } = {}) {
   const display = { textContent: "", classList: createClassList() };
+  const historyList = createElementMock("ol");
+  const historyEmpty = createElementMock("p");
+  const historyClear = createElementMock("button");
   let onKeypadClick = null;
   let onKeyDown = null;
   let onKeyUp = null;
@@ -89,12 +127,20 @@ function createCalculator() {
       }
     },
     querySelectorAll: (selector) => (selector === "button" ? buttons : []),
-    contains: () => true,
+    contains: (node) => buttons.includes(node),
+  };
+
+  const elementsById = {
+    display,
+    "history-list": historyList,
+    "history-empty": historyEmpty,
+    "history-clear": historyClear,
   };
 
   const document = {
-    getElementById: (id) => (id === "display" ? display : null),
+    getElementById: (id) => elementsById[id] ?? null,
     querySelector: (selector) => (selector === ".keypad" ? keypad : null),
+    createElement: (tagName) => createElementMock(tagName),
     addEventListener(type, listener) {
       if (type === "keydown") {
         onKeyDown = listener;
@@ -112,7 +158,8 @@ function createCalculator() {
     },
   };
 
-  vm.runInNewContext(SCRIPT_SOURCE, { document, window }, { filename: "script.js" });
+  const localStorage = createLocalStorage(storage);
+  vm.runInNewContext(SCRIPT_SOURCE, { document, window, localStorage }, { filename: "script.js" });
 
   // Aperta as teclas em sequência e devolve o texto final do display.
   function press(...keys) {
@@ -175,7 +222,31 @@ function createCalculator() {
     return display.textContent;
   }
 
-  return { press, keyDown, keyUp, blur, type, fontSizeClass, buttonFor, selectedOperator };
+  // Itens do histórico na tela, na ordem em que aparecem (do mais recente para o mais antigo).
+  function historyItems() {
+    return historyList.children.map((item) => item.textContent);
+  }
+
+  // Aperta o botão Limpar histórico, como um clique do mouse.
+  function clickClear() {
+    historyClear.dispatch("click");
+  }
+
+  return {
+    press,
+    keyDown,
+    keyUp,
+    blur,
+    type,
+    fontSizeClass,
+    buttonFor,
+    selectedOperator,
+    historyItems,
+    clickClear,
+    historyClear,
+    historyEmptyHidden: () => historyEmpty.hidden,
+    historyListHidden: () => historyList.hidden,
+  };
 }
 
 describe("index.html expõe os botões usados pelos testes", () => {
@@ -809,5 +880,188 @@ describe("CALC-16: casos de borda do limite de resultado (2^53)", () => {
   test("a próxima tecla após o Erro reinicia a calculadora: 999999999 × 999999999 =, 7 resulta em 7", () => {
     const calc = createCalculator();
     assert.equal(calc.press("9", "9", "9", "9", "9", "9", "9", "9", "9", "×", "9", "9", "9", "9", "9", "9", "9", "9", "9", "=", "7"), "7");
+  });
+});
+
+// Chave do localStorage do histórico (ver HISTORY_KEY em script.js).
+const HISTORY_KEY = "calc-pro:historico";
+
+describe("CALC-19: critérios de aceite do histórico de cálculos", () => {
+  test("cálculo concluído com = entra no histórico: 12 × 3 = resulta em 36 e grava 12 × 3 = 36", () => {
+    const storage = {};
+    const calc = createCalculator({ storage });
+    assert.equal(calc.press("1", "2", "×", "3", "="), "36");
+    assert.deepEqual(calc.historyItems(), ["12 × 3 = 36"]);
+    assert.deepEqual(JSON.parse(storage[HISTORY_KEY]), ["12 × 3 = 36"]);
+  });
+
+  test("operador sem = não grava nada: 2 + 3 não entra no histórico", () => {
+    const storage = {};
+    const calc = createCalculator({ storage });
+    calc.press("2", "+", "3");
+    assert.deepEqual(calc.historyItems(), []);
+    assert.equal(HISTORY_KEY in storage, false);
+  });
+
+  test("itens aparecem do mais recente para o mais antigo: 2 + 3 = e depois 4 × 2 =", () => {
+    const calc = createCalculator({ storage: {} });
+    calc.press("2", "+", "3", "=");
+    calc.press("4", "×", "2", "=");
+    assert.deepEqual(calc.historyItems(), ["4 × 2 = 8", "2 + 3 = 5"]);
+  });
+
+  test("histórico continua depois de recarregar a página: nova instância com o mesmo storage mostra o item", () => {
+    const storage = {};
+    createCalculator({ storage }).press("2", "+", "3", "=");
+    const reloaded = createCalculator({ storage });
+    assert.deepEqual(reloaded.historyItems(), ["2 + 3 = 5"]);
+  });
+
+  test("AC limpa só o visor, sem apagar o histórico: 2 + 3 =, AC mantém 2 + 3 = 5", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("2", "+", "3", "=", "AC"), "0");
+    assert.deepEqual(calc.historyItems(), ["2 + 3 = 5"]);
+  });
+
+  test("Limpar histórico remove os itens da tela e do localStorage", () => {
+    const storage = {};
+    const calc = createCalculator({ storage });
+    calc.press("2", "+", "3", "=");
+    calc.clickClear();
+    assert.deepEqual(calc.historyItems(), []);
+    assert.equal(HISTORY_KEY in storage, false);
+  });
+
+  test("Limpar histórico continua limpo depois de recarregar a página", () => {
+    const storage = {};
+    const calc = createCalculator({ storage });
+    calc.press("2", "+", "3", "=");
+    calc.clickClear();
+    assert.deepEqual(createCalculator({ storage }).historyItems(), []);
+  });
+
+  test("com histórico vazio aparece a mensagem e a lista some; com item, a mensagem some e a lista aparece", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.historyEmptyHidden(), false);
+    assert.equal(calc.historyListHidden(), true);
+    calc.press("2", "+", "3", "=");
+    assert.equal(calc.historyEmptyHidden(), true);
+    assert.equal(calc.historyListHidden(), false);
+  });
+
+  test("Limpar com histórico já vazio não quebra e mantém a mensagem de vazio", () => {
+    const calc = createCalculator({ storage: {} });
+    calc.clickClear();
+    assert.deepEqual(calc.historyItems(), []);
+    assert.equal(calc.historyEmptyHidden(), false);
+  });
+});
+
+describe("CALC-19: casos de borda do histórico de cálculos", () => {
+  test("igual sem segundo número grava com o próprio primeiro: 2 + = grava 2 + 2 = 4", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("2", "+", "="), "4");
+    assert.deepEqual(calc.historyItems(), ["2 + 2 = 4"]);
+  });
+
+  test("encadeamento grava a expressão inteira: 2 + 3 × 4 = grava 2 + 3 × 4 = 20", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("2", "+", "3", "×", "4", "="), "20");
+    assert.deepEqual(calc.historyItems(), ["2 + 3 × 4 = 20"]);
+  });
+
+  test("trocar de operador antes do segundo número grava o operador escolhido: 2 + × 3 = grava 2 × 3 = 6", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("2", "+", "×", "3", "="), "6");
+    assert.deepEqual(calc.historyItems(), ["2 × 3 = 6"]);
+  });
+
+  test("igual repetido não grava de novo: 2 + 3 = = grava uma única linha", () => {
+    const calc = createCalculator({ storage: {} });
+    calc.press("2", "+", "3", "=", "=");
+    assert.deepEqual(calc.historyItems(), ["2 + 3 = 5"]);
+  });
+
+  test("percentual como segundo operando grava o valor usado: 5 + % = grava 5 + 0.05 = 5.05", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("5", "+", "%", "="), "5.05");
+    assert.deepEqual(calc.historyItems(), ["5 + 0.05 = 5.05"]);
+  });
+
+  test("conta com erro não entra no histórico: 5 ÷ 0 = mostra Erro e não grava", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("5", "÷", "0", "="), "Erro");
+    assert.deepEqual(calc.historyItems(), []);
+  });
+
+  test("depois de erro, a expressão nova começa do zero: 5 ÷ 0 =, 7 + 2 = grava só 7 + 2 = 9", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("5", "÷", "0", "=", "7", "+", "2", "="), "9");
+    assert.deepEqual(calc.historyItems(), ["7 + 2 = 9"]);
+  });
+
+  test("operador logo após o igual usa o resultado como primeiro operando: 2 + 3 =, × 4 = grava 5 × 4 = 20", () => {
+    const calc = createCalculator({ storage: {} });
+    calc.press("2", "+", "3", "=", "×", "4", "=");
+    assert.deepEqual(calc.historyItems(), ["5 × 4 = 20", "2 + 3 = 5"]);
+  });
+
+  test("pelo teclado, Enter grava o cálculo: 2 + 3 Enter grava 2 + 3 = 5", () => {
+    const calc = createCalculator({ storage: {} });
+    calc.type("2", "+", "3", "Enter");
+    assert.deepEqual(calc.historyItems(), ["2 + 3 = 5"]);
+  });
+
+  test("Enter com foco no botão Limpar histórico não calcula: 2 + 3 e Enter no botão deixa 3 no visor", () => {
+    const calc = createCalculator({ storage: {} });
+    calc.press("2", "+", "3");
+    const event = calc.keyDown("Enter", { target: calc.historyClear });
+    assert.equal(event.defaultPrevented, false);
+    assert.equal(calc.type(), "3");
+    assert.deepEqual(calc.historyItems(), []);
+  });
+
+  test("dado corrompido no localStorage não quebra a calculadora: texto que não é JSON vira histórico vazio", () => {
+    const storage = { [HISTORY_KEY]: "{não é json" };
+    const calc = createCalculator({ storage });
+    assert.deepEqual(calc.historyItems(), []);
+    assert.equal(calc.press("2", "+", "3", "="), "5");
+    assert.deepEqual(calc.historyItems(), ["2 + 3 = 5"]);
+  });
+
+  test("dado salvo que não é lista é ignorado: um texto JSON comum vira histórico vazio", () => {
+    const calc = createCalculator({ storage: { [HISTORY_KEY]: '"abc"' } });
+    assert.deepEqual(calc.historyItems(), []);
+  });
+
+  test("entradas que não são texto são descartadas ao carregar: 7 e null saem, o texto fica", () => {
+    const calc = createCalculator({ storage: { [HISTORY_KEY]: '["2 + 3 = 5", 7, null]' } });
+    assert.deepEqual(calc.historyItems(), ["2 + 3 = 5"]);
+  });
+
+  test("ao carregar, os itens salvos também aparecem do mais recente para o mais antigo", () => {
+    const calc = createCalculator({ storage: { [HISTORY_KEY]: '["2 + 3 = 5", "4 × 2 = 8"]' } });
+    assert.deepEqual(calc.historyItems(), ["4 × 2 = 8", "2 + 3 = 5"]);
+  });
+});
+
+describe("CALC-19: estrutura e estilo do histórico", () => {
+  test("index.html tem a área do histórico, a mensagem de vazio e o botão Limpar histórico", () => {
+    assert.match(HTML_SOURCE, /class="history"/);
+    assert.match(HTML_SOURCE, /id="history-list"/);
+    assert.match(HTML_SOURCE, /Ainda não há cálculos\./);
+    assert.match(HTML_SOURCE, /id="history-clear"[^>]*>Limpar histórico<\/button>/);
+  });
+
+  test("o histórico fica escondido no mobile e aparece a partir de 768px, no mesmo corte do projeto", () => {
+    const [base, desktop] = CSS_SOURCE.split("@media (min-width: 768px)");
+    assert.match(base, /\.history\s*\{\s*display:\s*none;\s*\}/);
+    assert.match(desktop, /\.history\s*\{[^}]*display:\s*flex;/);
+  });
+
+  test("histórico usa o fundo escuro, o cinza do texto de apoio e o laranja do botão de limpar", () => {
+    assert.match(CSS_SOURCE, /\.history-item\s*\{[^}]*background:\s*#333333;[^}]*color:\s*#ffffff;[^}]*\}/);
+    assert.match(CSS_SOURCE, /\.history-empty\s*\{[^}]*color:\s*#a5a5a5;[^}]*\}/);
+    assert.match(CSS_SOURCE, /\.history-clear\s*\{[^}]*background:\s*#ff9f0a;[^}]*color:\s*#000000;[^}]*\}/);
   });
 });

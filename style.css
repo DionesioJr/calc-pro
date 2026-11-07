@@ -115,9 +115,107 @@ body {
   outline-offset: 2px;
 }
 
+/* Área da calculadora e do histórico: no mobile só a calculadora, centralizada. */
+.layout {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+}
+
+/* Histórico: escondido no mobile (fora da árvore de acessibilidade também). */
+.history {
+  display: none;
+}
+
 /* Desktop: cantos arredondados na calculadora preta, sobre a página cinza. */
 @media (min-width: 768px) {
   .calculator {
     border-radius: 1.5rem;
   }
+
+  /* Calculadora no centro exato; o histórico ocupa a coluna da direita, do mesmo tamanho da coluna da esquerda. */
+  .layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    align-items: center;
+    column-gap: 1.5rem;
+  }
+
+  .calculator {
+    grid-column: 2;
+    width: 360px;
+  }
+
+  .history {
+    grid-column: 3;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    min-width: 0;
+    padding: 1rem;
+    border-radius: 1.5rem;
+    background: #000000;
+  }
+}
+
+.history-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #ff9f0a;
+}
+
+.history-empty {
+  margin: 0;
+  padding: 1rem 0;
+  text-align: center;
+  color: #a5a5a5;
+}
+
+.history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  max-height: 26rem;
+  overflow-y: auto;
+  list-style: none;
+}
+
+/* Lista com rolagem precisa ser alcançável pelo teclado, então mostra o foco. */
+.history-list:focus-visible {
+  outline: 3px solid #ffffff;
+  outline-offset: 2px;
+}
+
+.history-item {
+  padding: 0.75rem 1rem;
+  border-radius: 0.75rem;
+  background: #333333;
+  color: #ffffff;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+/* Mesmo laranja e mesmo formato dos botões de operador. */
+.history-clear {
+  padding: 0.75rem 1rem;
+  border: 0;
+  border-radius: 999px;
+  background: #ff9f0a;
+  color: #000000;
+  font: inherit;
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+.history-clear:active {
+  filter: brightness(0.8);
+}
+
+.history-clear:focus-visible {
+  outline: 3px solid #ffffff;
+  outline-offset: 2px;
 }

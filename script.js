@@ -31,6 +31,8 @@ const state = {
   waitingForOperand: false,
   // true quando a última operação falhou (divisão por zero).
   error: false,
+  // Partes da expressão em curso (ex.: ["12", "×", "3", "="]); viram uma linha do histórico no igual.
+  expression: [],
 };
 
 const OPERATIONS = {
@@ -39,6 +41,20 @@ const OPERATIONS = {
   multiply: (a, b) => a * b,
   divide: (a, b) => (b === 0 ? null : a / b),
 };
+
+const OPERATOR_SYMBOLS = {
+  add: "+",
+  subtract: "−",
+  multiply: "×",
+  divide: "÷",
+};
+
+// Histórico de cálculos (versão desktop), no localStorage; do mais antigo para o mais recente.
+const HISTORY_KEY = "calc-pro:historico";
+const calculationHistory = loadHistory();
+const historyList = document.getElementById("history-list");
+const historyEmpty = document.getElementById("history-empty");
+const historyClear = document.getElementById("history-clear");
 
 // Botões do teclado numérico: o destaque do operador e o efeito de tecla pressionada usam esta lista.
 const buttons = keypad ? Array.from(keypad.querySelectorAll("button")) : [];
@@ -64,12 +80,14 @@ function render() {
   }
 }
 
+// Reinicia o cálculo em curso. O histórico não é apagado aqui (só pelo botão Limpar histórico).
 function reset() {
   state.current = "0";
   state.previous = null;
   state.operator = null;
   state.waitingForOperand = false;
   state.error = false;
+  state.expression = [];
 }
 
 function setError() {
@@ -78,6 +96,51 @@ function setError() {
   state.operator = null;
   state.waitingForOperand = true;
   state.error = true;
+  state.expression = [];
+}
+
+function loadHistory() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(HISTORY_KEY));
+    return Array.isArray(saved) ? saved.filter((item) => typeof item === "string") : [];
+  } catch {
+    // Dado corrompido ou armazenamento indisponível: começa com histórico vazio.
+    return [];
+  }
+}
+
+function saveHistory() {
+  try {
+    if (calculationHistory.length === 0) {
+      localStorage.removeItem(HISTORY_KEY);
+    } else {
+      localStorage.setItem(HISTORY_KEY, JSON.stringify(calculationHistory));
+    }
+  } catch {
+    // Sem armazenamento (ex.: modo privado com cota cheia): o histórico vale só até fechar a página.
+  }
+}
+
+// Mais recente primeiro. Texto vai por textContent, nunca como HTML.
+function renderHistory() {
+  if (!historyList || !historyEmpty) {
+    return;
+  }
+  const items = calculationHistory.slice().reverse().map((text) => {
+    const item = document.createElement("li");
+    item.className = "history-item";
+    item.textContent = text;
+    return item;
+  });
+  historyList.replaceChildren(...items);
+  historyList.hidden = items.length === 0;
+  historyEmpty.hidden = items.length > 0;
+}
+
+function addCalculation(text) {
+  calculationHistory.push(text);
+  saveHistory();
+  renderHistory();
 }
 
 // Arredonda para no máximo 8 casas decimais e remove os zeros à direita (0.1 + 0.2 → 0.3; 1 ÷ 3 → 0.33333333).
@@ -186,11 +249,15 @@ function inputOperator(operator) {
     reset();
   }
 
-  // Trocar de operador antes do segundo número substitui o anterior.
+  // Trocar de operador antes do segundo número substitui o anterior (também na expressão).
   if (state.operator !== null && state.waitingForOperand) {
     state.operator = operator;
+    state.expression[state.expression.length - 1] = OPERATOR_SYMBOLS[operator];
     return;
   }
+
+  // Número que está sendo fechado agora: o primeiro operando, ou o segundo em um encadeamento.
+  const operand = state.current;
 
   if (state.operator !== null) {
     // Encadeamento da esquerda para a direita: resolve a operação pendente primeiro.
@@ -201,6 +268,7 @@ function inputOperator(operator) {
     state.previous = Number(state.current);
   }
 
+  state.expression.push(operand, OPERATOR_SYMBOLS[operator]);
   state.operator = operator;
   state.waitingForOperand = true;
 }
@@ -216,9 +284,14 @@ function inputEquals() {
 
   // Igual sem segundo número usa o próprio primeiro número (2 + = → 4, como no iOS).
   const right = state.waitingForOperand ? state.previous : Number(state.current);
+  const rightOperand = state.waitingForOperand ? formatResult(state.previous) : state.current;
   if (!evaluatePending(right)) {
     return;
   }
+
+  state.expression.push(rightOperand, "=", state.current);
+  addCalculation(state.expression.join(" "));
+  state.expression = [];
 
   state.operator = null;
   state.previous = null;
@@ -331,9 +404,27 @@ if (keypad) {
   });
 }
 
+if (historyClear) {
+  historyClear.addEventListener("click", () => {
+    calculationHistory.length = 0;
+    saveHistory();
+    renderHistory();
+  });
+}
+
 document.addEventListener("keydown", (event) => {
   // Atalhos do navegador (Ctrl+C, Cmd+R etc.) continuam funcionando.
   if (event.ctrlKey || event.metaKey || event.altKey) {
+    return;
+  }
+  // Enter com o foco num botão fora do teclado (ex.: Limpar histórico) aciona esse botão, não o igual.
+  if (
+    event.key === "Enter" &&
+    event.target &&
+    event.target.tagName === "BUTTON" &&
+    keypad &&
+    !keypad.contains(event.target)
+  ) {
     return;
   }
   if (!handleKey(event.key)) {
@@ -360,3 +451,4 @@ if (typeof window !== "undefined") {
 }
 
 render();
+renderHistory();
