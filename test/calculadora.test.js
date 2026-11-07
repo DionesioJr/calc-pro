@@ -28,6 +28,9 @@ const KEY_DATASET = {
   8: { value: "8" },
   9: { value: "9" },
   ".": { value: "." },
+  AC: { action: "all-clear" },
+  "+/-": { action: "toggle-sign" },
+  "%": { action: "percent" },
   "+": { action: "add" },
   "−": { action: "subtract" },
   "×": { action: "multiply" },
@@ -170,6 +173,81 @@ describe("CALC-5: critérios mínimos da lógica de operações", () => {
   test("2 + = mostra 4 (igual sem segundo número usa o primeiro)", () => {
     const calc = createCalculator();
     assert.equal(calc.press("2", "+", "="), "4");
+  });
+});
+
+describe("CALC-6: critérios de aceite de AC, +/- e %", () => {
+  test("AC volta o display para 0: 7, 8, AC resulta em 0", () => {
+    const calc = createCalculator();
+    assert.equal(calc.press("7", "8", "AC"), "0");
+  });
+
+  test("AC limpa a operação pendente: 5, +, AC, 3, = resulta em 3 (e não 8)", () => {
+    const calc = createCalculator();
+    assert.equal(calc.press("5", "+", "AC", "3", "="), "3");
+  });
+
+  test("+/- inverte o sinal: 5, +/- resulta em -5", () => {
+    const calc = createCalculator();
+    assert.equal(calc.press("5", "+/-"), "-5");
+  });
+
+  test("% divide por 100: 50, % resulta em 0.5", () => {
+    const calc = createCalculator();
+    assert.equal(calc.press("5", "0", "%"), "0.5");
+  });
+});
+
+describe("CALC-6: casos de borda de AC, +/- e %", () => {
+  test("AC após erro limpa o erro: 5, ÷, 0, =, AC resulta em 0", () => {
+    const calc = createCalculator();
+    assert.equal(calc.press("5", "÷", "0", "=", "AC"), "0");
+  });
+
+  test("+/- no zero não mostra -0: 0, +/- resulta em 0", () => {
+    const calc = createCalculator();
+    assert.equal(calc.press("0", "+/-"), "0");
+  });
+
+  test("+/- duas vezes volta ao número original: 5, +/-, +/- resulta em 5", () => {
+    const calc = createCalculator();
+    assert.equal(calc.press("5", "+/-", "+/-"), "5");
+  });
+
+  test("+/- com ponto decimal: 5, ponto, +/- resulta em -5.", () => {
+    const calc = createCalculator();
+    assert.equal(calc.press("5", ".", "+/-"), "-5.");
+  });
+
+  test("digitar depois de inverter continua o número: 1, +/-, 2 resulta em -12", () => {
+    const calc = createCalculator();
+    assert.equal(calc.press("1", "+/-", "2"), "-12");
+  });
+
+  test("+/- depois do operador vira o segundo operando: 5, +, +/-, = resulta em 0", () => {
+    const calc = createCalculator();
+    assert.equal(calc.press("5", "+", "+/-", "="), "0");
+  });
+
+  test("+/- com operação pendente: 2, +, 3, +/-, = resulta em -1", () => {
+    const calc = createCalculator();
+    assert.equal(calc.press("2", "+", "3", "+/-", "="), "-1");
+  });
+
+  test("% no zero resulta em 0", () => {
+    const calc = createCalculator();
+    assert.equal(calc.press("%"), "0");
+  });
+
+  test("% depois do operador vira o segundo operando: 5, +, %, = resulta em 5.05", () => {
+    const calc = createCalculator();
+    assert.equal(calc.press("5", "+", "%", "="), "5.05");
+  });
+
+  test("+/- e % após erro não alteram a mensagem: 5, ÷, 0, =, +/- resulta em Erro", () => {
+    const calc = createCalculator();
+    assert.equal(calc.press("5", "÷", "0", "=", "+/-"), "Erro");
+    assert.equal(calc.press("%"), "Erro");
   });
 });
 

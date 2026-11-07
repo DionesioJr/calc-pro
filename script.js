@@ -80,6 +80,25 @@ function inputDecimal() {
   state.current += ".";
 }
 
+// +/-: inverte o sinal do número exibido. Com o zero não há sinal a inverter, e após erro o botão não faz nada.
+// Depois de um operador, o número exibido vira o segundo operando (o que se vê é o que será usado).
+function toggleSign() {
+  if (state.error || state.current === "0") {
+    return;
+  }
+  state.current = state.current.startsWith("-") ? state.current.slice(1) : "-" + state.current;
+  state.waitingForOperand = false;
+}
+
+// %: divide o número exibido por 100. Mesma regra de segundo operando do +/-.
+function percent() {
+  if (state.error) {
+    return;
+  }
+  state.current = formatResult(Number(state.current) / 100);
+  state.waitingForOperand = false;
+}
+
 // Aplica o operador pendente: left (operando à esquerda) op right.
 // Retorna false se a operação falhou e o erro foi exibido.
 function evaluatePending(right) {
@@ -153,7 +172,13 @@ function handleButton(button) {
 
   const action = button.dataset.action;
 
-  if (action === "equals") {
+  if (action === "all-clear") {
+    reset();
+  } else if (action === "toggle-sign") {
+    toggleSign();
+  } else if (action === "percent") {
+    percent();
+  } else if (action === "equals") {
     inputEquals();
   } else if (action in OPERATIONS) {
     inputOperator(action);
