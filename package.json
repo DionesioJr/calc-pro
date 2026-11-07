@@ -5,11 +5,7 @@
   "description": "Calculadora Pro",
   "scripts": {
     "test": "node --test",
-    "lint": "eslint ."
-  },
-  "devDependencies": {
-    "@eslint/js": "^9.0.0",
-    "eslint": "^9.0.0",
-    "globals": "^15.0.0"
+    "lint": "node scripts/lint.mjs",
+    "format:check": "node scripts/format-check.mjs"
   }
 }
