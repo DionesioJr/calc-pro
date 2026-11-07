@@ -1,4 +1,4 @@
-// Arquivos JavaScript do projeto analisados pelo lint e pela checagem de formatação.
+// Arquivos JavaScript do projeto analisados pela checagem de formatação.
 // Sem dependências: só módulos nativos do Node 18+.
 import { readdirSync } from "node:fs";
 import path from "node:path";
