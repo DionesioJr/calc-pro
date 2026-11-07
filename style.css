@@ -121,4 +121,9 @@ body {
     background: #1e1e1e;
     border-radius: 1.5rem;
   }
+
+  /* Teclas numéricas mais claras só no desktop: #333 ficava com ~1,3:1 sobre #1e1e1e. #707070 dá ~3,4:1 (WCAG 1.4.11) e o texto branco ~4,9:1. */
+  .btn-digit {
+    background: #707070;
+  }
 }
