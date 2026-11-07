@@ -174,7 +174,7 @@ function deleteDigit() {
 // 2^53 também fica abaixo do limite de notação científica do toFixed (1e21), então nenhum resultado aceito vira "1e+27".
 function evaluatePending(right) {
   const result = OPERATIONS[state.operator](state.previous, right);
-  if (result === null || !Number.isFinite(result) || Math.abs(result) >= MAX_RESULT) {
+  if (result === null || !Number.isFinite(result) || Math.abs(result) > MAX_RESULT) {
     setError();
     return false;
   }

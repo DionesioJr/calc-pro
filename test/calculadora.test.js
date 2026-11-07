@@ -801,6 +801,11 @@ describe("CALC-16: casos de borda do limite de resultado (2^53)", () => {
     assert.equal(calc.press("9", "4", "9", "0", "6", "2", "6", "5", "×", "9", "4", "9", "0", "6", "2", "6", "5", "="), "9007199136250225");
   });
 
+  test("resultado exatamente igual a 2^53 continua exibido: 67108864 × 134217728 = 9007199254740992 (limite é >, não >=)", () => {
+    const calc = createCalculator();
+    assert.equal(calc.press("6", "7", "1", "0", "8", "8", "6", "4", "×", "1", "3", "4", "2", "1", "7", "7", "2", "8", "="), "9007199254740992");
+  });
+
   test("primeiro resultado acima do limite mostra Erro: 94906266 × 94906266 = 9007199326062756 (> 2^53)", () => {
     const calc = createCalculator();
     assert.equal(calc.press("9", "4", "9", "0", "6", "2", "6", "6", "×", "9", "4", "9", "0", "6", "2", "6", "6", "="), "Erro");
