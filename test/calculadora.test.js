@@ -744,6 +744,30 @@ describe("CALC-9: critérios de aceite do efeito ao pressionar", () => {
   });
 });
 
+describe("CALC-10: defeitos achados no roteiro de aceitação", () => {
+  test("Backspace não mostra -0 e o próximo dígito não sai com zero à esquerda: 0, ponto, 5, +/- resulta em -0.5; Backspace duas vezes resulta em 0; depois 5 resulta em 5", () => {
+    const calc = createCalculator();
+    assert.equal(calc.press("0", ".", "5", "+/-"), "-0.5");
+    assert.equal(calc.type("Backspace"), "-0.");
+    assert.equal(calc.type("Backspace"), "0");
+    assert.equal(calc.type("5"), "5");
+  });
+
+  test("resultado com 22 ou mais inteiros não vira notação científica: 999999999 × 999999999 × 999999999 = mostra Erro", () => {
+    const calc = createCalculator();
+    const nove = ["9", "9", "9", "9", "9", "9", "9", "9", "9"];
+    assert.equal(calc.press(...nove, "×", ...nove, "×", ...nove, "="), "Erro");
+  });
+
+  test("resultado grande, mas dentro do limite, sai sem notação científica: 999999999 × 999999999 = não mostra e", () => {
+    const calc = createCalculator();
+    const nove = ["9", "9", "9", "9", "9", "9", "9", "9", "9"];
+    const shown = calc.press(...nove, "×", ...nove, "=");
+    assert.doesNotMatch(shown, /e\+/);
+    assert.notEqual(shown, "Erro");
+  });
+});
+
 describe("CALC-9: estilo do feedback visual no CSS", () => {
   test("botão pressionado escurece com filtro brightness 0,8, pelo mouse ou toque (:active) e pela tecla (is-pressed)", () => {
     assert.match(CSS_SOURCE, /\.btn:active,\s*\.btn\.is-pressed\s*\{\s*filter:\s*brightness\(0\.8\);\s*\}/);

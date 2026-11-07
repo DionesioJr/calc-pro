@@ -162,14 +162,18 @@ function deleteDigit() {
     return;
   }
   const remaining = state.current.slice(0, -1);
-  state.current = VALID_ENTRY.test(remaining) ? remaining : "0";
+  // "-0" não é um número em edição: volta para 0, senão o próximo dígito sairia como "-05".
+  state.current = VALID_ENTRY.test(remaining) && remaining !== "-0" ? remaining : "0";
 }
+
+// Acima deste valor, toFixed devolve notação científica (ex.: "1e+27"), que a calculadora não exibe: mostra Erro.
+const MAX_RESULT = 1e21;
 
 // Aplica o operador pendente: left (operando à esquerda) op right.
 // Retorna false se a operação falhou e o erro foi exibido.
 function evaluatePending(right) {
   const result = OPERATIONS[state.operator](state.previous, right);
-  if (result === null || !Number.isFinite(result)) {
+  if (result === null || !Number.isFinite(result) || Math.abs(result) >= MAX_RESULT) {
     setError();
     return false;
   }
