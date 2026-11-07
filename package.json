@@ -1,0 +1,9 @@
+{
+  "name": "calc-pro",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Calculadora Pro",
+  "scripts": {
+    "test": "node --test"
+  }
+}
