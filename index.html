@@ -10,6 +10,31 @@
     <main class="calculator">
       <h1>Calculadora Pro</h1>
       <output id="display" class="display" aria-live="polite">0</output>
+      <div class="keypad">
+        <button type="button" class="btn btn-function" data-action="all-clear" aria-label="Limpar">AC</button>
+        <button type="button" class="btn btn-function" data-action="toggle-sign" aria-label="Inverter sinal">+/-</button>
+        <button type="button" class="btn btn-function" data-action="percent" aria-label="Porcentagem">%</button>
+        <button type="button" class="btn btn-operator" data-action="divide" aria-label="Dividir">÷</button>
+
+        <button type="button" class="btn btn-digit" data-value="7">7</button>
+        <button type="button" class="btn btn-digit" data-value="8">8</button>
+        <button type="button" class="btn btn-digit" data-value="9">9</button>
+        <button type="button" class="btn btn-operator" data-action="multiply" aria-label="Multiplicar">×</button>
+
+        <button type="button" class="btn btn-digit" data-value="4">4</button>
+        <button type="button" class="btn btn-digit" data-value="5">5</button>
+        <button type="button" class="btn btn-digit" data-value="6">6</button>
+        <button type="button" class="btn btn-operator" data-action="subtract" aria-label="Subtrair">−</button>
+
+        <button type="button" class="btn btn-digit" data-value="1">1</button>
+        <button type="button" class="btn btn-digit" data-value="2">2</button>
+        <button type="button" class="btn btn-digit" data-value="3">3</button>
+        <button type="button" class="btn btn-operator" data-action="add" aria-label="Somar">+</button>
+
+        <button type="button" class="btn btn-digit btn-zero" data-value="0">0</button>
+        <button type="button" class="btn btn-digit" data-value="." aria-label="Ponto decimal">.</button>
+        <button type="button" class="btn btn-operator" data-action="equals" aria-label="Igual">=</button>
+      </div>
     </main>
     <script src="script.js"></script>
   </body>

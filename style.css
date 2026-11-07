@@ -39,3 +39,47 @@ body {
   border-radius: 8px;
   overflow-wrap: anywhere;
 }
+
+.keypad {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.btn {
+  aspect-ratio: 1;
+  border: 0;
+  border-radius: 999px;
+  font: inherit;
+  font-size: 1.5rem;
+  cursor: pointer;
+}
+
+.btn-zero {
+  grid-column: span 2;
+  aspect-ratio: auto;
+  padding-left: 1.75rem;
+  text-align: left;
+  border-radius: 999px;
+}
+
+.btn-digit {
+  background: #333333;
+  color: #ffffff;
+}
+
+.btn-function {
+  background: #a5a5a5;
+  color: #000000;
+}
+
+.btn-operator {
+  background: #ff9f0a;
+  color: #000000;
+}
+
+.btn:focus-visible {
+  outline: 3px solid #1a1a1a;
+  outline-offset: 2px;
+}
