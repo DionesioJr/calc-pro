@@ -1,6 +1,6 @@
 "use strict";
 
-// Testes da entrada de dígitos e ponto decimal (CALC-4).
+// Testes da entrada de dígitos e ponto decimal (CALC-4) e da lógica de operações (CALC-5).
 // Executa script.js real num contexto isolado, com um DOM mínimo, e aperta
 // os botões pelo mesmo caminho de clique que o navegador usa.
 // Sem dependências: rodar com `npm test` (node --test, Node 18+).
@@ -138,5 +138,54 @@ describe("CALC-4: casos de borda da entrada de dígitos e ponto decimal", () => 
   test("dígito após igual começa um novo número: 2, +, 3, igual, 7 resulta em 7", () => {
     const calc = createCalculator();
     assert.equal(calc.press("2", "+", "3", "=", "7"), "7");
+  });
+});
+
+describe("CALC-5: critérios mínimos da lógica de operações", () => {
+  test("2 + 3 = resulta em 5", () => {
+    const calc = createCalculator();
+    assert.equal(calc.press("2", "+", "3", "="), "5");
+  });
+
+  test("9 ÷ 3 = resulta em 3", () => {
+    const calc = createCalculator();
+    assert.equal(calc.press("9", "÷", "3", "="), "3");
+  });
+
+  test("2 + 3 × 4 = resulta em 20 (avaliação da esquerda para a direita)", () => {
+    const calc = createCalculator();
+    assert.equal(calc.press("2", "+", "3", "×", "4", "="), "20");
+  });
+
+  test("trocar + por − antes do segundo número aplica a subtração: 7, +, −, 2, igual resulta em 5", () => {
+    const calc = createCalculator();
+    assert.equal(calc.press("7", "+", "−", "2", "="), "5");
+  });
+
+  test("divisão por zero mostra Erro: 5, ÷, 0, igual resulta em Erro", () => {
+    const calc = createCalculator();
+    assert.equal(calc.press("5", "÷", "0", "="), "Erro");
+  });
+
+  test("2 + = mostra 4 (igual sem segundo número usa o primeiro)", () => {
+    const calc = createCalculator();
+    assert.equal(calc.press("2", "+", "="), "4");
+  });
+});
+
+describe("CALC-5: formatação com 12 algarismos significativos", () => {
+  test("1 ÷ 3 = resulta em 0.333333333333 (12 algarismos)", () => {
+    const calc = createCalculator();
+    assert.equal(calc.press("1", "÷", "3", "="), "0.333333333333");
+  });
+
+  test("2 ÷ 3 = arredonda o 12º algarismo: resulta em 0.666666666667", () => {
+    const calc = createCalculator();
+    assert.equal(calc.press("2", "÷", "3", "="), "0.666666666667");
+  });
+
+  test("0.1 + 0.2 = resulta em 0.3, sem ruído de ponto flutuante", () => {
+    const calc = createCalculator();
+    assert.equal(calc.press("0", ".", "1", "+", "0", ".", "2", "="), "0.3");
   });
 });
