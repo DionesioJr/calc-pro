@@ -2,7 +2,8 @@
 
 // Testes da entrada de dígitos e ponto decimal (CALC-4), da lógica de operações (CALC-5),
 // de AC/+/-/% (CALC-6), do teclado físico (CALC-8), de erro, limite de dígitos,
-// arredondamento e tamanho da fonte (CALC-7), e do feedback visual dos botões (CALC-9).
+// arredondamento e tamanho da fonte (CALC-7), do feedback visual dos botões (CALC-9),
+// e do limite de 2^53 para resultados (CALC-16).
 // Executa script.js real num contexto isolado, com um DOM mínimo, e aperta
 // os botões pelo mesmo caminho de clique que o navegador usa; o teclado usa o mesmo
 // caminho de keydown.
@@ -753,16 +754,15 @@ describe("CALC-10: defeitos achados no roteiro de aceitação", () => {
     assert.equal(calc.type("5"), "5");
   });
 
-  test("resultado com 22 ou mais inteiros não vira notação científica: 999999999 × 999999999 × 999999999 = mostra Erro", () => {
+  test("resultado acima do limite não vira notação científica: 999999999 × 999999999 × 999999999 mostra Erro já no segundo operador", () => {
     const calc = createCalculator();
     const nove = ["9", "9", "9", "9", "9", "9", "9", "9", "9"];
-    assert.equal(calc.press(...nove, "×", ...nove, "×", ...nove, "="), "Erro");
+    assert.equal(calc.press(...nove, "×", ...nove, "×"), "Erro");
   });
 
-  test("resultado grande, mas dentro do limite, sai sem notação científica: 999999999 × 999999999 = não mostra e", () => {
+  test("resultado grande, mas dentro do limite, sai sem notação científica: 94906265 × 94906265 = não mostra e", () => {
     const calc = createCalculator();
-    const nove = ["9", "9", "9", "9", "9", "9", "9", "9", "9"];
-    const shown = calc.press(...nove, "×", ...nove, "=");
+    const shown = calc.press("9", "4", "9", "0", "6", "2", "6", "5", "×", "9", "4", "9", "0", "6", "2", "6", "5", "=");
     assert.doesNotMatch(shown, /e\+/);
     assert.notEqual(shown, "Erro");
   });
@@ -773,7 +773,46 @@ describe("CALC-9: estilo do feedback visual no CSS", () => {
     assert.match(CSS_SOURCE, /\.btn:active,\s*\.btn\.is-pressed\s*\{\s*filter:\s*brightness\(0\.8\);\s*\}/);
   });
 
-  test("operador destacado tem fundo #ffffff e texto #ff9500", () => {
-    assert.match(CSS_SOURCE, /\.btn-operator\[aria-pressed="true"\]\s*\{\s*background:\s*#ffffff;\s*color:\s*#ff9500;\s*\}/);
+  test("operador destacado tem fundo #ffffff e texto #b35c00 (contraste >= 4,5:1 sobre branco)", () => {
+    assert.match(CSS_SOURCE, /\.btn-operator\[aria-pressed="true"\]\s*\{\s*background:\s*#ffffff;\s*color:\s*#b35c00;\s*\}/);
+  });
+});
+
+describe("CALC-16: critérios de aceite do limite de resultado (2^53)", () => {
+  test("999999999 × 999999999 mostra Erro (e não 999999998000000000)", () => {
+    const calc = createCalculator();
+    assert.equal(calc.press("9", "9", "9", "9", "9", "9", "9", "9", "9", "×", "9", "9", "9", "9", "9", "9", "9", "9", "9", "="), "Erro");
+  });
+
+  test("99999 × 99999 = 9999800001 continua exibido sem alteração", () => {
+    const calc = createCalculator();
+    assert.equal(calc.press("9", "9", "9", "9", "9", "×", "9", "9", "9", "9", "9", "="), "9999800001");
+  });
+});
+
+describe("CALC-16: casos de borda do limite de resultado (2^53)", () => {
+  test("resultado negativo acima de 2^53 em valor absoluto também mostra Erro: -999999999 × 999999999 resulta em Erro", () => {
+    const calc = createCalculator();
+    assert.equal(calc.press("9", "9", "9", "9", "9", "9", "9", "9", "9", "+/-", "×", "9", "9", "9", "9", "9", "9", "9", "9", "9", "="), "Erro");
+  });
+
+  test("resultado exatamente abaixo do limite continua exibido: 94906265 × 94906265 = 9007199136250225 (< 2^53)", () => {
+    const calc = createCalculator();
+    assert.equal(calc.press("9", "4", "9", "0", "6", "2", "6", "5", "×", "9", "4", "9", "0", "6", "2", "6", "5", "="), "9007199136250225");
+  });
+
+  test("primeiro resultado acima do limite mostra Erro: 94906266 × 94906266 = 9007199326062756 (> 2^53)", () => {
+    const calc = createCalculator();
+    assert.equal(calc.press("9", "4", "9", "0", "6", "2", "6", "6", "×", "9", "4", "9", "0", "6", "2", "6", "6", "="), "Erro");
+  });
+
+  test("o Erro aparece já no encadeamento: 999999999 × 999999999, + mostra Erro (e não o produto)", () => {
+    const calc = createCalculator();
+    assert.equal(calc.press("9", "9", "9", "9", "9", "9", "9", "9", "9", "×", "9", "9", "9", "9", "9", "9", "9", "9", "9", "+"), "Erro");
+  });
+
+  test("a próxima tecla após o Erro reinicia a calculadora: 999999999 × 999999999 =, 7 resulta em 7", () => {
+    const calc = createCalculator();
+    assert.equal(calc.press("9", "9", "9", "9", "9", "9", "9", "9", "9", "×", "9", "9", "9", "9", "9", "9", "9", "9", "9", "=", "7"), "7");
   });
 });

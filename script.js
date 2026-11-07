@@ -11,6 +11,9 @@ const MAX_DIGITS = 9;
 // Resultados são arredondados para no máximo 8 casas decimais.
 const DECIMAL_PLACES = 8;
 
+// Resultado com valor absoluto acima de 2^53 não é exato em double (ex.: 999999999 × 999999999 perderia algarismos): mostra Erro.
+const MAX_RESULT = 2 ** 53;
+
 // Tamanho do display pelo número de caracteres exibidos (sinal e ponto contam).
 const DISPLAY_SIZES = [
   { maxLength: 6, className: "display-64" },
@@ -166,11 +169,9 @@ function deleteDigit() {
   state.current = VALID_ENTRY.test(remaining) && remaining !== "-0" ? remaining : "0";
 }
 
-// Acima deste valor, toFixed devolve notação científica (ex.: "1e+27"), que a calculadora não exibe: mostra Erro.
-const MAX_RESULT = 1e21;
-
 // Aplica o operador pendente: left (operando à esquerda) op right.
-// Retorna false se a operação falhou e o erro foi exibido.
+// Retorna false se a operação falhou (divisão por zero, resultado não finito ou acima de 2^53) e o erro foi exibido.
+// 2^53 também fica abaixo do limite de notação científica do toFixed (1e21), então nenhum resultado aceito vira "1e+27".
 function evaluatePending(right) {
   const result = OPERATIONS[state.operator](state.previous, right);
   if (result === null || !Number.isFinite(result) || Math.abs(result) >= MAX_RESULT) {
