@@ -114,3 +114,11 @@ body {
   outline: 3px solid #ffffff;
   outline-offset: 2px;
 }
+
+/* Desktop: fundo mais claro atrás do visor e do teclado, para destacar a área da calculadora do fundo preto da página. */
+@media (min-width: 768px) {
+  .calculator {
+    background: #1e1e1e;
+    border-radius: 1.5rem;
+  }
+}
