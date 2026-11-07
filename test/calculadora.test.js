@@ -1,8 +1,8 @@
 "use strict";
 
 // Testes da entrada de dígitos e ponto decimal (CALC-4), da lógica de operações (CALC-5),
-// de AC/+/-/% (CALC-6), do teclado físico (CALC-8) e de erro, limite de dígitos,
-// arredondamento e tamanho da fonte (CALC-7).
+// de AC/+/-/% (CALC-6), do teclado físico (CALC-8), de erro, limite de dígitos,
+// arredondamento e tamanho da fonte (CALC-7), e do feedback visual dos botões (CALC-9).
 // Executa script.js real num contexto isolado, com um DOM mínimo, e aperta
 // os botões pelo mesmo caminho de clique que o navegador usa; o teclado usa o mesmo
 // caminho de keydown.
@@ -17,6 +17,7 @@ const vm = require("node:vm");
 const ROOT = path.join(__dirname, "..");
 const SCRIPT_SOURCE = fs.readFileSync(path.join(ROOT, "script.js"), "utf8");
 const HTML_SOURCE = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
+const CSS_SOURCE = fs.readFileSync(path.join(ROOT, "style.css"), "utf8");
 
 // Teclas usadas nos testes, com os mesmos data-* que index.html define para cada botão.
 const KEY_DATASET = {
@@ -53,10 +54,32 @@ function createClassList() {
 
 const DISPLAY_SIZE_CLASSES = ["display-64", "display-48", "display-40"];
 
+// Botão com dataset, classList e atributos (setAttribute/getAttribute), como no navegador.
+function createButton(dataset) {
+  const attributes = {};
+  return {
+    dataset,
+    classList: createClassList(),
+    setAttribute: (name, value) => {
+      attributes[name] = String(value);
+    },
+    getAttribute: (name) => (name in attributes ? attributes[name] : null),
+  };
+}
+
 function createCalculator() {
   const display = { textContent: "", classList: createClassList() };
   let onKeypadClick = null;
   let onKeyDown = null;
+  let onKeyUp = null;
+  let onBlur = null;
+
+  // Um botão por tecla de KEY_DATASET; o mesmo objeto é usado pelo clique e pelo querySelectorAll do keypad.
+  const buttonByKey = {};
+  for (const key of Object.keys(KEY_DATASET)) {
+    buttonByKey[key] = createButton(KEY_DATASET[key]);
+  }
+  const buttons = Object.values(buttonByKey);
 
   const keypad = {
     addEventListener(type, listener) {
@@ -64,6 +87,7 @@ function createCalculator() {
         onKeypadClick = listener;
       }
     },
+    querySelectorAll: (selector) => (selector === "button" ? buttons : []),
     contains: () => true,
   };
 
@@ -73,19 +97,49 @@ function createCalculator() {
     addEventListener(type, listener) {
       if (type === "keydown") {
         onKeyDown = listener;
+      } else if (type === "keyup") {
+        onKeyUp = listener;
       }
     },
   };
 
-  vm.runInNewContext(SCRIPT_SOURCE, { document }, { filename: "script.js" });
+  const window = {
+    addEventListener(type, listener) {
+      if (type === "blur") {
+        onBlur = listener;
+      }
+    },
+  };
+
+  vm.runInNewContext(SCRIPT_SOURCE, { document, window }, { filename: "script.js" });
 
   // Aperta as teclas em sequência e devolve o texto final do display.
   function press(...keys) {
     for (const key of keys) {
-      const button = { dataset: KEY_DATASET[key] };
+      const button = buttonByKey[key];
       onKeypadClick({ target: { closest: () => button } });
     }
     return display.textContent;
+  }
+
+  // Botão do teclado pela tecla (ex.: "7", "+", "AC").
+  function buttonFor(key) {
+    return buttonByKey[key];
+  }
+
+  // Teclas do keypad que estão destacadas como operador selecionado (aria-pressed="true").
+  function selectedOperator() {
+    return Object.keys(buttonByKey).filter((key) => buttonByKey[key].getAttribute("aria-pressed") === "true");
+  }
+
+  // Solta uma tecla física (keyup); sem código, usa o próprio caractere, como no keydown.
+  function keyUp(key, code = key) {
+    onKeyUp({ key, code });
+  }
+
+  // Janela perde o foco (ex.: alt-tab com tecla segurada).
+  function blur() {
+    onBlur();
   }
 
   // Classe de tamanho de fonte que o display tem agora (uma só).
@@ -120,7 +174,7 @@ function createCalculator() {
     return display.textContent;
   }
 
-  return { press, keyDown, type, fontSizeClass };
+  return { press, keyDown, keyUp, blur, type, fontSizeClass, buttonFor, selectedOperator };
 }
 
 describe("index.html expõe os botões usados pelos testes", () => {
@@ -542,5 +596,160 @@ describe("CALC-5: formatação de resultados", () => {
   test("0.1 + 0.2 = resulta em 0.3, sem ruído de ponto flutuante", () => {
     const calc = createCalculator();
     assert.equal(calc.press("0", ".", "1", "+", "0", ".", "2", "="), "0.3");
+  });
+});
+
+describe("CALC-9: critérios de aceite do destaque do operador", () => {
+  test("operador selecionado fica destacado até o segundo número: 2, + destaca o +, 3 remove o destaque", () => {
+    const calc = createCalculator();
+    calc.press("2", "+");
+    assert.deepEqual(calc.selectedOperator(), ["+"]);
+    calc.press("3");
+    assert.deepEqual(calc.selectedOperator(), []);
+  });
+
+  test("o destaque também aparece pelo teclado: 2, tecla + destaca o +", () => {
+    const calc = createCalculator();
+    calc.type("2", "+");
+    assert.deepEqual(calc.selectedOperator(), ["+"]);
+  });
+
+  test("sem operação pendente nada fica destacado: 2, + , 3, = não destaca nenhum operador", () => {
+    const calc = createCalculator();
+    calc.press("2", "+", "3", "=");
+    assert.deepEqual(calc.selectedOperator(), []);
+  });
+});
+
+describe("CALC-9: casos de borda do destaque do operador", () => {
+  test("trocar de operador antes do segundo número move o destaque: 2, +, × destaca só o ×", () => {
+    const calc = createCalculator();
+    calc.press("2", "+", "×");
+    assert.deepEqual(calc.selectedOperator(), ["×"]);
+  });
+
+  test("= remove o destaque: 2, +, 3, = não destaca nada", () => {
+    const calc = createCalculator();
+    calc.press("2", "+", "3", "=");
+    assert.deepEqual(calc.selectedOperator(), []);
+  });
+
+  test("igual sem segundo número remove o destaque: 2, +, = resulta em 4 e não destaca nada", () => {
+    const calc = createCalculator();
+    assert.equal(calc.press("2", "+", "="), "4");
+    assert.deepEqual(calc.selectedOperator(), []);
+  });
+
+  test("AC remove o destaque: 5, +, AC não destaca nada", () => {
+    const calc = createCalculator();
+    calc.press("5", "+", "AC");
+    assert.deepEqual(calc.selectedOperator(), []);
+  });
+
+  test("ponto decimal no segundo número remove o destaque: 2, +, ponto destaca nada e mostra 0.", () => {
+    const calc = createCalculator();
+    assert.equal(calc.press("2", "+", "."), "0.");
+    assert.deepEqual(calc.selectedOperator(), []);
+  });
+
+  test("% depois do operador remove o destaque, pois o número exibido já é o segundo operando: 5, +, % não destaca nada", () => {
+    const calc = createCalculator();
+    calc.press("5", "+", "%");
+    assert.deepEqual(calc.selectedOperator(), []);
+  });
+
+  test("+/- depois do operador remove o destaque, pelo mesmo motivo: 5, +, +/- não destaca nada", () => {
+    const calc = createCalculator();
+    calc.press("5", "+", "+/-");
+    assert.deepEqual(calc.selectedOperator(), []);
+  });
+
+  test("Backspace após o operador mantém o destaque: 2, +, Backspace destaca o +", () => {
+    const calc = createCalculator();
+    calc.press("2", "+");
+    calc.type("Backspace");
+    assert.deepEqual(calc.selectedOperator(), ["+"]);
+  });
+
+  test("encadeamento mantém o destaque no novo operador: 2, +, 3, + mostra 5 e destaca o +", () => {
+    const calc = createCalculator();
+    assert.equal(calc.press("2", "+", "3", "+"), "5");
+    assert.deepEqual(calc.selectedOperator(), ["+"]);
+  });
+
+  test("erro não destaca operador: 5, ÷, 0, = mostra Erro sem destaque", () => {
+    const calc = createCalculator();
+    assert.equal(calc.press("5", "÷", "0", "="), "Erro");
+    assert.deepEqual(calc.selectedOperator(), []);
+  });
+
+  test("AC, % e +/- não ganham destaque ao serem apertados", () => {
+    const calc = createCalculator();
+    calc.press("AC");
+    assert.deepEqual(calc.selectedOperator(), []);
+    calc.press("%");
+    assert.deepEqual(calc.selectedOperator(), []);
+    calc.press("+/-");
+    assert.deepEqual(calc.selectedOperator(), []);
+  });
+});
+
+describe("CALC-9: critérios de aceite do efeito ao pressionar", () => {
+  test("tecla física pressionada escurece o botão até soltar: 7 baixada marca o botão 7 e soltar tira a marca", () => {
+    const calc = createCalculator();
+    calc.keyDown("7", { code: "Digit7" });
+    assert.equal(calc.buttonFor("7").classList.contains("is-pressed"), true);
+    calc.keyUp("7", "Digit7");
+    assert.equal(calc.buttonFor("7").classList.contains("is-pressed"), false);
+  });
+
+  test("Enter escurece o botão de igual, e soltar a tecla libera o botão", () => {
+    const calc = createCalculator();
+    calc.keyDown("Enter", { code: "Enter" });
+    assert.equal(calc.buttonFor("=").classList.contains("is-pressed"), true);
+    calc.keyUp("Enter", "Enter");
+    assert.equal(calc.buttonFor("=").classList.contains("is-pressed"), false);
+  });
+
+  test("soltar com outro caractere (Shift) ainda libera o botão: = baixado com código Equal e solto como + libera o =", () => {
+    const calc = createCalculator();
+    calc.keyDown("=", { code: "Equal" });
+    assert.equal(calc.buttonFor("=").classList.contains("is-pressed"), true);
+    calc.keyUp("+", "Equal");
+    assert.equal(calc.buttonFor("=").classList.contains("is-pressed"), false);
+  });
+
+  test("perder o foco da janela libera a tecla segurada: + baixado e depois blur não deixa o botão escurecido", () => {
+    const calc = createCalculator();
+    calc.keyDown("+", { code: "NumpadAdd" });
+    assert.equal(calc.buttonFor("+").classList.contains("is-pressed"), true);
+    calc.blur();
+    assert.equal(calc.buttonFor("+").classList.contains("is-pressed"), false);
+  });
+
+  test("Backspace não tem botão e não marca nenhum: 7, Backspace baixado não escurece botão algum e apaga o 7", () => {
+    const calc = createCalculator();
+    calc.press("7");
+    assert.equal(calc.keyDown("Backspace", { code: "Backspace" }).key, "Backspace");
+    for (const key of Object.keys(KEY_DATASET)) {
+      assert.equal(calc.buttonFor(key).classList.contains("is-pressed"), false, `botão ${key}`);
+    }
+    assert.equal(calc.type(), "0");
+  });
+
+  test("atalho com Ctrl não escurece botão: Ctrl+7 não marca o botão 7", () => {
+    const calc = createCalculator();
+    calc.keyDown("7", { code: "Digit7", ctrlKey: true });
+    assert.equal(calc.buttonFor("7").classList.contains("is-pressed"), false);
+  });
+});
+
+describe("CALC-9: estilo do feedback visual no CSS", () => {
+  test("botão pressionado escurece com filtro brightness 0,8, pelo mouse ou toque (:active) e pela tecla (is-pressed)", () => {
+    assert.match(CSS_SOURCE, /\.btn:active,\s*\.btn\.is-pressed\s*\{\s*filter:\s*brightness\(0\.8\);\s*\}/);
+  });
+
+  test("operador destacado tem fundo #ffffff e texto #ff9500", () => {
+    assert.match(CSS_SOURCE, /\.btn-operator\[aria-pressed="true"\]\s*\{\s*background:\s*#ffffff;\s*color:\s*#ff9500;\s*\}/);
   });
 });

@@ -98,6 +98,18 @@ body {
   color: #000000;
 }
 
+/* Operador da operação pendente, até o segundo número começar: fundo branco e texto laranja. */
+.btn-operator[aria-pressed="true"] {
+  background: #ffffff;
+  color: #ff9500;
+}
+
+/* Escurece enquanto o mouse ou o toque estiver pressionado (:active) e enquanto a tecla física estiver baixada (is-pressed). */
+.btn:active,
+.btn.is-pressed {
+  filter: brightness(0.8);
+}
+
 .btn:focus-visible {
   outline: 3px solid #ffffff;
   outline-offset: 2px;

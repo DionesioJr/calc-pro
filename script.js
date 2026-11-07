@@ -37,6 +37,10 @@ const OPERATIONS = {
   divide: (a, b) => (b === 0 ? null : a / b),
 };
 
+// Botões do teclado numérico: o destaque do operador e o efeito de tecla pressionada usam esta lista.
+const buttons = keypad ? Array.from(keypad.querySelectorAll("button")) : [];
+const operatorButtons = buttons.filter((button) => Object.hasOwn(OPERATIONS, button.dataset.action));
+
 function displaySizeClass(text) {
   return DISPLAY_SIZES.find((size) => text.length <= size.maxLength).className;
 }
@@ -48,6 +52,12 @@ function render() {
       display.classList.remove(size.className);
     }
     display.classList.add(displaySizeClass(state.current));
+  }
+
+  // Operador destacado (aria-pressed="true", estilizado no CSS): só enquanto o segundo número não começou.
+  const selectedOperator = state.operator !== null && state.waitingForOperand ? state.operator : null;
+  for (const button of operatorButtons) {
+    button.setAttribute("aria-pressed", String(button.dataset.action === selectedOperator));
   }
 }
 
@@ -254,20 +264,55 @@ const KEY_BUTTONS = {
   ",": { value: "." },
 };
 
+// Tecla → dataset no mesmo formato de data-value/data-action; null se a tecla não tem botão (ex.: Backspace).
+function datasetForKey(key) {
+  if (/^[0-9]$/.test(key)) {
+    return { value: key };
+  }
+  return Object.hasOwn(KEY_BUTTONS, key) ? KEY_BUTTONS[key] : null;
+}
+
+// Botão do teclado correspondente a um dataset (ex.: { value: "7" } ou { action: "add" }), ou null.
+function findButton(dataset) {
+  const attribute = dataset.value !== undefined ? "value" : "action";
+  return buttons.find((button) => button.dataset[attribute] === dataset[attribute]) ?? null;
+}
+
+// Tecla física pressionada: o botão correspondente escurece até a tecla ser solta, ou até a janela perder o foco.
+// Indexado pelo código físico (event.code), para que soltar a tecla com outro caractere (ex.: Shift) ainda a libere.
+const heldKeys = new Map();
+
+function holdKey(code, button) {
+  if (button === null) {
+    return;
+  }
+  button.classList.add("is-pressed");
+  heldKeys.set(code, button);
+}
+
+function releaseKey(code) {
+  const button = heldKeys.get(code);
+  if (button !== undefined) {
+    button.classList.remove("is-pressed");
+    heldKeys.delete(code);
+  }
+}
+
+function releaseAllKeys() {
+  Array.from(heldKeys.keys()).forEach((code) => releaseKey(code));
+}
+
 // Devolve true se a tecla é uma das usadas pela calculadora.
 function handleKey(key) {
-  if (/^[0-9]$/.test(key)) {
-    inputDigit(key);
-    return true;
-  }
   if (key === "Backspace") {
     deleteDigit();
     return true;
   }
-  if (!(key in KEY_BUTTONS)) {
+  const dataset = datasetForKey(key);
+  if (dataset === null) {
     return false;
   }
-  handleButton({ dataset: KEY_BUTTONS[key] });
+  handleButton({ dataset });
   return true;
 }
 
@@ -292,9 +337,23 @@ document.addEventListener("keydown", (event) => {
     return;
   }
 
+  const dataset = datasetForKey(event.key);
+  if (dataset !== null) {
+    holdKey(event.code || event.key, findButton(dataset));
+  }
+
   // Impede que Enter, com um botão da calculadora focado, dispare também o clique desse botão.
   event.preventDefault();
   render();
 });
+
+document.addEventListener("keyup", (event) => {
+  releaseKey(event.code || event.key);
+});
+
+// Sem essa liberação, uma tecla solta com a janela fora de foco deixaria o botão escurecido.
+if (typeof window !== "undefined") {
+  window.addEventListener("blur", releaseAllKeys);
+}
 
 render();
