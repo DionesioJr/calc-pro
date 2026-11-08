@@ -335,6 +335,39 @@ body {
   outline-offset: 2px;
 }
 
+/* Botão xʸ: mesmo estilo do 1/x (pílula com contorno cinza), na linha da memória. */
+.power-add {
+  padding: 0.4rem 0.9rem;
+  border: 1px solid #a5a5a5;
+  border-radius: 999px;
+  background: transparent;
+  color: #a5a5a5;
+  font: inherit;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.power-add:hover {
+  border-color: #ffffff;
+  color: #ffffff;
+}
+
+.power-add:active {
+  filter: brightness(0.8);
+}
+
+.power-add:focus-visible {
+  outline: 3px solid #ffffff;
+  outline-offset: 2px;
+}
+
+/* xʸ à espera do segundo número: fundo branco e texto laranja, como o operador pendente do teclado. */
+.power-add[aria-pressed="true"] {
+  border-color: #ffffff;
+  background: #ffffff;
+  color: #b35c00;
+}
+
 /* Pílulas da linha da memória: padding horizontal menor e largura que cresce para ocupar a linha toda.
  * Assim as seis cabem em 320px sem rolagem horizontal, mesmo com o indicador M e a unidade DEG visíveis. */
 .memory > button {

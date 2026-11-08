@@ -39,19 +39,27 @@ const state = {
   memory: 0,
 };
 
+// Base negativa com expoente fracionário, ou 0 elevado a negativo, dão NaN ou Infinity: a conta falha como as outras (Erro).
 const OPERATIONS = {
   add: (a, b) => a + b,
   subtract: (a, b) => a - b,
   multiply: (a, b) => a * b,
   divide: (a, b) => (b === 0 ? null : a / b),
+  power: (a, b) => a ** b,
 };
 
-// Precedência: × e ÷ são calculados antes de + e −. Entre operadores de mesma precedência vale a ordem da esquerda para a direita.
+// Precedência: xʸ antes de × e ÷, e × e ÷ antes de + e −. Entre operadores de mesma precedência vale a ordem da esquerda para a direita,
+// exceto xʸ, que associa à direita (2 xʸ 3 xʸ 2 = 2 xʸ 9 = 512).
 const PRECEDENCE = {
   add: 1,
   subtract: 1,
   multiply: 2,
   divide: 2,
+  power: 3,
+};
+
+const RIGHT_ASSOCIATIVE = {
+  power: true,
 };
 
 const OPERATOR_SYMBOLS = {
@@ -59,6 +67,7 @@ const OPERATOR_SYMBOLS = {
   subtract: "−",
   multiply: "×",
   divide: "÷",
+  power: "xʸ",
 };
 
 // Histórico de cálculos, no localStorage; do mais antigo para o mais recente.
@@ -103,6 +112,11 @@ const piButton = document.getElementById("pi-button");
 const inverseButton = document.getElementById("inverse-button");
 // Botão tan também fica nessa linha, pelo mesmo motivo.
 const tangentButton = document.getElementById("tan-button");
+// Botão xʸ também fica nessa linha, pelo mesmo motivo. É um operador binário: entra em operatorButtons para mostrar o destaque pendente.
+const powerButton = document.getElementById("power-button");
+if (powerButton) {
+  operatorButtons.push(powerButton);
+}
 const pressableButtons = memoryAddButton ? [...buttons, memoryAddButton] : buttons;
 
 function displaySizeClass(text) {
@@ -546,11 +560,17 @@ function deleteDigit() {
 // Calcula a pilha de trás para a frente enquanto o operador logo antes do último número tiver precedência >= minPrecedence.
 // Com 0 calcula tudo (no igual); com a precedência de × ou ÷, só fecha o termo de × e ÷ que já estava em curso.
 // Como a pilha guarda operadores em ordem crescente de precedência, o de cima é sempre o que vem primeiro.
+// Com rightAssociative (xʸ), só fecha operadores de precedência estritamente maior: 2 xʸ 3 xʸ 2 fica para depois, como 2 xʸ (3 xʸ 2).
 // Não mexe no estado: devolve { stack, result } (result é o último resultado calculado, ou null se nada foi calculado),
 // ou null se a conta falhou (divisão por zero, resultado não finito ou acima de 2^53).
-function reduceStack(stack, minPrecedence) {
+function reduceStack(stack, minPrecedence, rightAssociative = false) {
   let result = null;
-  while (stack.length >= 3 && PRECEDENCE[stack[stack.length - 2]] >= minPrecedence) {
+  while (
+    stack.length >= 3 &&
+    (rightAssociative
+      ? PRECEDENCE[stack[stack.length - 2]] > minPrecedence
+      : PRECEDENCE[stack[stack.length - 2]] >= minPrecedence)
+  ) {
     const right = stack.pop();
     const operator = stack.pop();
     const left = stack.pop();
@@ -573,7 +593,7 @@ function foldTerms(terms) {
   for (let i = 0; i < terms.length; i++) {
     const term = terms[i];
     if (isOperator(term)) {
-      const reduced = reduceStack(stack, PRECEDENCE[term]);
+      const reduced = reduceStack(stack, PRECEDENCE[term], RIGHT_ASSOCIATIVE[term] === true);
       if (reduced === null) {
         return null;
       }
@@ -831,6 +851,13 @@ if (sineButton) {
 if (tangentButton) {
   tangentButton.addEventListener("click", () => {
     handleButton(tangentButton);
+    render();
+  });
+}
+
+if (powerButton) {
+  powerButton.addEventListener("click", () => {
+    handleButton(powerButton);
     render();
   });
 }
