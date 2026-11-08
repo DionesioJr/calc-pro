@@ -54,7 +54,11 @@ const HISTORY_KEY = "calc-pro:historico";
 const calculationHistory = loadHistory();
 const historyList = document.getElementById("history-list");
 const historyEmpty = document.getElementById("history-empty");
+const historyActions = document.getElementById("history-actions");
 const historyClear = document.getElementById("history-clear");
+const historyConfirm = document.getElementById("history-confirm");
+const historyCancel = document.getElementById("history-cancel");
+const historyConfirmYes = document.getElementById("history-confirm-yes");
 
 // Botões do teclado numérico: o destaque do operador e o efeito de tecla pressionada usam esta lista.
 const buttons = keypad ? Array.from(keypad.querySelectorAll("button")) : [];
@@ -102,7 +106,8 @@ function setError() {
 function loadHistory() {
   try {
     const saved = JSON.parse(localStorage.getItem(HISTORY_KEY));
-    return Array.isArray(saved) ? saved.filter((item) => typeof item === "string") : [];
+    // Só entram textos no formato "expressão = resultado"; o resto é descartado.
+    return Array.isArray(saved) ? saved.filter((item) => typeof item === "string" && item.includes(" = ")) : [];
   } catch {
     // Dado corrompido ou armazenamento indisponível: começa com histórico vazio.
     return [];
@@ -121,26 +126,88 @@ function saveHistory() {
   }
 }
 
-// Mais recente primeiro. Texto vai por textContent, nunca como HTML.
+// Divide "12 × 3 = 36" em expressão e resultado (o resultado vem depois do último " = ").
+function splitCalculation(text) {
+  const index = text.lastIndexOf(" = ");
+  return { expression: text.slice(0, index), result: text.slice(index + 3) };
+}
+
+// Clique ou toque num item: o resultado vai para o visor, e o próximo dígito começa um número novo.
+function recallResult(result) {
+  reset();
+  state.current = result;
+  state.waitingForOperand = true;
+  render();
+}
+
+// Mais recente primeiro. Cada item é um botão (alcançável pelo teclado); texto vai por textContent, nunca como HTML.
 function renderHistory() {
   if (!historyList || !historyEmpty) {
     return;
   }
   const items = calculationHistory.slice().reverse().map((text) => {
+    const { expression, result } = splitCalculation(text);
+
+    const expressionText = document.createElement("span");
+    expressionText.className = "history-expression";
+    expressionText.textContent = expression;
+
+    const resultText = document.createElement("span");
+    resultText.className = "history-result";
+    resultText.textContent = result;
+
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "history-item";
+    button.setAttribute("aria-label", `${expression} igual a ${result}, usar no visor`);
+    button.replaceChildren(expressionText, resultText);
+    button.addEventListener("click", () => recallResult(result));
+
     const item = document.createElement("li");
-    item.className = "history-item";
-    item.textContent = text;
+    item.replaceChildren(button);
     return item;
   });
   historyList.replaceChildren(...items);
   historyList.hidden = items.length === 0;
   historyEmpty.hidden = items.length > 0;
+  // Sem cálculos, o botão Limpar some: o painel mostra só a mensagem de vazio.
+  if (historyActions) {
+    historyActions.hidden = items.length === 0;
+  }
 }
 
 function addCalculation(text) {
   calculationHistory.push(text);
   saveHistory();
   renderHistory();
+}
+
+// Limpar pede confirmação: o botão dá lugar a "Apagar todo o histórico?" com Cancelar (foco inicial) e Apagar.
+function showClearConfirm() {
+  if (!historyClear || !historyConfirm || !historyCancel) {
+    return;
+  }
+  historyClear.hidden = true;
+  historyConfirm.hidden = false;
+  historyCancel.focus();
+}
+
+function hideClearConfirm() {
+  if (!historyClear || !historyConfirm) {
+    return;
+  }
+  historyConfirm.hidden = true;
+  historyClear.hidden = false;
+}
+
+function clearHistory() {
+  calculationHistory.length = 0;
+  saveHistory();
+  hideClearConfirm();
+  renderHistory();
+  if (historyEmpty) {
+    historyEmpty.focus();
+  }
 }
 
 // Arredonda para no máximo 8 casas decimais e remove os zeros à direita (0.1 + 0.2 → 0.3; 1 ÷ 3 → 0.33333333).
@@ -405,11 +472,20 @@ if (keypad) {
 }
 
 if (historyClear) {
-  historyClear.addEventListener("click", () => {
-    calculationHistory.length = 0;
-    saveHistory();
-    renderHistory();
+  historyClear.addEventListener("click", showClearConfirm);
+}
+
+if (historyCancel) {
+  historyCancel.addEventListener("click", () => {
+    hideClearConfirm();
+    if (historyClear) {
+      historyClear.focus();
+    }
   });
+}
+
+if (historyConfirmYes) {
+  historyConfirmYes.addEventListener("click", clearHistory);
 }
 
 document.addEventListener("keydown", (event) => {

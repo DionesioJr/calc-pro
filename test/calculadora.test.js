@@ -3,7 +3,8 @@
 // Testes da entrada de dígitos e ponto decimal (CALC-4), da lógica de operações (CALC-5),
 // de AC/+/-/% (CALC-6), do teclado físico (CALC-8), de erro, limite de dígitos,
 // arredondamento e tamanho da fonte (CALC-7), do feedback visual dos botões (CALC-9),
-// do limite de 2^53 para resultados (CALC-16), e do histórico de cálculos no localStorage (CALC-19).
+// do limite de 2^53 para resultados (CALC-16), do histórico de cálculos no localStorage (CALC-19),
+// e do painel de histórico reformulado (CALC-20: itens tocáveis, confirmação ao limpar).
 // Executa script.js real num contexto isolado, com um DOM mínimo, e aperta
 // os botões pelo mesmo caminho de clique que o navegador usa; o teclado usa o mesmo
 // caminho de keydown.
@@ -71,14 +72,25 @@ function createButton(dataset) {
 // Elemento do DOM mínimo para o histórico: texto, filhos, atributo hidden e listeners.
 function createElementMock(tagName) {
   const listeners = {};
+  const attributes = {};
   return {
     tagName: tagName.toUpperCase(),
     textContent: "",
     className: "",
     hidden: false,
+    focused: false,
     children: [],
     replaceChildren(...nodes) {
       this.children = nodes;
+    },
+    setAttribute(name, value) {
+      attributes[name] = String(value);
+    },
+    getAttribute(name) {
+      return name in attributes ? attributes[name] : null;
+    },
+    focus() {
+      this.focused = true;
     },
     addEventListener(type, listener) {
       listeners[type] = listener;
@@ -107,7 +119,11 @@ function createCalculator({ storage = {} } = {}) {
   const display = { textContent: "", classList: createClassList() };
   const historyList = createElementMock("ol");
   const historyEmpty = createElementMock("p");
+  const historyActions = createElementMock("div");
   const historyClear = createElementMock("button");
+  const historyConfirm = createElementMock("div");
+  const historyCancel = createElementMock("button");
+  const historyConfirmYes = createElementMock("button");
   let onKeypadClick = null;
   let onKeyDown = null;
   let onKeyUp = null;
@@ -134,7 +150,11 @@ function createCalculator({ storage = {} } = {}) {
     display,
     "history-list": historyList,
     "history-empty": historyEmpty,
+    "history-actions": historyActions,
     "history-clear": historyClear,
+    "history-confirm": historyConfirm,
+    "history-cancel": historyCancel,
+    "history-confirm-yes": historyConfirmYes,
   };
 
   const document = {
@@ -222,14 +242,56 @@ function createCalculator({ storage = {} } = {}) {
     return display.textContent;
   }
 
-  // Itens do histórico na tela, na ordem em que aparecem (do mais recente para o mais antigo).
+  // Itens do histórico na tela, na ordem em que aparecem (do mais recente para o mais antigo), como "12 × 3 = 36".
   function historyItems() {
-    return historyList.children.map((item) => item.textContent);
+    return historyList.children.map((item) => {
+      const [button] = item.children;
+      const [expression, result] = button.children;
+      return `${expression.textContent} = ${result.textContent}`;
+    });
   }
 
-  // Aperta o botão Limpar histórico, como um clique do mouse.
-  function clickClear() {
+  // Botão (item) do histórico na posição index, na ordem da tela.
+  function historyItemButton(index) {
+    return historyList.children[index].children[0];
+  }
+
+  // Expressão, resultado e rótulo acessível de um item do histórico.
+  function historyItemParts(index) {
+    const button = historyItemButton(index);
+    const [expression, result] = button.children;
+    return {
+      expression: expression.textContent,
+      result: result.textContent,
+      label: button.getAttribute("aria-label"),
+    };
+  }
+
+  // Toca num item do histórico, como um clique ou toque; devolve o texto do visor.
+  function tapHistoryItem(index) {
+    historyItemButton(index).dispatch("click");
+    return display.textContent;
+  }
+
+  // Aperta o botão Limpar histórico, como um clique do mouse (só abre a confirmação).
+  function clickClearButton() {
     historyClear.dispatch("click");
+  }
+
+  // Aperta Cancelar na confirmação.
+  function clickCancel() {
+    historyCancel.dispatch("click");
+  }
+
+  // Aperta Apagar na confirmação.
+  function clickConfirmYes() {
+    historyConfirmYes.dispatch("click");
+  }
+
+  // Limpar e confirmar, como o usuário faz para apagar o histórico.
+  function clickClear() {
+    clickClearButton();
+    clickConfirmYes();
   }
 
   return {
@@ -242,10 +304,22 @@ function createCalculator({ storage = {} } = {}) {
     buttonFor,
     selectedOperator,
     historyItems,
+    historyItemButton,
+    historyItemParts,
+    tapHistoryItem,
+    clickClearButton,
+    clickCancel,
+    clickConfirmYes,
     clickClear,
     historyClear,
     historyEmptyHidden: () => historyEmpty.hidden,
     historyListHidden: () => historyList.hidden,
+    historyActionsHidden: () => historyActions.hidden,
+    clearButtonHidden: () => historyClear.hidden,
+    confirmHidden: () => historyConfirm.hidden,
+    cancelFocused: () => historyCancel.focused,
+    emptyMessageFocused: () => historyEmpty.focused,
+    display: () => display.textContent,
   };
 }
 
@@ -1066,9 +1140,176 @@ describe("CALC-19: estrutura e estilo do histórico", () => {
     assert.ok(CSS_SOURCE.indexOf(".history-list[hidden]") > CSS_SOURCE.indexOf(".history-list {"));
   });
 
-  test("histórico usa o fundo escuro, o cinza do texto de apoio e o laranja do botão de limpar", () => {
+  test("histórico usa o fundo escuro e o cinza do texto de apoio", () => {
     assert.match(CSS_SOURCE, /\.history-item\s*\{[^}]*background:\s*#333333;[^}]*color:\s*#ffffff;[^}]*\}/);
     assert.match(CSS_SOURCE, /\.history-empty\s*\{[^}]*color:\s*#a5a5a5;[^}]*\}/);
-    assert.match(CSS_SOURCE, /\.history-clear\s*\{[^}]*background:\s*#ff9f0a;[^}]*color:\s*#000000;[^}]*\}/);
+  });
+});
+
+describe("CALC-20: critérios de aceite do histórico reformulado", () => {
+  test("cada cálculo vira um item próprio, com a expressão e o resultado em elementos separados: 12 × 3 = resulta em 36", () => {
+    const calc = createCalculator({ storage: {} });
+    calc.press("1", "2", "×", "3", "=");
+    assert.deepEqual(calc.historyItemParts(0), {
+      expression: "12 × 3",
+      result: "36",
+      label: "12 × 3 igual a 36, usar no visor",
+    });
+  });
+
+  test("tocar num item leva o resultado para o visor: 2 + 3 =, tocar no item mostra 5", () => {
+    const calc = createCalculator({ storage: {} });
+    calc.press("2", "+", "3", "=");
+    assert.equal(calc.tapHistoryItem(0), "5");
+  });
+
+  test("dá para continuar a conta a partir do resultado tocado: 2 + 3 =, tocar, + 1 = resulta em 6", () => {
+    const calc = createCalculator({ storage: {} });
+    calc.press("2", "+", "3", "=");
+    calc.tapHistoryItem(0);
+    assert.equal(calc.press("+", "1", "="), "6");
+  });
+
+  test("tocar no item e digitar começa um número novo: 2 + 3 =, tocar, 7 resulta em 7 (e não 57)", () => {
+    const calc = createCalculator({ storage: {} });
+    calc.press("2", "+", "3", "=");
+    calc.tapHistoryItem(0);
+    assert.equal(calc.press("7"), "7");
+  });
+
+  test("tocar num item não apaga o histórico: 2 + 3 =, tocar mantém 2 + 3 = 5", () => {
+    const calc = createCalculator({ storage: {} });
+    calc.press("2", "+", "3", "=");
+    calc.tapHistoryItem(0);
+    assert.deepEqual(calc.historyItems(), ["2 + 3 = 5"]);
+  });
+
+  test("Enter com o foco num item do histórico não faz conta: o item é um botão e o Enter o aciona", () => {
+    const calc = createCalculator({ storage: {} });
+    calc.press("2", "+", "3", "=");
+    const event = calc.keyDown("Enter", { target: calc.historyItemButton(0) });
+    assert.equal(event.defaultPrevented, false);
+    assert.equal(calc.display(), "5");
+  });
+
+  test("sem cálculos o botão Limpar fica escondido; com cálculo ele aparece", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.historyActionsHidden(), true);
+    calc.press("2", "+", "3", "=");
+    assert.equal(calc.historyActionsHidden(), false);
+    assert.equal(calc.clearButtonHidden(), false);
+  });
+
+  test("Limpar abre a confirmação e não apaga ainda: 2 + 3 =, Limpar mantém o item e mostra a confirmação", () => {
+    const storage = {};
+    const calc = createCalculator({ storage });
+    calc.press("2", "+", "3", "=");
+    calc.clickClearButton();
+    assert.deepEqual(calc.historyItems(), ["2 + 3 = 5"]);
+    assert.equal(HISTORY_KEY in storage, true);
+    assert.equal(calc.confirmHidden(), false);
+    assert.equal(calc.clearButtonHidden(), true);
+  });
+
+  test("a confirmação começa com o foco em Cancelar, a ação segura", () => {
+    const calc = createCalculator({ storage: {} });
+    calc.press("2", "+", "3", "=");
+    calc.clickClearButton();
+    assert.equal(calc.cancelFocused(), true);
+  });
+
+  test("Cancelar mantém o histórico e volta o botão Limpar: 2 + 3 =, Limpar, Cancelar mantém 2 + 3 = 5", () => {
+    const calc = createCalculator({ storage: {} });
+    calc.press("2", "+", "3", "=");
+    calc.clickClearButton();
+    calc.clickCancel();
+    assert.deepEqual(calc.historyItems(), ["2 + 3 = 5"]);
+    assert.equal(calc.confirmHidden(), true);
+    assert.equal(calc.clearButtonHidden(), false);
+  });
+
+  test("Apagar na confirmação limpa o histórico e leva o foco à mensagem de vazio", () => {
+    const storage = {};
+    const calc = createCalculator({ storage });
+    calc.press("2", "+", "3", "=");
+    calc.clickClear();
+    assert.deepEqual(calc.historyItems(), []);
+    assert.equal(HISTORY_KEY in storage, false);
+    assert.equal(calc.historyActionsHidden(), true);
+    assert.equal(calc.emptyMessageFocused(), true);
+  });
+
+  test("depois de Apagar a confirmação some, e o botão Limpar continua escondido porque o histórico ficou vazio", () => {
+    const calc = createCalculator({ storage: {} });
+    calc.press("2", "+", "3", "=");
+    calc.clickClear();
+    assert.equal(calc.confirmHidden(), true);
+    assert.equal(calc.historyActionsHidden(), true);
+  });
+});
+
+describe("CALC-20: casos de borda do histórico reformulado", () => {
+  test("o botão Limpar não aparece quando o histórico é carregado vazio, mesmo com dado corrompido", () => {
+    const calc = createCalculator({ storage: { [HISTORY_KEY]: "{não é json" } });
+    assert.equal(calc.historyActionsHidden(), true);
+  });
+
+  test("itens sem o separador ' = ' não entram no histórico ao carregar: texto solto é descartado e não vira resultado vazio", () => {
+    const calc = createCalculator({ storage: { [HISTORY_KEY]: '["2 + 3 = 5", "texto solto"]' } });
+    assert.deepEqual(calc.historyItems(), ["2 + 3 = 5"]);
+  });
+
+  test("resultado com sinal negativo vai para o visor: 2 − 7 = mostra -5 e tocar no item também mostra -5", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("2", "−", "7", "="), "-5");
+    calc.press("AC");
+    assert.equal(calc.tapHistoryItem(0), "-5");
+  });
+
+  test("com vários cálculos, o toque no mais antigo leva o resultado dele: 2 + 3 = e 4 × 2 =, tocar no item 2 mostra 5", () => {
+    const calc = createCalculator({ storage: {} });
+    calc.press("2", "+", "3", "=");
+    calc.press("4", "×", "2", "=");
+    assert.equal(calc.tapHistoryItem(1), "5");
+  });
+});
+
+describe("CALC-20: estilo e estrutura do histórico reformulado", () => {
+  test("index.html tem o botão Limpar dentro do painel de ações, a confirmação e a lista com foco por teclado", () => {
+    assert.match(HTML_SOURCE, /id="history-actions"/);
+    assert.match(HTML_SOURCE, /id="history-confirm"/);
+    assert.match(HTML_SOURCE, /id="history-cancel"[^>]*>Cancelar<\/button>/);
+    assert.match(HTML_SOURCE, /id="history-confirm-yes"[^>]*>Apagar<\/button>/);
+    assert.match(HTML_SOURCE, /id="history-list"[^>]*tabindex="0"/);
+  });
+
+  test("no desktop o painel tem a mesma largura da calculadora (360px) e fica alinhado ao topo dela", () => {
+    const desktop = CSS_SOURCE.split("@media (min-width: 768px)")[1];
+    assert.match(desktop, /\.calculator\s*\{[^}]*width:\s*360px;[^}]*\}/);
+    assert.match(desktop, /\.history\s*\{[^}]*width:\s*min\(360px,\s*100%\);[^}]*\}/);
+    assert.match(desktop, /\.layout\s*\{[^}]*align-items:\s*start;[^}]*\}/);
+  });
+
+  test("a lista rola dentro do painel com altura máxima, sem empurrar o layout", () => {
+    assert.match(CSS_SOURCE, /\.history-list\s*\{[^}]*max-height:\s*26rem;[^}]*overflow-y:\s*auto;[^}]*\}/);
+  });
+
+  test("o resultado tem mais destaque que a expressão: fonte maior e mais grossa", () => {
+    const fontSizeRem = (selector) => {
+      const match = CSS_SOURCE.match(new RegExp(`${selector}\\s*\\{[^}]*font-size:\\s*([\\d.]+)rem;`));
+      assert.ok(match, `${selector} precisa de font-size em rem`);
+      return Number(match[1]);
+    };
+    assert.ok(fontSizeRem("\\.history-result") > fontSizeRem("\\.history-expression"));
+    assert.match(CSS_SOURCE, /\.history-result\s*\{[^}]*font-weight:\s*600;[^}]*\}/);
+  });
+
+  test("o botão Limpar tem visual secundário: fundo transparente, contorno e texto cinza, sem o laranja dos operadores", () => {
+    assert.match(CSS_SOURCE, /\.history-clear,\s*\.history-cancel\s*\{[^}]*background:\s*transparent;[^}]*color:\s*#a5a5a5;[^}]*\}/);
+    assert.doesNotMatch(CSS_SOURCE, /\.history-clear\s*\{[^}]*#ff9f0a/);
+  });
+
+  test("a regra [hidden] vence o display flex do painel de ações e da confirmação", () => {
+    assert.match(CSS_SOURCE, /\.history-actions\[hidden\],\s*\.history-confirm\[hidden\]\s*\{\s*display:\s*none;\s*\}/);
   });
 });

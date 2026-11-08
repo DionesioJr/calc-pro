@@ -133,11 +133,11 @@ body {
     border-radius: 1.5rem;
   }
 
-  /* Calculadora no centro exato; o histórico ocupa a coluna da direita, do mesmo tamanho da coluna da esquerda. */
+  /* Calculadora no centro exato; o histórico ocupa a coluna da direita, com a mesma largura da calculadora e alinhado ao topo dela. */
   .layout {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
-    align-items: center;
+    align-items: start;
     column-gap: 1.5rem;
   }
 
@@ -148,9 +148,11 @@ body {
 
   .history {
     grid-column: 3;
+    justify-self: start;
     display: flex;
     flex-direction: column;
     gap: 0.75rem;
+    width: min(360px, 100%);
     min-width: 0;
     padding: 1rem;
     border-radius: 1.5rem;
@@ -167,7 +169,7 @@ body {
 
 .history-empty {
   margin: 0;
-  padding: 1rem 0;
+  padding: 0.5rem 0;
   text-align: center;
   color: #a5a5a5;
 }
@@ -194,33 +196,119 @@ body {
   outline-offset: 2px;
 }
 
+/* Cada cálculo é um botão: tocar nele devolve o resultado ao visor. Expressão pequena e cinza; resultado grande e branco. */
 .history-item {
-  padding: 0.75rem 1rem;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.125rem;
+  width: 100%;
+  padding: 0.625rem 0.75rem;
+  border: 0;
   border-radius: 0.75rem;
   background: #333333;
   color: #ffffff;
+  font: inherit;
   text-align: right;
-  font-variant-numeric: tabular-nums;
+  cursor: pointer;
   overflow-wrap: anywhere;
 }
 
-/* Mesmo laranja e mesmo formato dos botões de operador. */
-.history-clear {
-  padding: 0.75rem 1rem;
-  border: 0;
-  border-radius: 999px;
-  background: #ff9f0a;
-  color: #000000;
-  font: inherit;
-  font-size: 1rem;
-  cursor: pointer;
-}
-
-.history-clear:active {
+.history-item:active {
   filter: brightness(0.8);
 }
 
-.history-clear:focus-visible {
+.history-item:focus-visible {
   outline: 3px solid #ffffff;
   outline-offset: 2px;
+}
+
+.history-expression {
+  font-size: 0.875rem;
+  color: #a5a5a5;
+  font-variant-numeric: tabular-nums;
+}
+
+.history-result {
+  font-size: 1.5rem;
+  font-weight: 600;
+  line-height: 1.2;
+  color: #ffffff;
+  font-variant-numeric: tabular-nums;
+}
+
+.history-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* Painel de ações (hidden) some quando não há cálculos, inclusive o botão de limpar. */
+.history-actions[hidden],
+.history-confirm[hidden] {
+  display: none;
+}
+
+/* Ação secundária: contorno cinza, sem preenchimento, menor que os botões da calculadora. */
+.history-clear,
+.history-cancel {
+  padding: 0.4rem 0.9rem;
+  border: 1px solid #a5a5a5;
+  border-radius: 999px;
+  background: transparent;
+  color: #a5a5a5;
+  font: inherit;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.history-clear:hover,
+.history-cancel:hover {
+  border-color: #ffffff;
+  color: #ffffff;
+}
+
+.history-clear:focus-visible,
+.history-cancel:focus-visible,
+.history-confirm-yes:focus-visible {
+  outline: 3px solid #ffffff;
+  outline-offset: 2px;
+}
+
+.history-confirm {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.history-confirm-text {
+  margin: 0;
+  font-size: 0.875rem;
+  color: #ffffff;
+  text-align: center;
+}
+
+.history-confirm-buttons {
+  display: flex;
+  gap: 0.5rem;
+}
+
+/* Confirmação de apagar: botão claro, para ser diferente da ação secundária que o abriu. */
+.history-confirm-yes {
+  padding: 0.4rem 0.9rem;
+  border: 0;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #000000;
+  font: inherit;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.history-confirm-yes:active,
+.history-cancel:active,
+.history-clear:active {
+  filter: brightness(0.8);
 }

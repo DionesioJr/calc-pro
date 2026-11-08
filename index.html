@@ -39,9 +39,18 @@
       </main>
       <section class="history" aria-labelledby="history-title">
         <h2 id="history-title" class="history-title">Histórico</h2>
-        <p id="history-empty" class="history-empty">Ainda não há cálculos.</p>
+        <p id="history-empty" class="history-empty" tabindex="-1">Ainda não há cálculos.</p>
         <ol id="history-list" class="history-list" aria-labelledby="history-title" tabindex="0"></ol>
-        <button type="button" id="history-clear" class="history-clear">Limpar histórico</button>
+        <div id="history-actions" class="history-actions" hidden>
+          <button type="button" id="history-clear" class="history-clear">Limpar histórico</button>
+          <div id="history-confirm" class="history-confirm" hidden>
+            <p class="history-confirm-text">Apagar todo o histórico?</p>
+            <div class="history-confirm-buttons">
+              <button type="button" id="history-cancel" class="history-cancel">Cancelar</button>
+              <button type="button" id="history-confirm-yes" class="history-confirm-yes">Apagar</button>
+            </div>
+          </div>
+        </div>
       </section>
     </div>
     <script src="script.js"></script>
