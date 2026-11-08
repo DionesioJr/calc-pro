@@ -3353,6 +3353,12 @@ describe("CALC-30: casos de borda dos parênteses", () => {
     assert.equal(calc.press("(", "2", "+", "3", ")", "x!", "+", "1", "="), "121");
     assert.deepEqual(calc.historyItems(), ["120 + 1 = 121"]);
   });
+
+  test("ln aplicado ao grupo não grava o grupo no histórico: (2 + 3) ln + 1 = grava 1.60943791 + 1 = 2.60943791", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("(", "2", "+", "3", ")", "ln", "+", "1", "="), "2.60943791");
+    assert.deepEqual(calc.historyItems(), ["1.60943791 + 1 = 2.60943791"]);
+  });
 });
 
 describe("CALC-30: teclado e indicador de parênteses abertos", () => {

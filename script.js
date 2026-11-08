@@ -1068,6 +1068,7 @@ const FUNCTION_ACTIONS = [
   "toggle-sign",
   "square",
   "log",
+  "ln",
   "sine",
   "cos",
   "tan",
