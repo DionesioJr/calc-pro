@@ -1620,14 +1620,16 @@ describe("CALC-20: estilo e estrutura do histórico reformulado", () => {
 // Regras do mobile: o bloco @media (max-width: 767px) fica no fim do style.css.
 const MOBILE_CSS = (CSS_SOURCE.match(/@media \(max-width: 767px\) \{[\s\S]*$/) || [""])[0];
 
-// Lado do botão no mobile, como o style.css calcula em --cell: o menor entre a largura (4 colunas) e a altura
-// (5 linhas, com o visor com pelo menos --display-min). Em px, com 1rem = 16px: --pad 16, --gap 12, --display-min 72.
+// Lado do botão no mobile, como o style.css calcula em --cell: o menor entre a largura (7 colunas, com 6 espaços)
+// e a altura (5 linhas, com o visor com pelo menos --display-min e a linha de status). Em px, com 1rem = 16px:
+// --pad 14, --gap 4, --display-min 72, --status-height 24.
 function mobileButtonSide(width, height) {
-  const pad = 16;
-  const gap = 12;
+  const pad = 14;
+  const gap = 4;
   const displayMin = 72;
-  const byWidth = (width - 2 * pad - 3 * gap) / 4;
-  const byHeight = (height - 2 * pad - 4 * gap - displayMin) / 5;
+  const statusHeight = 24;
+  const byWidth = (width - 2 * pad - 6 * gap) / 7;
+  const byHeight = (height - 2 * pad - 4 * gap - displayMin - statusHeight) / 5;
   return Math.min(byWidth, byHeight);
 }
 
@@ -1639,10 +1641,12 @@ describe("CALC-21: critérios de aceite do layout mobile", () => {
     assert.match(MOBILE_CSS, /\.calculator\s*\{[^}]*width:\s*100%;[^}]*height:\s*100%;[^}]*border-radius:\s*0;[^}]*\}/);
   });
 
-  test("botões são quadrados do mesmo lado (--cell) e o 0 ocupa duas colunas", () => {
-    assert.match(MOBILE_CSS, /\.keypad\s*\{[^}]*--cell:\s*min\(/);
-    assert.match(MOBILE_CSS, /\.keypad\s*\{[^}]*grid-template-columns:\s*repeat\(4,\s*var\(--cell\)\);[^}]*\}/);
-    assert.match(MOBILE_CSS, /\.keypad\s*\{[^}]*grid-auto-rows:\s*var\(--cell\);[^}]*\}/);
+  test("botões são quadrados do mesmo lado (--cell), a grade científica e o teclado usam o mesmo lado, e o 0 ocupa duas colunas", () => {
+    assert.match(MOBILE_CSS, /\.calculator\s*\{[^}]*--cell:\s*min\(/);
+    assert.match(CSS_SOURCE, /\.keypad\s*\{[^}]*grid-template-columns:\s*repeat\(4,\s*var\(--cell\)\);[^}]*\}/);
+    assert.match(CSS_SOURCE, /\.keypad\s*\{[^}]*grid-auto-rows:\s*var\(--cell\);[^}]*\}/);
+    assert.match(CSS_SOURCE, /\.scientific\s*\{[^}]*grid-template-columns:\s*repeat\(3,\s*var\(--cell\)\);[^}]*\}/);
+    assert.match(CSS_SOURCE, /\.scientific\s*\{[^}]*grid-auto-rows:\s*var\(--cell\);[^}]*\}/);
     assert.match(CSS_SOURCE, /\.btn-zero\s*\{[^}]*grid-column:\s*span 2;[^}]*\}/);
   });
 
@@ -1654,9 +1658,10 @@ describe("CALC-21: critérios de aceite do layout mobile", () => {
       [844, 390],
     ]) {
       const side = mobileButtonSide(width, height);
-      const keypadHeight = 5 * side + 4 * 12;
+      const keypadHeight = 5 * side + 4 * 4;
       assert.ok(side >= 44, `${width}x${height}: botão de ${side}px`);
-      assert.ok(2 * 16 + keypadHeight + 72 <= height, `${width}x${height}: teclado não cabe na altura`);
+      // Padding 14 nos dois lados, linha de status 24, visor mínimo 72 e o teclado (5 linhas).
+      assert.ok(2 * 14 + 24 + 72 + keypadHeight <= height, `${width}x${height}: teclado não cabe na altura`);
     }
   });
 
@@ -1860,11 +1865,11 @@ describe("CALC-22: estrutura e estilo do M+ e do indicador", () => {
   });
 
   test("o M+ tem foco visível com contorno branco, sem remover o outline", () => {
-    assert.match(CSS_SOURCE, /\.memory-add:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
+    assert.match(CSS_SOURCE, /\.scientific > button:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
   });
 
-  test("no mobile a linha da memória não encolhe com o visor: .memory com flex: none", () => {
-    assert.match(MOBILE_CSS, /\.memory\s*\{\s*flex:\s*none;\s*\}/);
+  test("no mobile a grade científica e o teclado não encolhem com o visor: .panel com flex: none", () => {
+    assert.match(MOBILE_CSS, /\.panel\s*\{\s*flex:\s*none;/);
   });
 });
 
@@ -1979,12 +1984,12 @@ describe("CALC-26: teclado, foco e estrutura do x²", () => {
   test("index.html tem o botão x² na linha da memória (fora do teclado), com rótulo que anuncia a operação", () => {
     assert.match(
       HTML_SOURCE,
-      /<div class="memory">[\s\S]*?<button type="button" id="square-button" class="square-add" data-action="square" aria-label="Elevar ao quadrado \(x²\)">x²<\/button>[\s\S]*?<\/div>\s*<div class="keypad">/,
+      /<div class="scientific">[\s\S]*?<button type="button" id="square-button" class="square-add" data-action="square" aria-label="Elevar ao quadrado \(x²\)">x²<\/button>[\s\S]*?<\/div>\s*<div class="keypad">/,
     );
   });
 
   test("o x² tem foco visível com contorno branco, sem remover o outline", () => {
-    assert.match(CSS_SOURCE, /\.square-add:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
+    assert.match(CSS_SOURCE, /\.scientific > button:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
   });
 });
 
@@ -2082,12 +2087,12 @@ describe("CALC-34: histórico, teclado, foco e estrutura do log", () => {
   test("index.html tem o botão log na linha da memória (fora do teclado), com rótulo que anuncia a operação", () => {
     assert.match(
       HTML_SOURCE,
-      /<div class="memory">[\s\S]*?<button type="button" id="log-button" class="log-button" data-action="log" aria-label="Logaritmo na base 10 \(log\)">log<\/button>[\s\S]*?<\/div>\s*<div class="keypad">/,
+      /<div class="scientific">[\s\S]*?<button type="button" id="log-button" class="log-button" data-action="log" aria-label="Logaritmo na base 10 \(log\)">log<\/button>[\s\S]*?<\/div>\s*<div class="keypad">/,
     );
   });
 
   test("o log tem foco visível com contorno branco, sem remover o outline", () => {
-    assert.match(CSS_SOURCE, /\.log-button:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
+    assert.match(CSS_SOURCE, /\.scientific > button:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
   });
 });
 
@@ -2184,12 +2189,12 @@ describe("CALC-31: teclado, foco e estrutura do sen", () => {
   test("index.html tem o botão sen na linha da memória (fora do teclado), com rótulo que anuncia a operação", () => {
     assert.match(
       HTML_SOURCE,
-      /<div class="memory">[\s\S]*?<button type="button" id="sine-button" class="sine-add" data-action="sine" aria-label="Seno em graus \(sen\)">sen<\/button>[\s\S]*?<\/div>\s*<div class="keypad">/,
+      /<div class="scientific">[\s\S]*?<button type="button" id="sine-button" class="sine-add" data-action="sine" aria-label="Seno em graus \(sen\)">sen<\/button>[\s\S]*?<\/div>\s*<div class="keypad">/,
     );
   });
 
   test("o sen tem foco visível com contorno branco, sem remover o outline", () => {
-    assert.match(CSS_SOURCE, /\.sine-add:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
+    assert.match(CSS_SOURCE, /\.scientific > button:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
   });
 });
 
@@ -2261,12 +2266,12 @@ describe("CALC-36: teclado, foco e estrutura do π", () => {
   test("index.html tem o botão π na linha da memória (fora do teclado), com rótulo que anuncia a operação", () => {
     assert.match(
       HTML_SOURCE,
-      /<div class="memory">[\s\S]*?<button type="button" id="pi-button" class="pi-add" data-action="pi" aria-label="Inserir pi \(π\)">π<\/button>[\s\S]*?<\/div>\s*<div class="keypad">/,
+      /<div class="scientific">[\s\S]*?<button type="button" id="pi-button" class="pi-add" data-action="pi" aria-label="Inserir pi \(π\)">π<\/button>[\s\S]*?<\/div>\s*<div class="keypad">/,
     );
   });
 
   test("o π tem foco visível com contorno branco, sem remover o outline", () => {
-    assert.match(CSS_SOURCE, /\.pi-add:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
+    assert.match(CSS_SOURCE, /\.scientific > button:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
   });
 });
 
@@ -2366,12 +2371,12 @@ describe("CALC-37: teclado, foco e estrutura do e", () => {
   test("index.html tem o botão e na linha da memória (fora do teclado), com rótulo que anuncia a operação", () => {
     assert.match(
       HTML_SOURCE,
-      /<div class="memory">[\s\S]*?<button type="button" id="e-button" class="e-add" data-action="euler" aria-label="Inserir número de Euler \(e\)">e<\/button>[\s\S]*?<\/div>\s*<div class="keypad">/,
+      /<div class="scientific">[\s\S]*?<button type="button" id="e-button" class="e-add" data-action="euler" aria-label="Inserir número de Euler \(e\)">e<\/button>[\s\S]*?<\/div>\s*<div class="keypad">/,
     );
   });
 
   test("o e tem foco visível com contorno branco, sem remover o outline", () => {
-    assert.match(CSS_SOURCE, /\.e-add:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
+    assert.match(CSS_SOURCE, /\.scientific > button:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
   });
 });
 
@@ -2468,12 +2473,12 @@ describe("CALC-38: teclado, foco e estrutura do 1/x", () => {
   test("index.html tem o botão 1/x na linha da memória (fora do teclado), com rótulo que anuncia a operação", () => {
     assert.match(
       HTML_SOURCE,
-      /<div class="memory">[\s\S]*?<button type="button" id="inverse-button" class="inverse-add" data-action="inverse" aria-label="Inverso \(1\/x\)">1\/x<\/button>[\s\S]*?<\/div>\s*<div class="keypad">/,
+      /<div class="scientific">[\s\S]*?<button type="button" id="inverse-button" class="inverse-add" data-action="inverse" aria-label="Inverso \(1\/x\)">1\/x<\/button>[\s\S]*?<\/div>\s*<div class="keypad">/,
     );
   });
 
   test("o 1/x tem foco visível com contorno branco, sem remover o outline", () => {
-    assert.match(CSS_SOURCE, /\.inverse-add:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
+    assert.match(CSS_SOURCE, /\.scientific > button:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
   });
 });
 
@@ -2575,12 +2580,12 @@ describe("CALC-27: teclado, foco e estrutura do √x", () => {
   test("index.html tem o botão √x na linha da memória (fora do teclado), com rótulo que anuncia a operação", () => {
     assert.match(
       HTML_SOURCE,
-      /<div class="memory">[\s\S]*?<button type="button" id="sqrt-button" class="sqrt-add" data-action="sqrt" aria-label="Raiz quadrada \(√x\)">√x<\/button>[\s\S]*?<\/div>\s*<div class="keypad">/,
+      /<div class="scientific">[\s\S]*?<button type="button" id="sqrt-button" class="sqrt-add" data-action="sqrt" aria-label="Raiz quadrada \(√x\)">√x<\/button>[\s\S]*?<\/div>\s*<div class="keypad">/,
     );
   });
 
   test("o √x tem foco visível com contorno branco, sem remover o outline", () => {
-    assert.match(CSS_SOURCE, /\.sqrt-add:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
+    assert.match(CSS_SOURCE, /\.scientific > button:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
   });
 });
 
@@ -2688,17 +2693,18 @@ describe("CALC-23: teclado, foco e estrutura do M-", () => {
   test("index.html tem o botão M- ao lado do M+, na linha da memória, fora do teclado, com rótulo que anuncia a operação", () => {
     assert.match(
       HTML_SOURCE,
-      /<div class="memory">\s*(?:<button type="button" id="memory-clear"[^>]*>MC<\/button>\s*)?<button type="button" id="memory-recall"[^>]*>MR<\/button>\s*<button type="button" id="memory-add"[^>]*>M\+<\/button>\s*<button type="button" id="memory-subtract" class="memory-subtract" data-action="memory-subtract" aria-label="Subtrair da memória \(M-\)">M-<\/button>\s*<button type="button" id="square-button"[\s\S]*?<\/div>\s*<div class="keypad">/,
+      /<div class="scientific">\s*(?:<button type="button" id="memory-clear"[^>]*>MC<\/button>\s*)?<button type="button" id="memory-recall"[^>]*>MR<\/button>\s*<button type="button" id="memory-add"[^>]*>M\+<\/button>\s*<button type="button" id="memory-subtract" class="memory-subtract" data-action="memory-subtract" aria-label="Subtrair da memória \(M-\)">M-<\/button>\s*<button type="button" id="square-button"[\s\S]*?<\/div>\s*<div class="keypad">/,
     );
   });
 
-  test("o M- tem o mesmo estilo de pílula cinza do M+ e foco visível com contorno branco", () => {
-    assert.match(CSS_SOURCE, /\.memory-subtract\s*\{[^}]*border-radius:\s*999px;[^}]*color:\s*#a5a5a5;[^}]*\}/);
-    assert.match(CSS_SOURCE, /\.memory-subtract:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
+  test("o M- usa o estilo da grade científica (cinza escuro, formato redondo) e foco visível com contorno branco", () => {
+    assert.match(CSS_SOURCE, /\.scientific > button\s*\{[^}]*border-radius:\s*999px;[^}]*background:\s*#333333;[^}]*\}/);
+    assert.match(CSS_SOURCE, /\.scientific > button:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
   });
 
-  test("a linha da memória quebra linha em vez de estourar a largura com seis botões: .memory com flex-wrap: wrap", () => {
-    assert.match(CSS_SOURCE, /\.memory\s*\{[^}]*flex-wrap:\s*wrap;[^}]*\}/);
+  test("a grade científica tem 3 colunas do mesmo lado dos botões do teclado, à esquerda dele: .scientific antes de .keypad no DOM", () => {
+    assert.match(CSS_SOURCE, /\.scientific\s*\{[^}]*grid-template-columns:\s*repeat\(3,\s*var\(--cell\)\);[^}]*\}/);
+    assert.match(HTML_SOURCE, /<div class="panel">\s*<div class="scientific">[\s\S]*?<\/div>\s*<div class="keypad">/);
   });
 });
 
@@ -2796,13 +2802,13 @@ describe("CALC-24: teclado, foco e estrutura do MR", () => {
   test("index.html tem o botão MR antes do M+, na linha da memória, fora do teclado, com rótulo que anuncia a operação", () => {
     assert.match(
       HTML_SOURCE,
-      /<div class="memory">\s*(?:<button type="button" id="memory-clear"[^>]*>MC<\/button>\s*)?<button type="button" id="memory-recall" class="memory-recall" data-action="memory-recall" aria-label="Recuperar memória \(MR\)">MR<\/button>\s*<button type="button" id="memory-add"/,
+      /<div class="scientific">\s*(?:<button type="button" id="memory-clear"[^>]*>MC<\/button>\s*)?<button type="button" id="memory-recall" class="memory-recall" data-action="memory-recall" aria-label="Recuperar memória \(MR\)">MR<\/button>\s*<button type="button" id="memory-add"/,
     );
   });
 
-  test("o MR tem o mesmo estilo de pílula cinza do M+ e foco visível com contorno branco", () => {
-    assert.match(CSS_SOURCE, /\.memory-recall\s*\{[^}]*border-radius:\s*999px;[^}]*color:\s*#a5a5a5;[^}]*\}/);
-    assert.match(CSS_SOURCE, /\.memory-recall:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
+  test("o MR usa o estilo da grade científica (cinza escuro, formato redondo) e foco visível com contorno branco", () => {
+    assert.match(CSS_SOURCE, /\.scientific > button\s*\{[^}]*border-radius:\s*999px;[^}]*background:\s*#333333;[^}]*\}/);
+    assert.match(CSS_SOURCE, /\.scientific > button:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
   });
 });
 
@@ -2908,12 +2914,12 @@ describe("CALC-33: teclado, foco e estrutura do tan", () => {
   test("index.html tem o botão tan na linha da memória (fora do teclado), com rótulo que anuncia a operação", () => {
     assert.match(
       HTML_SOURCE,
-      /<div class="memory">[\s\S]*?<button type="button" id="tan-button" class="tan-add" data-action="tan" aria-label="Tangente em graus \(tan\)">tan<\/button>[\s\S]*?<\/div>\s*<div class="keypad">/,
+      /<div class="scientific">[\s\S]*?<button type="button" id="tan-button" class="tan-add" data-action="tan" aria-label="Tangente em graus \(tan\)">tan<\/button>[\s\S]*?<\/div>\s*<div class="keypad">/,
     );
   });
 
   test("o tan tem foco visível com contorno branco, sem remover o outline", () => {
-    assert.match(CSS_SOURCE, /\.tan-add:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
+    assert.match(CSS_SOURCE, /\.scientific > button:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
   });
 });
 
@@ -2994,13 +3000,13 @@ describe("CALC-25: teclado, foco e estrutura do MC", () => {
   test("index.html tem o botão MC antes do MR, na linha da memória, fora do teclado, com rótulo que anuncia a operação", () => {
     assert.match(
       HTML_SOURCE,
-      /<div class="memory">\s*<button type="button" id="memory-clear" class="memory-clear" data-action="memory-clear" aria-label="Limpar memória \(MC\)">MC<\/button>\s*<button type="button" id="memory-recall"/,
+      /<div class="scientific">\s*<button type="button" id="memory-clear" class="memory-clear" data-action="memory-clear" aria-label="Limpar memória \(MC\)">MC<\/button>\s*<button type="button" id="memory-recall"/,
     );
   });
 
-  test("o MC tem o mesmo estilo de pílula cinza do MR e foco visível com contorno branco", () => {
-    assert.match(CSS_SOURCE, /\.memory-clear\s*\{[^}]*border-radius:\s*999px;[^}]*color:\s*#a5a5a5;[^}]*\}/);
-    assert.match(CSS_SOURCE, /\.memory-clear:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
+  test("o MC usa o estilo da grade científica (cinza escuro, formato redondo) e foco visível com contorno branco", () => {
+    assert.match(CSS_SOURCE, /\.scientific > button\s*\{[^}]*border-radius:\s*999px;[^}]*background:\s*#333333;[^}]*\}/);
+    assert.match(CSS_SOURCE, /\.scientific > button:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
   });
 });
 
@@ -3152,12 +3158,12 @@ describe("CALC-29: teclado, foco e estrutura do xʸ", () => {
   test("index.html tem o botão xʸ na linha da memória (fora do teclado), depois do tan, com rótulo que anuncia a operação", () => {
     assert.match(
       HTML_SOURCE,
-      /<div class="memory">[\s\S]*?<button type="button" id="tan-button"[^>]*>tan<\/button>\s*<button type="button" id="power-button" class="power-add" data-action="power" aria-label="Elevar à potência \(xʸ\)">xʸ<\/button>[\s\S]*?<\/div>\s*<div class="keypad">/,
+      /<div class="scientific">[\s\S]*?<button type="button" id="tan-button"[^>]*>tan<\/button>\s*<button type="button" id="power-button" class="power-add" data-action="power" aria-label="Elevar à potência \(xʸ\)">xʸ<\/button>[\s\S]*?<\/div>\s*<div class="keypad">/,
     );
   });
 
   test("o xʸ tem foco visível com contorno branco, sem remover o outline", () => {
-    assert.match(CSS_SOURCE, /\.power-add:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
+    assert.match(CSS_SOURCE, /\.scientific > button:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
   });
 
   test("o xʸ pendente tem o destaque de operador do teclado (texto laranja sobre branco)", () => {
