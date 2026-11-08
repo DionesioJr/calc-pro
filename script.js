@@ -23,10 +23,12 @@ const DISPLAY_SIZES = [
 
 const state = {
   current: "0",
-  // Operando à esquerda aguardando o operador seguinte (ou o igual).
-  previous: null,
-  // Operador pendente: "add" | "subtract" | "multiply" | "divide" | null.
-  operator: null,
+  // Conta pendente, em ordem: números e operadores alternados (ex.: [2, "add", 3, "multiply"]).
+  // Um operador no fim da pilha é o operador pendente, aguardando o segundo número.
+  stack: [],
+  // Sequência crua da conta em curso, sem reduzir: números como texto (como digitados; e entra com o valor completo) e nomes de operador.
+  // Trocar um operador refaz a pilha a partir daqui, para os termos já fechados voltarem a abrir.
+  terms: [],
   // true logo após apertar um operador ou o igual: o próximo dígito começa um novo número.
   waitingForOperand: false,
   // true quando a última operação falhou (divisão por zero).
@@ -45,6 +47,14 @@ const OPERATIONS = {
   subtract: (a, b) => a - b,
   multiply: (a, b) => a * b,
   divide: (a, b) => (b === 0 ? null : a / b),
+};
+
+// Precedência: × e ÷ são calculados antes de + e −. Entre operadores de mesma precedência vale a ordem da esquerda para a direita.
+const PRECEDENCE = {
+  add: 1,
+  subtract: 1,
+  multiply: 2,
+  divide: 2,
 };
 
 const OPERATOR_SYMBOLS = {
@@ -85,8 +95,9 @@ const memoryRecallButton = document.getElementById("memory-recall");
 // Botão MC fica na linha da memória, antes do MR, também sem tecla própria no teclado físico.
 const memoryClearButton = document.getElementById("memory-clear");
 
-// Botão x² fica na mesma linha do M+, fora do teclado numérico (que segue com 5 linhas).
+// Botões x² e log ficam na mesma linha do M+, fora do teclado numérico (que segue com 5 linhas).
 const squareButton = document.getElementById("square-button");
+const logButton = document.getElementById("log-button");
 // Botão sen também fica nessa linha, pelo mesmo motivo.
 const sineButton = document.getElementById("sine-button");
 // Botão π também fica nessa linha, pelo mesmo motivo.
@@ -95,6 +106,8 @@ const piButton = document.getElementById("pi-button");
 const eButton = document.getElementById("e-button");
 // Botão 1/x também fica nessa linha, pelo mesmo motivo.
 const inverseButton = document.getElementById("inverse-button");
+// Botão tan também fica nessa linha, pelo mesmo motivo.
+const tangentButton = document.getElementById("tan-button");
 const pressableButtons = memoryAddButton ? [...buttons, memoryAddButton] : buttons;
 
 function displaySizeClass(text) {
@@ -111,7 +124,7 @@ function render() {
   }
 
   // Operador destacado (aria-pressed="true", estilizado no CSS): só enquanto o segundo número não começou.
-  const selectedOperator = state.operator !== null && state.waitingForOperand ? state.operator : null;
+  const selectedOperator = state.waitingForOperand ? trailingOperator() : null;
   for (const button of operatorButtons) {
     button.setAttribute("aria-pressed", String(button.dataset.action === selectedOperator));
   }
@@ -125,8 +138,8 @@ function render() {
 // Reinicia o cálculo em curso. O histórico não é apagado aqui (só pelo botão Limpar histórico).
 function reset() {
   setCurrent("0");
-  state.previous = null;
-  state.operator = null;
+  state.stack = [];
+  state.terms = [];
   state.waitingForOperand = false;
   state.error = false;
   state.expression = [];
@@ -143,13 +156,29 @@ function operandValue() {
   return state.exact !== null ? state.exact : Number(state.current);
 }
 
+// Número fechado que entra na sequência crua: o texto do visor, ou o valor completo da constante (String(Math.E) volta ao mesmo double).
+function closedNumber() {
+  return state.exact !== null ? String(state.exact) : state.current;
+}
+
 function setError() {
   setCurrent(ERROR_TEXT);
-  state.previous = null;
-  state.operator = null;
+  state.stack = [];
+  state.terms = [];
   state.waitingForOperand = true;
   state.error = true;
   state.expression = [];
+}
+
+// Operador pendente (está no fim da pilha), ou null se a pilha termina em número.
+function trailingOperator() {
+  const last = state.stack[state.stack.length - 1];
+  return typeof last === "string" ? last : null;
+}
+
+// Na sequência crua, operador é o nome (ex.: "add"); número é o texto digitado (ex.: "2", "0.5").
+function isOperator(term) {
+  return Object.hasOwn(OPERATIONS, term);
 }
 
 function loadHistory() {
@@ -426,6 +455,22 @@ function square() {
   state.waitingForOperand = false;
 }
 
+// log: logaritmo decimal (base 10) do número exibido, com a mesma regra de segundo operando do % e do x²
+// (o visor mostra o resultado). Valor menor ou igual a zero não tem logaritmo real: mostra Erro.
+// Com Erro no visor não calcula e mantém o Erro.
+function logarithm() {
+  if (state.error) {
+    return;
+  }
+  const value = operandValue();
+  if (value <= 0) {
+    setError();
+    return;
+  }
+  setCurrent(formatResult(Math.log10(value)));
+  state.waitingForOperand = false;
+}
+
 // Seno em graus (o visor mostra DEG). Múltiplos de 90° saem exatos (sen 0° = 0, sen 90° = 1); os demais usam radianos.
 // Reduzir módulo 360 antes evita perder precisão com ângulos grandes.
 const EXACT_SINES = [0, 1, 0, -1];
@@ -490,6 +535,33 @@ function inverse() {
   state.waitingForOperand = false;
 }
 
+// Tangente em graus (o visor mostra DEG). A tangente tem período de 180°, então o ângulo é reduzido módulo 180 antes.
+// Múltiplos de 45° saem exatos (tan 0° = 0, tan 45° = 1, tan 135° = -1); 90° (e 90° + 180°·k) é indefinida: null.
+const EXACT_TANGENTS = [0, 1, null, -1];
+
+function tangentDegrees(degrees) {
+  const angle = ((degrees % 180) + 180) % 180;
+  if (angle % 45 === 0) {
+    return EXACT_TANGENTS[angle / 45];
+  }
+  return Math.tan((angle * Math.PI) / 180);
+}
+
+// tan: troca o número exibido pela tangente dele, com a mesma regra de segundo operando do sen e do 1/x.
+// Indefinida (90° + 180°·k) ou com resultado acima de 2^53 em valor absoluto: mostra Erro. Com Erro no visor não calcula e mantém o Erro.
+function tangent() {
+  if (state.error) {
+    return;
+  }
+  const result = tangentDegrees(operandValue());
+  if (result === null || !Number.isFinite(result) || Math.abs(result) > MAX_RESULT) {
+    setError();
+    return;
+  }
+  setCurrent(formatResult(result));
+  state.waitingForOperand = false;
+}
+
 // Backspace (teclado): apaga o último caractere do número em edição.
 // Sem número em edição (após operador ou igual) não faz nada. Após erro, reinicia a calculadora.
 // Se sobrar algo que não é um número válido (ex.: "-" ou notação científica), volta para 0.
@@ -507,17 +579,47 @@ function deleteDigit() {
   setCurrent(VALID_ENTRY.test(remaining) ? remaining : "0");
 }
 
-// Aplica o operador pendente: left (operando à esquerda) op right.
-// Retorna false se a operação falhou (divisão por zero, resultado não finito ou acima de 2^53) e o erro foi exibido.
-function evaluatePending(right) {
-  const result = OPERATIONS[state.operator](state.previous, right);
-  if (result === null || !Number.isFinite(result) || Math.abs(result) > MAX_RESULT) {
-    setError();
-    return false;
+// Calcula a pilha de trás para a frente enquanto o operador logo antes do último número tiver precedência >= minPrecedence.
+// Com 0 calcula tudo (no igual); com a precedência de × ou ÷, só fecha o termo de × e ÷ que já estava em curso.
+// Como a pilha guarda operadores em ordem crescente de precedência, o de cima é sempre o que vem primeiro.
+// Não mexe no estado: devolve { stack, result } (result é o último resultado calculado, ou null se nada foi calculado),
+// ou null se a conta falhou (divisão por zero, resultado não finito ou acima de 2^53).
+function reduceStack(stack, minPrecedence) {
+  let result = null;
+  while (stack.length >= 3 && PRECEDENCE[stack[stack.length - 2]] >= minPrecedence) {
+    const right = stack.pop();
+    const operator = stack.pop();
+    const left = stack.pop();
+    const value = OPERATIONS[operator](left, right);
+    if (value === null || !Number.isFinite(value) || Math.abs(value) > MAX_RESULT) {
+      return null;
+    }
+    result = formatResult(value);
+    stack.push(Number(result));
   }
-  setCurrent(formatResult(result));
-  state.previous = Number(state.current);
-  return true;
+  return { stack, result };
+}
+
+// Monta a pilha a partir da sequência crua, reduzindo antes de empilhar cada operador.
+// Devolve { stack, display }: display é o resultado do último operador que reduziu, ou null se esse operador não reduziu
+// nada (o visor segue mostrando o último número fechado, com o valor completo de e, se for o caso). Ou null se a conta falhou.
+function foldTerms(terms) {
+  const stack = [];
+  let display = null;
+  for (let i = 0; i < terms.length; i++) {
+    const term = terms[i];
+    if (isOperator(term)) {
+      const reduced = reduceStack(stack, PRECEDENCE[term]);
+      if (reduced === null) {
+        return null;
+      }
+      display = reduced.result;
+      stack.push(term);
+    } else {
+      stack.push(Number(term));
+    }
+  }
+  return { stack, display };
 }
 
 function inputOperator(operator) {
@@ -525,27 +627,28 @@ function inputOperator(operator) {
     reset();
   }
 
-  // Trocar de operador antes do segundo número substitui o anterior (também na expressão).
-  if (state.operator !== null && state.waitingForOperand) {
-    state.operator = operator;
+  if (state.waitingForOperand && trailingOperator() !== null) {
+    // Trocar de operador antes do segundo número substitui o anterior (também na expressão e na sequência crua).
+    state.terms[state.terms.length - 1] = operator;
     state.expression[state.expression.length - 1] = OPERATOR_SYMBOLS[operator];
+  } else {
+    // O número que está sendo fechado agora entra na sequência crua, sem reduzir.
+    state.terms.push(closedNumber(), operator);
+    state.expression.push(state.current, OPERATOR_SYMBOLS[operator]);
+  }
+
+  // A pilha é sempre refeita da sequência crua: assim, trocar o operador também reabre termos já fechados.
+  // Ex.: 2 + 3 × deixa o 3 pendente; 2 + 3 × 4 + resolve para 14.
+  const folded = foldTerms(state.terms);
+  if (folded === null) {
+    setError();
     return;
   }
-
-  // Número que está sendo fechado agora: o primeiro operando, ou o segundo em um encadeamento.
-  const operand = state.current;
-
-  if (state.operator !== null) {
-    // Encadeamento da esquerda para a direita: resolve a operação pendente primeiro.
-    if (!evaluatePending(operandValue())) {
-      return;
-    }
-  } else {
-    state.previous = operandValue();
+  state.stack = folded.stack;
+  // Sem redução neste operador, o visor não muda: continua o último número fechado (e, se for a constante, com state.exact).
+  if (folded.display !== null) {
+    setCurrent(folded.display);
   }
-
-  state.expression.push(operand, OPERATOR_SYMBOLS[operator]);
-  state.operator = operator;
   state.waitingForOperand = true;
 }
 
@@ -554,23 +657,35 @@ function inputEquals() {
     reset();
     return;
   }
-  if (state.operator === null) {
+  if (state.stack.length === 0) {
     return;
   }
 
-  // Igual sem segundo número usa o próprio primeiro número (2 + = → 4, como no iOS).
-  const right = state.waitingForOperand ? state.previous : operandValue();
-  const rightOperand = state.waitingForOperand ? formatResult(state.previous) : state.current;
-  if (!evaluatePending(right)) {
+  let rightOperand;
+  if (state.waitingForOperand) {
+    // Igual logo após operador repete o último número como segundo operando (2 + = → 4, como no iOS).
+    const operator = state.stack.pop();
+    const repeated = state.stack[state.stack.length - 1];
+    rightOperand = formatResult(repeated);
+    state.stack.push(operator, repeated);
+  } else {
+    rightOperand = state.current;
+    state.stack.push(operandValue());
+  }
+
+  const reduced = reduceStack(state.stack, 0);
+  if (reduced === null) {
+    setError();
     return;
   }
+  setCurrent(reduced.result ?? state.current);
 
   state.expression.push(rightOperand, "=", state.current);
   addCalculation(state.expression.join(" "));
   state.expression = [];
 
-  state.operator = null;
-  state.previous = null;
+  state.stack = [];
+  state.terms = [];
   state.waitingForOperand = true;
 }
 
@@ -608,8 +723,12 @@ function handleButton(button) {
     memoryRecall();
   } else if (action === "square") {
     square();
+  } else if (action === "log") {
+    logarithm();
   } else if (action === "sine") {
     sine();
+  } else if (action === "tan") {
+    tangent();
   } else if (action === "pi") {
     insertPi();
   } else if (action === "euler") {
@@ -736,9 +855,23 @@ if (squareButton) {
   });
 }
 
+if (logButton) {
+  logButton.addEventListener("click", () => {
+    handleButton(logButton);
+    render();
+  });
+}
+
 if (sineButton) {
   sineButton.addEventListener("click", () => {
     handleButton(sineButton);
+    render();
+  });
+}
+
+if (tangentButton) {
+  tangentButton.addEventListener("click", () => {
+    handleButton(tangentButton);
     render();
   });
 }
