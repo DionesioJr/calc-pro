@@ -37,9 +37,15 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { start } from "../src/main.js";
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
+// src/ são scripts clássicos (o navegador os carrega sem import/export): aqui eles entram no mesmo escopo, na ordem de index.html.
+// Devolve as funções pedidas em `nomes`.
+function carregarScripts(arquivos, nomes) {
+  const codigo = arquivos.map((arquivo) => fs.readFileSync(path.join(ROOT, "src", arquivo), "utf8")).join("\n;\n");
+  return new Function(`${codigo}\nreturn { ${nomes.join(", ")} };`)();
+}
+const { start } = carregarScripts(["calculator.js", "history.js", "ui.js", "keyboard.js", "main.js"], ["start"]);
 const HTML_SOURCE = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
 // Os arquivos de css/ na ordem em que index.html os carrega: essa ordem é a cascata.
 const CSS_FILES = ["tema.css", "display.css", "teclado.css", "historico.css"].map((name) =>
@@ -586,24 +592,28 @@ describe("index.html expõe os botões usados pelos testes", () => {
   });
 });
 
-// CALC-55: a camada de interface (ui.js e keyboard.js) só importa do motor o que desenha ou mapeia teclas; a conta fica em calculator.js.
+// CALC-55: a camada de interface (ui.js e keyboard.js) só usa do motor o que desenha ou mapeia teclas; a conta fica em calculator.js.
+// Scripts clássicos não têm import: os nomes do motor chegam pelo escopo global, então a checagem conta quais deles cada arquivo usa.
 describe("CALC-55: ui.js e keyboard.js não fazem conta", () => {
   const UI_SOURCE = fs.readFileSync(path.join(ROOT, "src", "ui.js"), "utf8");
   const KEYBOARD_SOURCE = fs.readFileSync(path.join(ROOT, "src", "keyboard.js"), "utf8");
+  const ENGINE_SOURCE = fs.readFileSync(path.join(ROOT, "src", "calculator.js"), "utf8");
 
-  // Nomes importados de "./calculator.js" por um módulo de interface.
-  function importedFromEngine(source) {
-    const match = source.match(/import\s*\{([^}]*)\}\s*from\s*"\.\/calculator\.js"/);
-    const names = match ? match[1].split(",") : [];
-    return names.map((name) => name.trim()).filter(Boolean);
+  // Nomes que calculator.js declara no nível de topo (const, let ou function).
+  const ENGINE_NAMES = [...ENGINE_SOURCE.matchAll(/^(?:const|let|function)\s+(\w+)/gm)].map((match) => match[1]);
+
+  // Nomes do motor usados no código do arquivo (comentários de linha não contam).
+  function usedFromEngine(source) {
+    const code = source.replace(/\/\/.*$/gm, "");
+    return ENGINE_NAMES.filter((name) => new RegExp(`\\b${name}\\b`).test(code)).sort();
   }
 
-  test("ui.js importa do motor só o que desenha: ACTIONS, OPEN_PAREN, openDepth e trailingOperator", () => {
-    assert.deepEqual(importedFromEngine(UI_SOURCE).sort(), ["ACTIONS", "OPEN_PAREN", "openDepth", "trailingOperator"]);
+  test("ui.js usa do motor só o que desenha: ACTIONS, OPEN_PAREN, openDepth e trailingOperator", () => {
+    assert.deepEqual(usedFromEngine(UI_SOURCE), ["ACTIONS", "OPEN_PAREN", "openDepth", "trailingOperator"]);
   });
 
-  test("keyboard.js importa do motor só o registro de ações e datasetOf", () => {
-    assert.deepEqual(importedFromEngine(KEYBOARD_SOURCE).sort(), ["ACTIONS", "datasetOf"]);
+  test("keyboard.js usa do motor só o registro de ações e datasetOf", () => {
+    assert.deepEqual(usedFromEngine(KEYBOARD_SOURCE), ["ACTIONS", "datasetOf"]);
   });
 
   test("ui.js e keyboard.js não têm operações aritméticas da calculadora nem a tabela OPERATIONS", () => {

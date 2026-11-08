@@ -1,3 +1,5 @@
+"use strict";
+
 // Histórico de cálculos: guarda no localStorage e desenha a lista do painel (coluna no desktop, tela cheia no mobile).
 // Não depende da calculadora: quem usa um item (o resultado vai para o visor) é o callback recebido em bindHistory.
 
@@ -18,7 +20,7 @@ let historyConfirmYes = null;
 
 // Liga o histórico ao documento e ao armazenamento, carrega o que estava salvo e desenha a lista.
 // onUseItem recebe o resultado do item tocado (o visor passa a mostrá-lo).
-export function bindHistory(doc, storageObject, onUseItem) {
+function bindHistory(doc, storageObject, onUseItem) {
   docRef = doc;
   storage = storageObject;
   onRecall = onUseItem;
@@ -121,7 +123,7 @@ function renderHistory() {
 }
 
 // Grava um cálculo no fim do histórico e redesenha a lista. Chamado pela calculadora ao fechar uma conta ou função.
-export function addCalculation(text) {
+function addCalculation(text) {
   calculationHistory.push(text);
   saveHistory();
   renderHistory();

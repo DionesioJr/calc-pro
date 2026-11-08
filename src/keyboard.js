@@ -1,8 +1,7 @@
+"use strict";
+
 // Teclado físico: cada tecla executa a mesma ação do botão correspondente (mesmo caminho do clique).
 // Não guarda estado: as ações (press e backspace) vêm de main.js, que atualiza o estado e redesenha.
-import { ACTIONS, datasetOf } from "./calculator.js";
-import { hideHistoryPanel, isHistoryPanelShown } from "./ui.js";
-
 // Tecla → ação, a partir das teclas de cada entrada de ACTIONS (calculator.js): botões e atalhos saem do mesmo registro (CALC-53).
 // Ex.: m e M somam à memória; ( e ) abrem e fecham parênteses (Shift + 9 e Shift + 0 no teclado).
 const ACTION_BY_KEY = new Map(ACTIONS.flatMap((action) => (action.keys ?? []).map((key) => [key, action])));
@@ -19,7 +18,7 @@ const heldKeys = new Map();
 
 // Liga o teclado físico ao documento e à janela. Os botões que recebem tecla são os do teclado numérico, mais os de KEY_BUTTON_IDS.
 // actions: press(dataset) para cada tecla de botão e backspace() para Backspace (main.js atualiza o estado e redesenha).
-export function bindKeyboard(doc, win, actions) {
+function bindKeyboard(doc, win, actions) {
   heldKeys.clear();
   const keypad = doc.querySelector(".keypad");
   const buttons = keypad ? Array.from(keypad.querySelectorAll("button")) : [];

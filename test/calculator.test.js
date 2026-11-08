@@ -1,15 +1,24 @@
-// Testes do motor de cálculo (src/calculator.js) importado direto no Node, sem DOM: as ações recebem e devolvem o estado.
+// Testes do motor de cálculo (src/calculator.js) avaliado direto no Node, sem DOM: as ações recebem e devolvem o estado.
 // Os testes de ponta a ponta com o DOM mínimo ficam em calculadora.test.js.
 import { describe, test } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { ACTIONS, deleteDigit, handleButton, initialState, showResult } from "../src/calculator.js";
 
-const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
-const CALCULATOR_SOURCE = fs.readFileSync(path.join(ROOT, "src", "calculator.js"), "utf8");
-const INDEX_HTML = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
+const SRC_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "src");
+const CALCULATOR_SOURCE = fs.readFileSync(path.join(SRC_DIR, "calculator.js"), "utf8");
+const INDEX_HTML = fs.readFileSync(path.join(SRC_DIR, "..", "index.html"), "utf8");
+
+// src/calculator.js é um script clássico (o navegador o carrega sem import/export): aqui ele é avaliado e as funções são devolvidas.
+function carregarScripts(arquivos, nomes) {
+  const codigo = arquivos.map((arquivo) => fs.readFileSync(path.join(SRC_DIR, arquivo), "utf8")).join("\n;\n");
+  return new Function(`${codigo}\nreturn { ${nomes.join(", ")} };`)();
+}
+const { ACTIONS, deleteDigit, handleButton, initialState, showResult } = carregarScripts(
+  ["calculator.js"],
+  ["ACTIONS", "deleteDigit", "handleButton", "initialState", "showResult"],
+);
 
 // Aplica uma sequência de botões (data-value ou data-action) e junta as linhas do histórico que as ações geraram.
 function run(state, datasets) {
