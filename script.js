@@ -33,7 +33,7 @@ const state = {
   error: false,
   // Partes da expressão em curso (ex.: ["12", "×", "3", "="]); viram uma linha do histórico no igual.
   expression: [],
-  // Registrador da memória (M+): soma dos valores do visor. Começa em 0; AC não o apaga.
+  // Registrador da memória (M+): soma dos valores do visor. Começa em 0; AC não o apaga, só MC.
   memory: 0,
 };
 
@@ -75,10 +75,22 @@ const operatorButtons = buttons.filter((button) => Object.hasOwn(OPERATIONS, but
 // Botão M+ fica fora do teclado numérico, mas recebe as mesmas teclas e o efeito de tecla pressionada.
 const memoryAddButton = document.getElementById("memory-add");
 const memoryIndicator = document.getElementById("memory-indicator");
+// Botão M- fica na linha da memória, ao lado do M+, sem tecla própria no teclado físico (o "-" segue como subtração).
+const memorySubtractButton = document.getElementById("memory-subtract");
+// Botão MR fica na linha da memória, antes do M+, também sem tecla própria no teclado físico.
+const memoryRecallButton = document.getElementById("memory-recall");
+// Botão MC fica na linha da memória, antes do MR, também sem tecla própria no teclado físico.
+const memoryClearButton = document.getElementById("memory-clear");
 
 // Botões x² e log ficam na mesma linha do M+, fora do teclado numérico (que segue com 5 linhas).
 const squareButton = document.getElementById("square-button");
 const logButton = document.getElementById("log-button");
+// Botão sen também fica nessa linha, pelo mesmo motivo.
+const sineButton = document.getElementById("sine-button");
+// Botão π também fica nessa linha, pelo mesmo motivo.
+const piButton = document.getElementById("pi-button");
+// Botão 1/x também fica nessa linha, pelo mesmo motivo.
+const inverseButton = document.getElementById("inverse-button");
 const pressableButtons = memoryAddButton ? [...buttons, memoryAddButton] : buttons;
 
 function displaySizeClass(text) {
@@ -343,18 +355,42 @@ function percent() {
   state.waitingForOperand = false;
 }
 
-// M+: soma o número exibido à memória (o visor não muda). Com Erro no visor não faz nada.
-// Se a soma passar de 2^53, mostra Erro, como qualquer resultado, e a memória fica como estava.
-function memoryAdd() {
+// M+ e M-: somam (sign 1) ou subtraem (sign -1) o número exibido da memória; o visor não muda. Com Erro no visor não faz nada.
+// Se o resultado passar de 2^53 em valor absoluto, mostra Erro, como qualquer resultado, e a memória fica como estava.
+function changeMemory(sign) {
   if (state.error) {
     return;
   }
-  const sum = state.memory + Number(state.current);
-  if (!Number.isFinite(sum) || Math.abs(sum) > MAX_RESULT) {
+  const total = state.memory + sign * Number(state.current);
+  if (!Number.isFinite(total) || Math.abs(total) > MAX_RESULT) {
     setError();
     return;
   }
-  state.memory = Number(formatResult(sum));
+  state.memory = Number(formatResult(total));
+}
+
+function memoryAdd() {
+  changeMemory(1);
+}
+
+// MC: zera a memória, e o indicador some (render). Não mexe no visor, então vale também com Erro, como o AC não apaga a memória.
+function memoryClear() {
+  state.memory = 0;
+}
+
+// M-: subtrai o número exibido da memória (ex.: memória 8, visor 3 → memória 5).
+function memorySubtract() {
+  changeMemory(-1);
+}
+
+// MR: copia a memória para o visor como operando atual, substituindo o número em curso, como o π.
+// Memória vazia é 0. A memória não muda. Após Erro, começa uma calculadora nova, como um dígito.
+function memoryRecall() {
+  if (state.error) {
+    reset();
+  }
+  state.current = formatResult(state.memory);
+  state.waitingForOperand = false;
 }
 
 // x²: eleva o número exibido ao quadrado, com a mesma regra de segundo operando do % (o visor mostra o resultado).
@@ -385,6 +421,58 @@ function logarithm() {
     return;
   }
   state.current = formatResult(Math.log10(value));
+  state.waitingForOperand = false;
+}
+
+// Seno em graus (o visor mostra DEG). Múltiplos de 90° saem exatos (sen 0° = 0, sen 90° = 1); os demais usam radianos.
+// Reduzir módulo 360 antes evita perder precisão com ângulos grandes.
+const EXACT_SINES = [0, 1, 0, -1];
+
+function sineDegrees(degrees) {
+  const angle = ((degrees % 360) + 360) % 360;
+  if (angle % 90 === 0) {
+    return EXACT_SINES[angle / 90];
+  }
+  return Math.sin((angle * Math.PI) / 180);
+}
+
+// sen: troca o número exibido pelo seno dele, com a mesma regra de segundo operando do % e do x².
+// Com Erro no visor não calcula e mantém o Erro. O seno fica entre -1 e 1, então não há limite de 2^53 a checar.
+function sine() {
+  if (state.error) {
+    return;
+  }
+  state.current = formatResult(sineDegrees(Number(state.current)));
+  state.waitingForOperand = false;
+}
+
+// π: insere pi (3.14159265, com as 8 casas de qualquer resultado) como operando, substituindo o número em curso,
+// como o sen. Após Erro, começa uma calculadora nova, como um dígito.
+// O cálculo usa o valor completo; o visor mostra o que couber.
+function insertPi() {
+  if (state.error) {
+    reset();
+  }
+  state.current = formatResult(Math.PI);
+  state.waitingForOperand = false;
+}
+
+// 1/x: troca o número exibido pelo seu inverso, com a mesma regra de segundo operando do %, do x², do sen e do π.
+// Zero não tem inverso: mostra Erro. Com Erro no visor não calcula e mantém o Erro.
+function inverse() {
+  if (state.error) {
+    return;
+  }
+  if (Number(state.current) === 0) {
+    setError();
+    return;
+  }
+  const result = 1 / Number(state.current);
+  if (!Number.isFinite(result) || Math.abs(result) > MAX_RESULT) {
+    setError();
+    return;
+  }
+  state.current = formatResult(result);
   state.waitingForOperand = false;
 }
 
@@ -498,10 +586,22 @@ function handleButton(button) {
     inputEquals();
   } else if (action === "memory-add") {
     memoryAdd();
+  } else if (action === "memory-subtract") {
+    memorySubtract();
+  } else if (action === "memory-clear") {
+    memoryClear();
+  } else if (action === "memory-recall") {
+    memoryRecall();
   } else if (action === "square") {
     square();
   } else if (action === "log") {
     logarithm();
+  } else if (action === "sine") {
+    sine();
+  } else if (action === "pi") {
+    insertPi();
+  } else if (action === "inverse") {
+    inverse();
   } else if (action in OPERATIONS) {
     inputOperator(action);
   }
@@ -594,6 +694,27 @@ if (memoryAddButton) {
   });
 }
 
+if (memorySubtractButton) {
+  memorySubtractButton.addEventListener("click", () => {
+    handleButton(memorySubtractButton);
+    render();
+  });
+}
+
+if (memoryClearButton) {
+  memoryClearButton.addEventListener("click", () => {
+    handleButton(memoryClearButton);
+    render();
+  });
+}
+
+if (memoryRecallButton) {
+  memoryRecallButton.addEventListener("click", () => {
+    handleButton(memoryRecallButton);
+    render();
+  });
+}
+
 if (squareButton) {
   squareButton.addEventListener("click", () => {
     handleButton(squareButton);
@@ -604,6 +725,27 @@ if (squareButton) {
 if (logButton) {
   logButton.addEventListener("click", () => {
     handleButton(logButton);
+    render();
+  });
+}
+
+if (sineButton) {
+  sineButton.addEventListener("click", () => {
+    handleButton(sineButton);
+    render();
+  });
+}
+
+if (piButton) {
+  piButton.addEventListener("click", () => {
+    handleButton(piButton);
+    render();
+  });
+}
+
+if (inverseButton) {
+  inverseButton.addEventListener("click", () => {
+    handleButton(inverseButton);
     render();
   });
 }
