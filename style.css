@@ -413,6 +413,32 @@ body {
   outline-offset: 2px;
 }
 
+/* Botão x!: mesmo estilo do M+, do x², do sen, do π e do 1/x (pílula com contorno cinza), na linha da memória. */
+.factorial-add {
+  padding: 0.4rem 0.9rem;
+  border: 1px solid #a5a5a5;
+  border-radius: 999px;
+  background: transparent;
+  color: #a5a5a5;
+  font: inherit;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.factorial-add:hover {
+  border-color: #ffffff;
+  color: #ffffff;
+}
+
+.factorial-add:active {
+  filter: brightness(0.8);
+}
+
+.factorial-add:focus-visible {
+  outline: 3px solid #ffffff;
+  outline-offset: 2px;
+}
+
 /* Botão √x: mesmo estilo do M+, do x², do sen, do π e do 1/x (pílula com contorno cinza), na linha da memória. */
 .sqrt-add {
   padding: 0.4rem 0.9rem;
