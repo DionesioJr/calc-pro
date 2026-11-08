@@ -6,7 +6,8 @@
 // do limite de 2^53 para resultados (CALC-16), do histórico de cálculos no localStorage (CALC-19),
 // do painel de histórico reformulado (CALC-20: itens tocáveis, confirmação ao limpar),
 // e do layout mobile com o painel do histórico em tela cheia (CALC-21),
-// e do botão M+ com o indicador de memória (CALC-22).
+// e do botão M+ com o indicador de memória (CALC-22),
+// e do botão x² (CALC-26: eleva o visor ao quadrado, com erro e formatação do visor).
 // Executa script.js real num contexto isolado, com um DOM mínimo, e aperta
 // os botões pelo mesmo caminho de clique que o navegador usa; o teclado usa o mesmo
 // caminho de keydown.
@@ -137,6 +138,9 @@ function createCalculator({ storage = {} } = {}) {
   memoryAddElement.dataset = { action: "memory-add" };
   const memoryIndicatorElement = createElementMock("span");
   memoryIndicatorElement.hidden = true;
+  // x² também fica fora do teclado, na linha da memória, como em index.html.
+  const squareElement = createElementMock("button");
+  squareElement.dataset = { action: "square" };
   let onKeypadClick = null;
   let onKeyDown = null;
   let onKeyUp = null;
@@ -149,6 +153,7 @@ function createCalculator({ storage = {} } = {}) {
   }
   const buttons = Object.values(buttonByKey);
   buttonByKey["M+"] = memoryAddElement;
+  buttonByKey["x²"] = squareElement;
 
   const keypad = {
     addEventListener(type, listener) {
@@ -175,6 +180,7 @@ function createCalculator({ storage = {} } = {}) {
     calculator: calculatorMain,
     "memory-add": memoryAddElement,
     "memory-indicator": memoryIndicatorElement,
+    "square-button": squareElement,
   };
 
   const document = {
@@ -203,11 +209,15 @@ function createCalculator({ storage = {} } = {}) {
   const context = vm.createContext({ document, window, localStorage });
   vm.runInContext(SCRIPT_SOURCE, context, { filename: "script.js" });
 
-  // Aperta as teclas em sequência e devolve o texto final do display. M+ é clicado pelo próprio botão, fora do teclado.
+  // Aperta as teclas em sequência e devolve o texto final do display. M+ e x² são clicados pelo próprio botão, fora do teclado.
   function press(...keys) {
     for (const key of keys) {
       if (key === "M+") {
         memoryAddElement.dispatch("click");
+        continue;
+      }
+      if (key === "x²") {
+        squareElement.dispatch("click");
         continue;
       }
       const button = buttonByKey[key];
@@ -1612,5 +1622,125 @@ describe("CALC-22: estrutura e estilo do M+ e do indicador", () => {
 
   test("no mobile a linha da memória não encolhe com o visor: .memory com flex: none", () => {
     assert.match(MOBILE_CSS, /\.memory\s*\{\s*flex:\s*none;\s*\}/);
+  });
+});
+
+describe("CALC-26: critérios de aceite do x² (quadrado)", () => {
+  test("9 x² mostra 81", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("9", "x²"), "81");
+  });
+
+  test("resultado respeita a formatação do visor: 1.1 x² mostra 1.21 (sem ruído de ponto flutuante)", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("1", ".", "1", "x²"), "1.21");
+  });
+});
+
+describe("CALC-26: casos de borda do x² (quadrado)", () => {
+  test("zero continua zero: 0 x² mostra 0", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("0", "x²"), "0");
+  });
+
+  test("negativo é elevado normalmente: 3, +/-, x² mostra 9", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("3", "+/-", "x²"), "9");
+  });
+
+  test("decimal menor que 1 diminui: 0.5 x² mostra 0.25", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("0", ".", "5", "x²"), "0.25");
+  });
+
+  test("quadrado pequeno é arredondado a 8 casas: 0.0001 x² mostra 0.00000001 (sem notação científica)", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("0", ".", "0", "0", "0", "1", "x²"), "0.00000001");
+  });
+
+  test("quadrado abaixo de 8 casas vira 0: 0.00001 x² mostra 0", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("0", ".", "0", "0", "0", "0", "1", "x²"), "0");
+  });
+
+  test("resultado exatamente abaixo do limite de 2^53 continua exibido: 94906265 x² mostra 9007199136250225", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("9", "4", "9", "0", "6", "2", "6", "5", "x²"), "9007199136250225");
+  });
+
+  test("resultado acima do limite de 2^53 mostra Erro: 94906266 x² mostra Erro", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("9", "4", "9", "0", "6", "2", "6", "6", "x²"), "Erro");
+  });
+
+  test("9 dígitos ao quadrado estouram o limite: 999999999 x² mostra Erro", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("9", "9", "9", "9", "9", "9", "9", "9", "9", "x²"), "Erro");
+  });
+
+  test("com Erro no visor, x² mantém o Erro: 5 ÷ 0 =, x² mostra Erro", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("5", "÷", "0", "=", "x²"), "Erro");
+  });
+
+  test("a próxima tecla depois do Erro do x² reinicia a calculadora: 999999999 x², 7 resulta em 7", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("9", "9", "9", "9", "9", "9", "9", "9", "9", "x²", "7"), "7");
+  });
+
+  test("x² depois do igual eleva o resultado: 2 + 3 =, x² mostra 25", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("2", "+", "3", "=", "x²"), "25");
+  });
+
+  test("x² no segundo operando entra na conta: 2 + 3 x², = resulta em 11", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("2", "+", "3", "x²", "="), "11");
+  });
+
+  test("x² depois do operador vira o segundo operando, como o %: 2 + x², = resulta em 6", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("2", "+", "x²", "="), "6");
+  });
+
+  test("x² não grava no histórico sozinho: 9 x² não cria item nem chave no localStorage", () => {
+    const storage = {};
+    const calc = createCalculator({ storage });
+    calc.press("9", "x²");
+    assert.deepEqual(calc.historyItems(), []);
+    assert.equal(HISTORY_KEY in storage, false);
+  });
+
+  test("o cálculo usa o valor elevado no histórico: 2 + 3 x², = grava 2 + 9 = 11", () => {
+    const calc = createCalculator({ storage: {} });
+    calc.press("2", "+", "3", "x²", "=");
+    assert.deepEqual(calc.historyItems(), ["2 + 9 = 11"]);
+  });
+
+  test("x² não mexe na memória: 5 M+, 3 x² mantém a memória em 5", () => {
+    const calc = createCalculator({ storage: {} });
+    calc.press("5", "M+", "AC", "3", "x²");
+    assert.equal(calc.memoryValue(), 5);
+  });
+});
+
+describe("CALC-26: teclado, foco e estrutura do x²", () => {
+  test("Enter com o foco no x² não vira igual: o botão é que age (clique nativo), o cálculo em curso fica", () => {
+    const calc = createCalculator({ storage: {} });
+    calc.press("2", "+", "3");
+    const event = calc.keyDown("Enter", { target: { tagName: "BUTTON" } });
+    assert.equal(event.defaultPrevented, false);
+    assert.equal(calc.display(), "3");
+  });
+
+  test("index.html tem o botão x² na linha da memória (fora do teclado), com rótulo que anuncia a operação", () => {
+    assert.match(
+      HTML_SOURCE,
+      /<div class="memory">[\s\S]*?<button type="button" id="square-button" class="square-add" data-action="square" aria-label="Elevar ao quadrado \(x²\)">x²<\/button>[\s\S]*?<\/div>\s*<div class="keypad">/,
+    );
+  });
+
+  test("o x² tem foco visível com contorno branco, sem remover o outline", () => {
+    assert.match(CSS_SOURCE, /\.square-add:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
   });
 });

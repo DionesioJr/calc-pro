@@ -75,6 +75,9 @@ const operatorButtons = buttons.filter((button) => Object.hasOwn(OPERATIONS, but
 // Botão M+ fica fora do teclado numérico, mas recebe as mesmas teclas e o efeito de tecla pressionada.
 const memoryAddButton = document.getElementById("memory-add");
 const memoryIndicator = document.getElementById("memory-indicator");
+
+// Botão x² fica na mesma linha do M+, fora do teclado numérico (que segue com 5 linhas).
+const squareButton = document.getElementById("square-button");
 const pressableButtons = memoryAddButton ? [...buttons, memoryAddButton] : buttons;
 
 function displaySizeClass(text) {
@@ -353,6 +356,21 @@ function memoryAdd() {
   state.memory = Number(formatResult(sum));
 }
 
+// x²: eleva o número exibido ao quadrado, com a mesma regra de segundo operando do % (o visor mostra o resultado).
+// Com Erro no visor não calcula e mantém o Erro. Se o quadrado passar de 2^53 em valor absoluto, mostra Erro.
+function square() {
+  if (state.error) {
+    return;
+  }
+  const result = Number(state.current) ** 2;
+  if (!Number.isFinite(result) || Math.abs(result) > MAX_RESULT) {
+    setError();
+    return;
+  }
+  state.current = formatResult(result);
+  state.waitingForOperand = false;
+}
+
 // Backspace (teclado): apaga o último caractere do número em edição.
 // Sem número em edição (após operador ou igual) não faz nada. Após erro, reinicia a calculadora.
 // Se sobrar algo que não é um número válido (ex.: "-" ou notação científica), volta para 0.
@@ -463,6 +481,8 @@ function handleButton(button) {
     inputEquals();
   } else if (action === "memory-add") {
     memoryAdd();
+  } else if (action === "square") {
+    square();
   } else if (action in OPERATIONS) {
     inputOperator(action);
   }
@@ -551,6 +571,13 @@ if (keypad) {
 if (memoryAddButton) {
   memoryAddButton.addEventListener("click", () => {
     handleButton(memoryAddButton);
+    render();
+  });
+}
+
+if (squareButton) {
+  squareButton.addEventListener("click", () => {
+    handleButton(squareButton);
     render();
   });
 }
