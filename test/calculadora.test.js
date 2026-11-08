@@ -21,6 +21,7 @@
 // e do botão x! (CALC-39: fatorial do visor, com notação científica acima de 2^53 e Erro para negativo, decimal e overflow),
 // e do botão cos (CALC-32: cosseno do visor em graus, sem ruído de ponto flutuante).
 // e do botão √x (CALC-27: raiz quadrada do visor, com Erro para negativos).
+// e do histórico das funções avançadas (CALC-43: cada função aplicada ao visor vira uma linha, como √16 = 4 ou sen(30) = 0.5).
 // Executa script.js real num contexto isolado, com um DOM mínimo, e aperta
 // os botões pelo mesmo caminho de clique que o navegador usa; o teclado usa o mesmo
 // caminho de keydown.
@@ -1971,18 +1972,18 @@ describe("CALC-26: casos de borda do x² (quadrado)", () => {
     assert.equal(calc.press("2", "+", "x²", "="), "6");
   });
 
-  test("x² não grava no histórico sozinho: 9 x² não cria item nem chave no localStorage", () => {
+  test("x² grava a própria linha no histórico (CALC-43): 9 x² grava 9² = 81", () => {
     const storage = {};
     const calc = createCalculator({ storage });
     calc.press("9", "x²");
-    assert.deepEqual(calc.historyItems(), []);
-    assert.equal(HISTORY_KEY in storage, false);
+    assert.deepEqual(calc.historyItems(), ["9² = 81"]);
+    assert.deepEqual(JSON.parse(storage[HISTORY_KEY]), ["9² = 81"]);
   });
 
-  test("o cálculo usa o valor elevado no histórico: 2 + 3 x², = grava 2 + 9 = 11", () => {
+  test("o cálculo usa o valor elevado no histórico: 2 + 3 x², = grava 2 + 9 = 11 e antes 3² = 9", () => {
     const calc = createCalculator({ storage: {} });
     calc.press("2", "+", "3", "x²", "=");
-    assert.deepEqual(calc.historyItems(), ["2 + 9 = 11"]);
+    assert.deepEqual(calc.historyItems(), ["2 + 9 = 11", "3² = 9"]);
   });
 
   test("x² não mexe na memória: 5 M+, 3 x² mantém a memória em 5", () => {
@@ -2088,12 +2089,12 @@ describe("CALC-34: casos de borda do log (logaritmo decimal)", () => {
 });
 
 describe("CALC-34: histórico, teclado, foco e estrutura do log", () => {
-  test("log não grava no histórico sozinho: 1000 log não cria item nem chave no localStorage", () => {
+  test("log grava a própria linha no histórico (CALC-43): 1000 log grava log(1000) = 3", () => {
     const storage = {};
     const calc = createCalculator({ storage });
     calc.press("1", "0", "0", "0", "log");
-    assert.deepEqual(calc.historyItems(), []);
-    assert.equal(HISTORY_KEY in storage, false);
+    assert.deepEqual(calc.historyItems(), ["log(1000) = 3"]);
+    assert.deepEqual(JSON.parse(storage[HISTORY_KEY]), ["log(1000) = 3"]);
   });
 
   test("Enter com o foco no log não vira igual: o botão é que age (clique nativo), o cálculo em curso fica", () => {
@@ -2184,15 +2185,15 @@ describe("CALC-31: casos de borda do seno", () => {
   test("sen depois do operador vira o segundo operando, como o % e o x²: 2 + 3 0 sen =, resulta em 2.5", () => {
     const calc = createCalculator({ storage: {} });
     assert.equal(calc.press("2", "+", "3", "0", "sen", "="), "2.5");
-    assert.deepEqual(calc.historyItems(), ["2 + 0.5 = 2.5"]);
+    assert.deepEqual(calc.historyItems(), ["2 + 0.5 = 2.5", "sen(30) = 0.5"]);
   });
 
-  test("sen não grava no histórico sozinho e não mexe na memória: 5 M+, AC, 3 0 sen mantém a memória em 5", () => {
+  test("sen grava a própria linha no histórico e não mexe na memória (CALC-43): 5 M+, AC, 3 0 sen grava sen(30) = 0.5 e mantém a memória em 5", () => {
     const storage = {};
     const calc = createCalculator({ storage });
     calc.press("5", "M+", "AC", "3", "0", "sen");
-    assert.deepEqual(calc.historyItems(), []);
-    assert.equal(HISTORY_KEY in storage, false);
+    assert.deepEqual(calc.historyItems(), ["sen(30) = 0.5"]);
+    assert.deepEqual(JSON.parse(storage[HISTORY_KEY]), ["sen(30) = 0.5"]);
     assert.equal(calc.memoryValue(), 5);
   });
 });
@@ -2281,21 +2282,21 @@ describe("CALC-32: casos de borda do cos", () => {
   test("cos depois do igual calcula o resultado: 2 + 58 =, cos mostra 0.5", () => {
     const calc = createCalculator({ storage: {} });
     assert.equal(calc.press("2", "+", "5", "8", "=", "cos"), "0.5");
-    assert.deepEqual(calc.historyItems(), ["2 + 58 = 60"]);
+    assert.deepEqual(calc.historyItems(), ["cos(60) = 0.5", "2 + 58 = 60"]);
   });
 
   test("cos depois do operador vira o segundo operando, como o sen: 2 + 6 0 cos =, resulta em 2.5", () => {
     const calc = createCalculator({ storage: {} });
     assert.equal(calc.press("2", "+", "6", "0", "cos", "="), "2.5");
-    assert.deepEqual(calc.historyItems(), ["2 + 0.5 = 2.5"]);
+    assert.deepEqual(calc.historyItems(), ["2 + 0.5 = 2.5", "cos(60) = 0.5"]);
   });
 
-  test("cos não grava no histórico sozinho e não mexe na memória: 5 M+, AC, 6 0 cos mantém a memória em 5", () => {
+  test("cos grava a própria linha no histórico e não mexe na memória (CALC-43): 5 M+, AC, 6 0 cos grava cos(60) = 0.5 e mantém a memória em 5", () => {
     const storage = {};
     const calc = createCalculator({ storage });
     calc.press("5", "M+", "AC", "6", "0", "cos");
-    assert.deepEqual(calc.historyItems(), []);
-    assert.equal(HISTORY_KEY in storage, false);
+    assert.deepEqual(calc.historyItems(), ["cos(60) = 0.5"]);
+    assert.deepEqual(JSON.parse(storage[HISTORY_KEY]), ["cos(60) = 0.5"]);
     assert.equal(calc.memoryValue(), 5);
   });
 });
@@ -2561,7 +2562,7 @@ describe("CALC-38: casos de borda do 1/x", () => {
     const storage = {};
     const calc = createCalculator({ storage });
     assert.equal(calc.press("2", "+", "4", "1/x", "="), "2.25");
-    assert.deepEqual(calc.historyItems(), ["2 + 0.25 = 2.25"]);
+    assert.deepEqual(calc.historyItems(), ["2 + 0.25 = 2.25", "1/4 = 0.25"]);
   });
 
   test("1/x depois do igual calcula o resultado: 2 + 2 =, 1/x mostra 0.25", () => {
@@ -2575,12 +2576,12 @@ describe("CALC-38: casos de borda do 1/x", () => {
     assert.equal(calc.press("7"), "7");
   });
 
-  test("1/x não grava no histórico sozinho e não mexe na memória: 5 M+, AC, 4 1/x mantém a memória em 5", () => {
+  test("1/x grava a própria linha no histórico e não mexe na memória (CALC-43): 5 M+, AC, 4 1/x grava 1/4 = 0.25 e mantém a memória em 5", () => {
     const storage = {};
     const calc = createCalculator({ storage });
     calc.press("5", "M+", "AC", "4", "1/x");
-    assert.deepEqual(calc.historyItems(), []);
-    assert.equal(HISTORY_KEY in storage, false);
+    assert.deepEqual(calc.historyItems(), ["1/4 = 0.25"]);
+    assert.deepEqual(JSON.parse(storage[HISTORY_KEY]), ["1/4 = 0.25"]);
     assert.equal(calc.memoryValue(), 5);
   });
 });
@@ -2664,7 +2665,7 @@ describe("CALC-27: casos de borda do √x", () => {
     const storage = {};
     const calc = createCalculator({ storage });
     assert.equal(calc.press("2", "+", "9", "√x", "="), "5");
-    assert.deepEqual(calc.historyItems(), ["2 + 3 = 5"]);
+    assert.deepEqual(calc.historyItems(), ["2 + 3 = 5", "√9 = 3"]);
   });
 
   test("√x depois do igual calcula o resultado: 2 + 2 =, √x mostra 2", () => {
@@ -2682,12 +2683,12 @@ describe("CALC-27: casos de borda do √x", () => {
     assert.equal(calc.press("1", "+/-", "√x", "7"), "7");
   });
 
-  test("√x não grava no histórico sozinho e não mexe na memória: 5 M+, AC, 4 √x mantém a memória em 5", () => {
+  test("√x grava a própria linha no histórico e não mexe na memória (CALC-43): 5 M+, AC, 4 √x grava √4 = 2 e mantém a memória em 5", () => {
     const storage = {};
     const calc = createCalculator({ storage });
     calc.press("5", "M+", "AC", "4", "√x");
-    assert.deepEqual(calc.historyItems(), []);
-    assert.equal(HISTORY_KEY in storage, false);
+    assert.deepEqual(calc.historyItems(), ["√4 = 2"]);
+    assert.deepEqual(JSON.parse(storage[HISTORY_KEY]), ["√4 = 2"]);
     assert.equal(calc.memoryValue(), 5);
   });
 });
@@ -3002,7 +3003,7 @@ describe("CALC-33: casos de borda da tangente", () => {
     const storage = {};
     const calc = createCalculator({ storage });
     assert.equal(calc.press("2", "+", "4", "5", "tan", "="), "3");
-    assert.deepEqual(calc.historyItems(), ["2 + 1 = 3"]);
+    assert.deepEqual(calc.historyItems(), ["2 + 1 = 3", "tan(45) = 1"]);
   });
 
   test("tan depois do igual calcula o resultado: 2 + 3 =, tan mostra 0.08748866", () => {
@@ -3016,12 +3017,12 @@ describe("CALC-33: casos de borda da tangente", () => {
     assert.equal(calc.press("7"), "7");
   });
 
-  test("tan não grava no histórico sozinho e não mexe na memória: 5 M+, AC, 4 5 tan mantém a memória em 5", () => {
+  test("tan grava a própria linha no histórico e não mexe na memória (CALC-43): 5 M+, AC, 4 5 tan grava tan(45) = 1 e mantém a memória em 5", () => {
     const storage = {};
     const calc = createCalculator({ storage });
     calc.press("5", "M+", "AC", "4", "5", "tan");
-    assert.deepEqual(calc.historyItems(), []);
-    assert.equal(HISTORY_KEY in storage, false);
+    assert.deepEqual(calc.historyItems(), ["tan(45) = 1"]);
+    assert.deepEqual(JSON.parse(storage[HISTORY_KEY]), ["tan(45) = 1"]);
     assert.equal(calc.memoryValue(), 5);
   });
 });
@@ -3191,7 +3192,7 @@ describe("CALC-39: critérios de aceite do x! (fatorial)", () => {
     const storage = {};
     const calc = createCalculator({ storage });
     assert.equal(calc.press("5", "x!", "+", "1", "0", "="), "130");
-    assert.deepEqual(calc.historyItems(), ["120 + 10 = 130"]);
+    assert.deepEqual(calc.historyItems(), ["120 + 10 = 130", "5! = 120"]);
   });
 });
 
@@ -3253,12 +3254,12 @@ describe("CALC-39: casos de borda do x!", () => {
     assert.equal(calc.type("Backspace"), "0");
   });
 
-  test("x! não grava no histórico sozinho: 5 x! não entra no histórico", () => {
+  test("x! grava a própria linha no histórico (CALC-43): 5 x! grava 5! = 120", () => {
     const storage = {};
     const calc = createCalculator({ storage });
     calc.press("5", "x!");
-    assert.deepEqual(calc.historyItems(), []);
-    assert.equal(HISTORY_KEY in storage, false);
+    assert.deepEqual(calc.historyItems(), ["5! = 120"]);
+    assert.deepEqual(JSON.parse(storage[HISTORY_KEY]), ["5! = 120"]);
   });
 
   test("x! não mexe na memória, mas um resultado pode ir para ela: 5 x! M+ guarda 120", () => {
@@ -3455,5 +3456,151 @@ describe("CALC-29: teclado, foco e estrutura do xʸ", () => {
 
   test("o xʸ pendente tem o destaque de operador do teclado (texto laranja sobre branco)", () => {
     assert.match(CSS_SOURCE, /\.power-add\[aria-pressed="true"\]\s*\{[^}]*background:\s*#ffffff;[^}]*color:\s*#b35c00;/);
+  });
+});
+
+// CALC-43: cada função avançada aplicada ao visor vira uma linha do histórico, "expressão = resultado" (mesmo texto do visor).
+describe("CALC-43: critérios de aceite do histórico das funções avançadas", () => {
+  test("√16 = 4: 1, 6, √x grava √16 = 4, com a linha acessível e o resultado no visor", () => {
+    const storage = {};
+    const calc = createCalculator({ storage });
+    assert.equal(calc.press("1", "6", "√x"), "4");
+    assert.deepEqual(calc.historyItems(), ["√16 = 4"]);
+    assert.deepEqual(JSON.parse(storage[HISTORY_KEY]), ["√16 = 4"]);
+    assert.deepEqual(calc.historyItemParts(0), {
+      expression: "√16",
+      result: "4",
+      label: "√16 igual a 4, usar no visor",
+    });
+  });
+
+  test("sen(30) = 0.5: 3, 0, sen grava sen(30) = 0.5", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("3", "0", "sen"), "0.5");
+    assert.deepEqual(calc.historyItems(), ["sen(30) = 0.5"]);
+  });
+
+  test("cos, tan e log gravam a própria linha: 6 0 cos, 4 5 tan e 1 0 0 0 log", () => {
+    const cosCalc = createCalculator({ storage: {} });
+    cosCalc.press("6", "0", "cos");
+    assert.deepEqual(cosCalc.historyItems(), ["cos(60) = 0.5"]);
+    const tanCalc = createCalculator({ storage: {} });
+    tanCalc.press("4", "5", "tan");
+    assert.deepEqual(tanCalc.historyItems(), ["tan(45) = 1"]);
+    const logCalc = createCalculator({ storage: {} });
+    logCalc.press("1", "0", "0", "0", "log");
+    assert.deepEqual(logCalc.historyItems(), ["log(1000) = 3"]);
+  });
+
+  test("x², 1/x e x! gravam a própria linha: 9 x² grava 9² = 81, 4 1/x grava 1/4 = 0.25, 5 x! grava 5! = 120", () => {
+    const squareCalc = createCalculator({ storage: {} });
+    squareCalc.press("9", "x²");
+    assert.deepEqual(squareCalc.historyItems(), ["9² = 81"]);
+    const inverseCalc = createCalculator({ storage: {} });
+    inverseCalc.press("4", "1/x");
+    assert.deepEqual(inverseCalc.historyItems(), ["1/4 = 0.25"]);
+    const factorialCalc = createCalculator({ storage: {} });
+    factorialCalc.press("5", "x!");
+    assert.deepEqual(factorialCalc.historyItems(), ["5! = 120"]);
+  });
+
+  test("cada função vira uma linha, do mais recente para o mais antigo: 1 6 √x √x grava √4 = 2 e depois √16 = 4", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("1", "6", "√x", "√x"), "2");
+    assert.deepEqual(calc.historyItems(), ["√4 = 2", "√16 = 4"]);
+  });
+
+  test("função depois do igual grava a função com o resultado do igual: 2 + 3 =, √x grava √5 = 2.23606798 antes da conta", () => {
+    const calc = createCalculator({ storage: {} });
+    calc.press("2", "+", "3", "=", "√x");
+    assert.deepEqual(calc.historyItems(), ["√5 = 2.23606798", "2 + 3 = 5"]);
+  });
+
+  test("Limpar histórico apaga também as linhas das funções: 1 6 √x, Limpar e Apagar deixam o histórico vazio e sem chave no localStorage", () => {
+    const storage = {};
+    const calc = createCalculator({ storage });
+    calc.press("1", "6", "√x");
+    calc.clickClear();
+    assert.deepEqual(calc.historyItems(), []);
+    assert.equal(HISTORY_KEY in storage, false);
+    assert.equal(calc.historyEmptyHidden(), false);
+  });
+
+  test("depois de limpar, função nova grava de novo: 1 6 √x, Limpar, AC, 9 √x mostra só √9 = 3", () => {
+    const calc = createCalculator({ storage: {} });
+    calc.press("1", "6", "√x");
+    calc.clickClear();
+    calc.press("AC", "9", "√x");
+    assert.deepEqual(calc.historyItems(), ["√9 = 3"]);
+  });
+
+  test("a linha da função continua depois de recarregar a página: 1 6 √x e nova instância mostra √16 = 4", () => {
+    const storage = {};
+    createCalculator({ storage }).press("1", "6", "√x");
+    assert.deepEqual(createCalculator({ storage }).historyItems(), ["√16 = 4"]);
+  });
+
+  test("tocar na linha da função põe o resultado no visor: 1 6 √x, AC, toque no item mostra 4", () => {
+    const calc = createCalculator({ storage: {} });
+    calc.press("1", "6", "√x", "AC");
+    assert.equal(calc.tapHistoryItem(0), "4");
+  });
+});
+
+describe("CALC-43: casos de borda do histórico das funções avançadas", () => {
+  test("negativo fica entre parênteses no quadrado e no inverso: 3 +/- x² grava (-3)² = 9; 4 +/- 1/x grava 1/(-4) = -0.25", () => {
+    const squareCalc = createCalculator({ storage: {} });
+    squareCalc.press("3", "+/-", "x²");
+    assert.deepEqual(squareCalc.historyItems(), ["(-3)² = 9"]);
+    const inverseCalc = createCalculator({ storage: {} });
+    inverseCalc.press("4", "+/-", "1/x");
+    assert.deepEqual(inverseCalc.historyItems(), ["1/(-4) = -0.25"]);
+  });
+
+  test("seno de ângulo negativo não ganha parênteses extras: 3 0 +/- sen grava sen(-30) = -0.5", () => {
+    const calc = createCalculator({ storage: {} });
+    calc.press("3", "0", "+/-", "sen");
+    assert.deepEqual(calc.historyItems(), ["sen(-30) = -0.5"]);
+  });
+
+  test("e entra na linha com o número mostrado, e o resultado usa o valor completo: e x² grava 2.71828183² = 7.3890561", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("e", "x²"), "7.3890561");
+    assert.deepEqual(calc.historyItems(), ["2.71828183² = 7.3890561"]);
+  });
+
+  test("função com operador pendente grava a função antes do igual: 2 + 3 x² (sem =) grava só 3² = 9", () => {
+    const calc = createCalculator({ storage: {} });
+    calc.press("2", "+", "3", "x²");
+    assert.deepEqual(calc.historyItems(), ["3² = 9"]);
+  });
+
+  test("x! acima de 2^53 grava o resultado em notação científica, como o visor: 2 0 x! grava 20! = 2.4329020081766E+18", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("2", "0", "x!"), "2.4329020081766E+18");
+    assert.deepEqual(calc.historyItems(), ["20! = 2.4329020081766E+18"]);
+  });
+
+  test("função que dá Erro não grava: √ de negativo, tan de 90°, x! de 171 e 1/x de zero não entram no histórico", () => {
+    const storage = {};
+    const calc = createCalculator({ storage });
+    assert.equal(calc.press("1", "+/-", "√x"), "Erro");
+    assert.equal(calc.press("AC", "9", "0", "tan"), "Erro");
+    assert.equal(calc.press("AC", "1", "7", "1", "x!"), "Erro");
+    assert.equal(calc.press("AC", "0", "1/x"), "Erro");
+    assert.deepEqual(calc.historyItems(), []);
+    assert.equal(HISTORY_KEY in storage, false);
+  });
+
+  test("função com Erro no visor não grava nada e não cria linha: 5 ÷ 0 =, √x mantém o Erro e o histórico fica sem a função", () => {
+    const calc = createCalculator({ storage: {} });
+    calc.press("5", "÷", "0", "=", "√x");
+    assert.deepEqual(calc.historyItems(), []);
+  });
+
+  test("operação que falha depois de uma função bem-sucedida mantém a linha da função: 1 6 √x, depois 5 ÷ 0 = grava só √16 = 4", () => {
+    const calc = createCalculator({ storage: {} });
+    calc.press("1", "6", "√x", "AC", "5", "÷", "0", "=");
+    assert.deepEqual(calc.historyItems(), ["√16 = 4"]);
   });
 });
