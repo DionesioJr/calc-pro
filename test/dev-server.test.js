@@ -44,7 +44,8 @@ describe("servidor de desenvolvimento estático", () => {
     const res = await fetchRaw(port, "/");
     assert.equal(res.status, 200);
     assert.match(res.headers["content-type"], /^text\/html/);
-    assert.match(res.body, /<script type="module" src="src\/main\.js"><\/script>/);
+    assert.match(res.body, /<script src="src\/main\.js"><\/script>/);
+    assert.doesNotMatch(res.body, /type="module"/);
   });
 
   test("serve src/main.js com status 200 e tipo JavaScript (caminho feliz do CALC-60)", async () => {
