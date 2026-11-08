@@ -19,6 +19,17 @@ const KEY_BUTTONS = {
   // Parênteses pelo teclado: ( e ) (no teclado com Shift + 9 e Shift + 0).
   "(": { action: "open-paren" },
   ")": { action: "close-paren" },
+  // Funções avançadas (CALC-42): ^ para xʸ, p para π, ! para x!, r para MR, c para MC e _ (Shift + -) para M-.
+  // Letras maiúsculas valem também, como m e M.
+  "^": { action: "power" },
+  p: { action: "pi" },
+  P: { action: "pi" },
+  "!": { action: "factorial" },
+  r: { action: "memory-recall" },
+  R: { action: "memory-recall" },
+  c: { action: "memory-clear" },
+  C: { action: "memory-clear" },
+  _: { action: "memory-subtract" },
 };
 
 // Botões que recebem as mesmas teclas além do teclado numérico: o destaque e o efeito de tecla pressionada usam esta lista.
@@ -28,15 +39,23 @@ let pressableButtons = [];
 // Indexado pelo código físico (event.code), para que soltar a tecla com outro caractere (ex.: Shift) ainda a libere.
 const heldKeys = new Map();
 
-// Liga o teclado físico ao documento e à janela. Os botões que recebem tecla são os do teclado numérico, mais M+, ( e ).
+// Liga o teclado físico ao documento e à janela. Os botões que recebem tecla são os do teclado numérico, mais M+, MR, MC, M-, π, x!, xʸ, ( e ).
 export function bindKeyboard(doc, win) {
   heldKeys.clear();
   const keypad = doc.querySelector(".keypad");
   const buttons = keypad ? Array.from(keypad.querySelectorAll("button")) : [];
-  const memoryAddButton = doc.getElementById("memory-add");
-  const openParenButton = doc.getElementById("open-paren-button");
-  const closeParenButton = doc.getElementById("close-paren-button");
-  pressableButtons = [...buttons, memoryAddButton, openParenButton, closeParenButton].filter(Boolean);
+  const ids = [
+    "memory-add",
+    "memory-subtract",
+    "memory-recall",
+    "memory-clear",
+    "pi-button",
+    "factorial-button",
+    "open-paren-button",
+    "close-paren-button",
+    "power-button",
+  ];
+  pressableButtons = [...buttons, ...ids.map((id) => doc.getElementById(id))].filter(Boolean);
 
   doc.addEventListener("keydown", (event) => {
     // Atalhos do navegador (Ctrl+C, Cmd+R etc.) continuam funcionando.
