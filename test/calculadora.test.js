@@ -12,6 +12,7 @@
 // e do botão sen (CALC-31: seno do visor em graus, com a unidade DEG visível),
 // e do botão π (CALC-36: insere pi como operando),
 // e do botão 1/x (CALC-38: inverso do visor, com Erro para zero),
+// e do botão tan (CALC-33: tangente do visor em graus, com Erro em 90° + 180°·k),
 // e do botão M- (CALC-23: subtrai o visor da memória),
 // e do botão MR (CALC-24: copia a memória para o visor como operando),
 // e do botão MC (CALC-25: zera a memória e o indicador).
@@ -169,6 +170,9 @@ function createCalculator({ storage = {} } = {}) {
   // 1/x também fica fora do teclado, na linha da memória, como em index.html.
   const inverseElement = createElementMock("button");
   inverseElement.dataset = { action: "inverse" };
+  // tan também fica fora do teclado, na linha da memória, como em index.html.
+  const tangentElement = createElementMock("button");
+  tangentElement.dataset = { action: "tan" };
   let onKeypadClick = null;
   let onKeyDown = null;
   let onKeyUp = null;
@@ -189,6 +193,7 @@ function createCalculator({ storage = {} } = {}) {
   buttonByKey["sen"] = sineElement;
   buttonByKey["π"] = piElement;
   buttonByKey["1/x"] = inverseElement;
+  buttonByKey["tan"] = tangentElement;
 
   const keypad = {
     addEventListener(type, listener) {
@@ -223,6 +228,7 @@ function createCalculator({ storage = {} } = {}) {
     "sine-button": sineElement,
     "pi-button": piElement,
     "inverse-button": inverseElement,
+    "tan-button": tangentElement,
   };
 
   const document = {
@@ -288,6 +294,10 @@ function createCalculator({ storage = {} } = {}) {
       }
       if (key === "1/x") {
         inverseElement.dispatch("click");
+        continue;
+      }
+      if (key === "tan") {
+        tangentElement.dispatch("click");
         continue;
       }
       const button = buttonByKey[key];
@@ -2551,6 +2561,117 @@ describe("CALC-24: teclado, foco e estrutura do MR", () => {
   test("o MR tem o mesmo estilo de pílula cinza do M+ e foco visível com contorno branco", () => {
     assert.match(CSS_SOURCE, /\.memory-recall\s*\{[^}]*border-radius:\s*999px;[^}]*color:\s*#a5a5a5;[^}]*\}/);
     assert.match(CSS_SOURCE, /\.memory-recall:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
+  });
+});
+
+describe("CALC-33: critérios de aceite da tangente (tan, em graus)", () => {
+  test("tan(45°) = 1: 4, 5, tan resulta em 1", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("4", "5", "tan"), "1");
+  });
+
+  test("tan(90°) mostra Erro: 9, 0, tan resulta em Erro", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("9", "0", "tan"), "Erro");
+  });
+});
+
+describe("CALC-33: casos de borda da tangente", () => {
+  test("múltiplos de 45° saem exatos, sem 0.9999999999999999: 135 resulta em -1 e 225 em 1", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("1", "3", "5", "tan"), "-1");
+    assert.equal(calc.press("AC", "2", "2", "5", "tan"), "1");
+  });
+
+  test("tan 0° e tan 180° resultam em 0 (sem -0), e tan 360° também: 0 tan, 1 8 0 tan, 3 6 0 tan", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("0", "tan"), "0");
+    assert.equal(calc.press("AC", "1", "8", "0", "tan"), "0");
+    assert.equal(calc.press("AC", "3", "6", "0", "tan"), "0");
+  });
+
+  test("a tangente é indefinida em 90° + 180°·k: 270, -90 e -270 mostram Erro", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("2", "7", "0", "tan"), "Erro");
+    assert.equal(calc.press("AC", "9", "0", "+/-", "tan"), "Erro");
+    assert.equal(calc.press("AC", "2", "7", "0", "+/-", "tan"), "Erro");
+  });
+
+  test("ângulo negativo usa a redução módulo 180: -45 resulta em -1", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("4", "5", "+/-", "tan"), "-1");
+  });
+
+  test("ângulo fora de 0 a 180 é reduzido: 225 resulta em 1 e 135 em -1", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("2", "2", "5", "tan"), "1");
+    assert.equal(calc.press("AC", "1", "3", "5", "tan"), "-1");
+  });
+
+  test("valores não exatos seguem o arredondamento de 8 casas: tan 30° = 0.57735027, tan 60° = 1.73205081, tan 10° = 0.17632698", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("3", "0", "tan"), "0.57735027");
+    assert.equal(calc.press("AC", "6", "0", "tan"), "1.73205081");
+    assert.equal(calc.press("AC", "1", "0", "tan"), "0.17632698");
+  });
+
+  test("tan 1° e tan 5° arredondam a 8 casas: 1 tan mostra 0.01745506 e 5 tan mostra 0.08748866", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("1", "tan"), "0.01745506");
+    assert.equal(calc.press("AC", "5", "tan"), "0.08748866");
+  });
+
+  test("ângulo grande com precisão: tan 999999999° = -6.31375151 (módulo 180 antes da tangente)", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("9", "9", "9", "9", "9", "9", "9", "9", "9", "tan"), "-6.31375151");
+  });
+
+  test("tan depois do operador vira o segundo operando, como o sen: 2, +, 4, 5, tan, = resulta em 3", () => {
+    const storage = {};
+    const calc = createCalculator({ storage });
+    assert.equal(calc.press("2", "+", "4", "5", "tan", "="), "3");
+    assert.deepEqual(calc.historyItems(), ["2 + 1 = 3"]);
+  });
+
+  test("tan depois do igual calcula o resultado: 2 + 3 =, tan mostra 0.08748866", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("2", "+", "3", "=", "tan"), "0.08748866");
+  });
+
+  test("com Erro no visor, tan mantém o Erro e a próxima tecla reinicia: 5 ÷ 0 =, tan mostra Erro, 7 resulta em 7", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("5", "÷", "0", "=", "tan"), "Erro");
+    assert.equal(calc.press("7"), "7");
+  });
+
+  test("tan não grava no histórico sozinho e não mexe na memória: 5 M+, AC, 4 5 tan mantém a memória em 5", () => {
+    const storage = {};
+    const calc = createCalculator({ storage });
+    calc.press("5", "M+", "AC", "4", "5", "tan");
+    assert.deepEqual(calc.historyItems(), []);
+    assert.equal(HISTORY_KEY in storage, false);
+    assert.equal(calc.memoryValue(), 5);
+  });
+});
+
+describe("CALC-33: teclado, foco e estrutura do tan", () => {
+  test("tan não tem tecla própria: Enter com o foco no botão tan não vira igual, o cálculo em curso fica", () => {
+    const calc = createCalculator({ storage: {} });
+    calc.press("2", "+", "3");
+    const event = calc.keyDown("Enter", { target: { tagName: "BUTTON" } });
+    assert.equal(event.defaultPrevented, false);
+    assert.equal(calc.display(), "3");
+  });
+
+  test("index.html tem o botão tan na linha da memória (fora do teclado), com rótulo que anuncia a operação", () => {
+    assert.match(
+      HTML_SOURCE,
+      /<div class="memory">[\s\S]*?<button type="button" id="tan-button" class="tan-add" data-action="tan" aria-label="Tangente em graus \(tan\)">tan<\/button>[\s\S]*?<\/div>\s*<div class="keypad">/,
+    );
+  });
+
+  test("o tan tem foco visível com contorno branco, sem remover o outline", () => {
+    assert.match(CSS_SOURCE, /\.tan-add:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
   });
 });
 

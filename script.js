@@ -101,6 +101,8 @@ const sineButton = document.getElementById("sine-button");
 const piButton = document.getElementById("pi-button");
 // Botão 1/x também fica nessa linha, pelo mesmo motivo.
 const inverseButton = document.getElementById("inverse-button");
+// Botão tan também fica nessa linha, pelo mesmo motivo.
+const tangentButton = document.getElementById("tan-button");
 const pressableButtons = memoryAddButton ? [...buttons, memoryAddButton] : buttons;
 
 function displaySizeClass(text) {
@@ -497,6 +499,33 @@ function inverse() {
   state.waitingForOperand = false;
 }
 
+// Tangente em graus (o visor mostra DEG). A tangente tem período de 180°, então o ângulo é reduzido módulo 180 antes.
+// Múltiplos de 45° saem exatos (tan 0° = 0, tan 45° = 1, tan 135° = -1); 90° (e 90° + 180°·k) é indefinida: null.
+const EXACT_TANGENTS = [0, 1, null, -1];
+
+function tangentDegrees(degrees) {
+  const angle = ((degrees % 180) + 180) % 180;
+  if (angle % 45 === 0) {
+    return EXACT_TANGENTS[angle / 45];
+  }
+  return Math.tan((angle * Math.PI) / 180);
+}
+
+// tan: troca o número exibido pela tangente dele, com a mesma regra de segundo operando do sen e do 1/x.
+// Indefinida (90° + 180°·k) ou com resultado acima de 2^53 em valor absoluto: mostra Erro. Com Erro no visor não calcula e mantém o Erro.
+function tangent() {
+  if (state.error) {
+    return;
+  }
+  const result = tangentDegrees(Number(state.current));
+  if (result === null || !Number.isFinite(result) || Math.abs(result) > MAX_RESULT) {
+    setError();
+    return;
+  }
+  state.current = formatResult(result);
+  state.waitingForOperand = false;
+}
+
 // Backspace (teclado): apaga o último caractere do número em edição.
 // Sem número em edição (após operador ou igual) não faz nada. Após erro, reinicia a calculadora.
 // Se sobrar algo que não é um número válido (ex.: "-" ou notação científica), volta para 0.
@@ -659,6 +688,8 @@ function handleButton(button) {
     logarithm();
   } else if (action === "sine") {
     sine();
+  } else if (action === "tan") {
+    tangent();
   } else if (action === "pi") {
     insertPi();
   } else if (action === "inverse") {
@@ -793,6 +824,13 @@ if (logButton) {
 if (sineButton) {
   sineButton.addEventListener("click", () => {
     handleButton(sineButton);
+    render();
+  });
+}
+
+if (tangentButton) {
+  tangentButton.addEventListener("click", () => {
+    handleButton(tangentButton);
     render();
   });
 }
