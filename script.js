@@ -115,6 +115,8 @@ const memoryClearButton = document.getElementById("memory-clear");
 // Botões x² e log ficam na mesma linha do M+, fora do teclado numérico (que segue com 5 linhas).
 const squareButton = document.getElementById("square-button");
 const logButton = document.getElementById("log-button");
+// Botão ln também fica nessa linha, pelo mesmo motivo.
+const lnButton = document.getElementById("ln-button");
 // Botão sen também fica nessa linha, pelo mesmo motivo.
 const sineButton = document.getElementById("sine-button");
 // Botão π também fica nessa linha, pelo mesmo motivo.
@@ -538,6 +540,24 @@ function logarithm() {
   recordFunction(expression);
 }
 
+// ln: logaritmo natural (base e) do número exibido, com a mesma regra de segundo operando do log
+// (o visor mostra o resultado). Valor menor ou igual a zero não tem logaritmo real: mostra Erro.
+// Com Erro no visor não calcula e mantém o Erro.
+function naturalLogarithm() {
+  if (state.error) {
+    return;
+  }
+  const value = operandValue();
+  if (value <= 0) {
+    setError();
+    return;
+  }
+  const expression = `ln(${state.current})`;
+  setCurrent(formatResult(Math.log(value)));
+  state.waitingForOperand = false;
+  recordFunction(expression);
+}
+
 // Seno em graus (o visor mostra DEG). Múltiplos de 90° saem exatos (sen 0° = 0, sen 90° = 1); os demais usam radianos.
 // Reduzir módulo 360 antes evita perder precisão com ângulos grandes.
 const EXACT_SINES = [0, 1, 0, -1];
@@ -581,7 +601,7 @@ function cosine() {
     return;
   }
   const expression = `cos(${state.current})`;
-  state.current = formatResult(cosineDegrees(Number(state.current)));
+  setCurrent(formatResult(cosineDegrees(operandValue())));
   state.waitingForOperand = false;
   recordFunction(expression);
 }
@@ -637,13 +657,13 @@ function squareRoot() {
   if (state.error) {
     return;
   }
-  const value = Number(state.current);
+  const value = operandValue();
   if (value < 0) {
     setError();
     return;
   }
   const expression = `√${state.current}`;
-  state.current = formatResult(Math.sqrt(value));
+  setCurrent(formatResult(Math.sqrt(value)));
   state.waitingForOperand = false;
   recordFunction(expression);
 }
@@ -1102,6 +1122,8 @@ function handleButton(button) {
     square();
   } else if (action === "log") {
     logarithm();
+  } else if (action === "ln") {
+    naturalLogarithm();
   } else if (action === "sine") {
     sine();
   } else if (action === "cos") {
@@ -1249,6 +1271,13 @@ if (squareButton) {
 if (logButton) {
   logButton.addEventListener("click", () => {
     handleButton(logButton);
+    render();
+  });
+}
+
+if (lnButton) {
+  lnButton.addEventListener("click", () => {
+    handleButton(lnButton);
     render();
   });
 }

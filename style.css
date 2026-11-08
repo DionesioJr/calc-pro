@@ -130,6 +130,401 @@ body {
   filter: brightness(0.8);
 }
 
+.memory-clear:focus-visible {
+  outline: 3px solid #ffffff;
+  outline-offset: 2px;
+}
+
+/* Botão MR: mesmo estilo do M+ (pílula com contorno cinza), antes dele na linha da memória. */
+.memory-recall {
+  padding: 0.4rem 0.9rem;
+  border: 1px solid #a5a5a5;
+  border-radius: 999px;
+  background: transparent;
+  color: #a5a5a5;
+  font: inherit;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.memory-recall:hover {
+  border-color: #ffffff;
+  color: #ffffff;
+}
+
+.memory-recall:active {
+  filter: brightness(0.8);
+}
+
+.memory-recall:focus-visible {
+  outline: 3px solid #ffffff;
+  outline-offset: 2px;
+}
+
+/* Botão M+: contorno cinza, como o botão Histórico do mobile. */
+.memory-add {
+  padding: 0.4rem 0.9rem;
+  border: 1px solid #a5a5a5;
+  border-radius: 999px;
+  background: transparent;
+  color: #a5a5a5;
+  font: inherit;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.memory-add:hover {
+  border-color: #ffffff;
+  color: #ffffff;
+}
+
+.memory-add:active {
+  filter: brightness(0.8);
+}
+
+.memory-add:focus-visible {
+  outline: 3px solid #ffffff;
+  outline-offset: 2px;
+}
+
+/* Botão M-: mesmo estilo do M+ (pílula com contorno cinza), ao lado dele na linha da memória. */
+.memory-subtract {
+  padding: 0.4rem 0.9rem;
+  border: 1px solid #a5a5a5;
+  border-radius: 999px;
+  background: transparent;
+  color: #a5a5a5;
+  font: inherit;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.memory-subtract:hover {
+  border-color: #ffffff;
+  color: #ffffff;
+}
+
+.memory-subtract:active {
+  filter: brightness(0.8);
+}
+
+.memory-subtract:focus-visible {
+  outline: 3px solid #ffffff;
+  outline-offset: 2px;
+}
+
+/* Botão x²: mesmo estilo do M+ (pílula com contorno cinza), na linha da memória. */
+.square-add {
+  padding: 0.4rem 0.9rem;
+  border: 1px solid #a5a5a5;
+  border-radius: 999px;
+  background: transparent;
+  color: #a5a5a5;
+  font: inherit;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.square-add:hover {
+  border-color: #ffffff;
+  color: #ffffff;
+}
+
+.square-add:active {
+  filter: brightness(0.8);
+}
+
+.square-add:focus-visible {
+  outline: 3px solid #ffffff;
+  outline-offset: 2px;
+}
+
+/* Botão log: mesmo estilo do x² (pílula com contorno cinza), na linha da memória. */
+.log-button {
+  padding: 0.4rem 0.9rem;
+  border: 1px solid #a5a5a5;
+  border-radius: 999px;
+  background: transparent;
+  color: #a5a5a5;
+  font: inherit;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.log-button:hover {
+  border-color: #ffffff;
+  color: #ffffff;
+}
+
+.log-button:active {
+  filter: brightness(0.8);
+}
+
+.log-button:focus-visible {
+  outline: 3px solid #ffffff;
+  outline-offset: 2px;
+}
+
+/* Botão ln: mesmo estilo do log (pílula com contorno cinza), na linha da memória, logo depois do log. */
+.ln-add {
+  padding: 0.4rem 0.9rem;
+  border: 1px solid #a5a5a5;
+  border-radius: 999px;
+  background: transparent;
+  color: #a5a5a5;
+  font: inherit;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.ln-add:hover {
+  border-color: #ffffff;
+  color: #ffffff;
+}
+
+.ln-add:active {
+  filter: brightness(0.8);
+}
+
+.ln-add:focus-visible {
+  outline: 3px solid #ffffff;
+  outline-offset: 2px;
+}
+
+/* Botão sen: mesmo estilo do M+ e do x² (pílula com contorno cinza), na linha da memória. */
+.sine-add {
+  padding: 0.4rem 0.9rem;
+  border: 1px solid #a5a5a5;
+  border-radius: 999px;
+  background: transparent;
+  color: #a5a5a5;
+  font: inherit;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.sine-add:hover {
+  border-color: #ffffff;
+  color: #ffffff;
+}
+
+.sine-add:active {
+  filter: brightness(0.8);
+}
+
+.sine-add:focus-visible {
+  outline: 3px solid #ffffff;
+  outline-offset: 2px;
+}
+
+/* Botão cos: mesmo estilo do M+, do x² e do sen (pílula com contorno cinza), na linha da memória. */
+.cos-add {
+  padding: 0.4rem 0.9rem;
+  border: 1px solid #a5a5a5;
+  border-radius: 999px;
+  background: transparent;
+  color: #a5a5a5;
+  font: inherit;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.cos-add:hover {
+  border-color: #ffffff;
+  color: #ffffff;
+}
+
+.cos-add:active {
+  filter: brightness(0.8);
+}
+
+.cos-add:focus-visible {
+  outline: 3px solid #ffffff;
+  outline-offset: 2px;
+}
+
+/* Botão tan: mesmo estilo do M+, do x² e do sen (pílula com contorno cinza), na linha da memória. */
+.tan-add {
+  padding: 0.4rem 0.9rem;
+  border: 1px solid #a5a5a5;
+  border-radius: 999px;
+  background: transparent;
+  color: #a5a5a5;
+  font: inherit;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.tan-add:hover {
+  border-color: #ffffff;
+  color: #ffffff;
+}
+
+.tan-add:active {
+  filter: brightness(0.8);
+}
+
+.tan-add:focus-visible {
+  outline: 3px solid #ffffff;
+  outline-offset: 2px;
+}
+
+/* Botão π: mesmo estilo do M+, do x² e do sen (pílula com contorno cinza), na linha da memória. */
+.pi-add {
+  padding: 0.4rem 0.9rem;
+  border: 1px solid #a5a5a5;
+  border-radius: 999px;
+  background: transparent;
+  color: #a5a5a5;
+  font: inherit;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.pi-add:hover {
+  border-color: #ffffff;
+  color: #ffffff;
+}
+
+.pi-add:active {
+  filter: brightness(0.8);
+}
+
+.pi-add:focus-visible {
+  outline: 3px solid #ffffff;
+  outline-offset: 2px;
+}
+
+/* Botão e: mesmo estilo do M+, do x², do sen e do π (pílula com contorno cinza), na linha da memória. */
+.e-add {
+  padding: 0.4rem 0.9rem;
+  border: 1px solid #a5a5a5;
+  border-radius: 999px;
+  background: transparent;
+  color: #a5a5a5;
+  font: inherit;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.e-add:hover {
+  border-color: #ffffff;
+  color: #ffffff;
+}
+
+.e-add:active {
+  filter: brightness(0.8);
+}
+
+.e-add:focus-visible {
+  outline: 3px solid #ffffff;
+  outline-offset: 2px;
+}
+
+/* Botão 1/x: mesmo estilo do M+, do x², do sen e do π (pílula com contorno cinza), na linha da memória. */
+.inverse-add {
+  padding: 0.4rem 0.9rem;
+  border: 1px solid #a5a5a5;
+  border-radius: 999px;
+  background: transparent;
+  color: #a5a5a5;
+  font: inherit;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.inverse-add:hover {
+  border-color: #ffffff;
+  color: #ffffff;
+}
+
+.inverse-add:active {
+  filter: brightness(0.8);
+}
+
+.inverse-add:focus-visible {
+  outline: 3px solid #ffffff;
+  outline-offset: 2px;
+}
+
+/* Botão x!: mesmo estilo do M+, do x², do sen, do π e do 1/x (pílula com contorno cinza), na linha da memória. */
+.factorial-add {
+  padding: 0.4rem 0.9rem;
+  border: 1px solid #a5a5a5;
+  border-radius: 999px;
+  background: transparent;
+  color: #a5a5a5;
+  font: inherit;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.factorial-add:hover {
+  border-color: #ffffff;
+  color: #ffffff;
+}
+
+.factorial-add:active {
+  filter: brightness(0.8);
+}
+
+.factorial-add:focus-visible {
+  outline: 3px solid #ffffff;
+  outline-offset: 2px;
+}
+
+/* Botão √x: mesmo estilo do M+, do x², do sen, do π e do 1/x (pílula com contorno cinza), na linha da memória. */
+.sqrt-add {
+  padding: 0.4rem 0.9rem;
+  border: 1px solid #a5a5a5;
+  border-radius: 999px;
+  background: transparent;
+  color: #a5a5a5;
+  font: inherit;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.sqrt-add:hover {
+  border-color: #ffffff;
+  color: #ffffff;
+}
+
+.sqrt-add:active {
+  filter: brightness(0.8);
+}
+
+.sqrt-add:focus-visible {
+  outline: 3px solid #ffffff;
+  outline-offset: 2px;
+}
+
+/* xʸ: mesmo estilo do 1/x (pílula com contorno cinza), na linha da memória. */
+.power-add {
+  padding: 0.4rem 0.9rem;
+  border: 1px solid #a5a5a5;
+  border-radius: 999px;
+  background: transparent;
+  color: #a5a5a5;
+  font: inherit;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.power-add:hover {
+  border-color: #ffffff;
+  color: #ffffff;
+}
+
+.power-add:active {
+  filter: brightness(0.8);
+}
+
+.power-add:focus-visible {
+  outline: 3px solid #ffffff;
+  outline-offset: 2px;
+}
+
 /* Botões ( e ): pílula cinza, como as demais teclas de função. */
 .paren-add {
   padding: 0.4rem 0.9rem;
