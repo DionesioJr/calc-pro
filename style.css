@@ -205,6 +205,32 @@ body {
   outline-offset: 2px;
 }
 
+/* Botão log: mesmo estilo do x² (pílula com contorno cinza), na linha da memória. */
+.log-button {
+  padding: 0.4rem 0.9rem;
+  border: 1px solid #a5a5a5;
+  border-radius: 999px;
+  background: transparent;
+  color: #a5a5a5;
+  font: inherit;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.log-button:hover {
+  border-color: #ffffff;
+  color: #ffffff;
+}
+
+.log-button:active {
+  filter: brightness(0.8);
+}
+
+.log-button:focus-visible {
+  outline: 3px solid #ffffff;
+  outline-offset: 2px;
+}
+
 /* Botão sen: mesmo estilo do M+ e do x² (pílula com contorno cinza), na linha da memória. */
 .sine-add {
   padding: 0.4rem 0.9rem;

@@ -92,8 +92,9 @@ const memoryRecallButton = document.getElementById("memory-recall");
 // Botão MC fica na linha da memória, antes do MR, também sem tecla própria no teclado físico.
 const memoryClearButton = document.getElementById("memory-clear");
 
-// Botão x² fica na mesma linha do M+, fora do teclado numérico (que segue com 5 linhas).
+// Botões x² e log ficam na mesma linha do M+, fora do teclado numérico (que segue com 5 linhas).
 const squareButton = document.getElementById("square-button");
+const logButton = document.getElementById("log-button");
 // Botão sen também fica nessa linha, pelo mesmo motivo.
 const sineButton = document.getElementById("sine-button");
 // Botão π também fica nessa linha, pelo mesmo motivo.
@@ -428,6 +429,22 @@ function square() {
   state.waitingForOperand = false;
 }
 
+// log: logaritmo decimal (base 10) do número exibido, com a mesma regra de segundo operando do % e do x²
+// (o visor mostra o resultado). Valor menor ou igual a zero não tem logaritmo real: mostra Erro.
+// Com Erro no visor não calcula e mantém o Erro.
+function logarithm() {
+  if (state.error) {
+    return;
+  }
+  const value = Number(state.current);
+  if (value <= 0) {
+    setError();
+    return;
+  }
+  state.current = formatResult(Math.log10(value));
+  state.waitingForOperand = false;
+}
+
 // Seno em graus (o visor mostra DEG). Múltiplos de 90° saem exatos (sen 0° = 0, sen 90° = 1); os demais usam radianos.
 // Reduzir módulo 360 antes evita perder precisão com ângulos grandes.
 const EXACT_SINES = [0, 1, 0, -1];
@@ -638,6 +655,8 @@ function handleButton(button) {
     memoryRecall();
   } else if (action === "square") {
     square();
+  } else if (action === "log") {
+    logarithm();
   } else if (action === "sine") {
     sine();
   } else if (action === "pi") {
@@ -760,6 +779,13 @@ if (memoryRecallButton) {
 if (squareButton) {
   squareButton.addEventListener("click", () => {
     handleButton(squareButton);
+    render();
+  });
+}
+
+if (logButton) {
+  logButton.addEventListener("click", () => {
+    handleButton(logButton);
     render();
   });
 }
