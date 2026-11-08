@@ -75,6 +75,32 @@ body {
   margin-top: 0.5rem;
 }
 
+/* Botão MC: mesmo estilo do M+ (pílula com contorno cinza), no início da linha da memória, antes do MR. */
+.memory-clear {
+  padding: 0.4rem 0.9rem;
+  border: 1px solid #a5a5a5;
+  border-radius: 999px;
+  background: transparent;
+  color: #a5a5a5;
+  font: inherit;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.memory-clear:hover {
+  border-color: #ffffff;
+  color: #ffffff;
+}
+
+.memory-clear:active {
+  filter: brightness(0.8);
+}
+
+.memory-clear:focus-visible {
+  outline: 3px solid #ffffff;
+  outline-offset: 2px;
+}
+
 /* Botão MR: mesmo estilo do M+ (pílula com contorno cinza), antes dele na linha da memória. */
 .memory-recall {
   padding: 0.4rem 0.9rem;
@@ -175,6 +201,32 @@ body {
 }
 
 .square-add:focus-visible {
+  outline: 3px solid #ffffff;
+  outline-offset: 2px;
+}
+
+/* Botão log: mesmo estilo do x² (pílula com contorno cinza), na linha da memória. */
+.log-button {
+  padding: 0.4rem 0.9rem;
+  border: 1px solid #a5a5a5;
+  border-radius: 999px;
+  background: transparent;
+  color: #a5a5a5;
+  font: inherit;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.log-button:hover {
+  border-color: #ffffff;
+  color: #ffffff;
+}
+
+.log-button:active {
+  filter: brightness(0.8);
+}
+
+.log-button:focus-visible {
   outline: 3px solid #ffffff;
   outline-offset: 2px;
 }
