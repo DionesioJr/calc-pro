@@ -1,32 +1,13 @@
 // Ponto de entrada da Calculadora Pro (index.html carrega este arquivo como módulo).
 // Liga os módulos ao documento: teclado numérico, botões de função, histórico, teclado físico e painel do mobile.
 // Guarda o estado da calculadora: cada ação passa pelo motor (calculator.js), grava as linhas do histórico e redesenha o visor.
-import { deleteDigit, handleButton, initialState, showResult } from "./calculator.js";
+import { ACTIONS, deleteDigit, handleButton, initialState, showResult } from "./calculator.js";
 import { addCalculation, bindHistory } from "./history.js";
 import { bindKeyboard } from "./keyboard.js";
 import { bindUi, hideHistoryPanel, render } from "./ui.js";
 
-// Botões fora do teclado numérico (linha da memória e linha de funções): cada um executa a ação do próprio data-action.
-const FUNCTION_BUTTON_IDS = [
-  "memory-add",
-  "memory-subtract",
-  "memory-clear",
-  "memory-recall",
-  "square-button",
-  "log-button",
-  "ln-button",
-  "sine-button",
-  "cos-button",
-  "tan-button",
-  "power-button",
-  "pi-button",
-  "e-button",
-  "inverse-button",
-  "factorial-button",
-  "sqrt-button",
-  "open-paren-button",
-  "close-paren-button",
-];
+// Botões fora do teclado numérico (linha da memória e linha de funções), tirados do registro ACTIONS: cada um executa a ação do próprio data-action.
+const FUNCTION_BUTTON_IDS = ACTIONS.filter((action) => action.buttonId).map((action) => action.buttonId);
 
 // Estado da calculadora na tela. Só este módulo o troca; os demais recebem o estado como parâmetro.
 let state = initialState();
