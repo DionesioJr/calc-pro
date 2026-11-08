@@ -8,9 +8,12 @@
 // e do layout mobile com o painel do histórico em tela cheia (CALC-21),
 // e do botão M+ com o indicador de memória (CALC-22),
 // e do botão x² (CALC-26: eleva o visor ao quadrado, com erro e formatação do visor),
+// e da precedência de × e ÷ sobre + e − (CALC-28),
 // e do botão sen (CALC-31: seno do visor em graus, com a unidade DEG visível),
 // e do botão π (CALC-36: insere pi como operando),
 // e do botão 1/x (CALC-38: inverso do visor, com Erro para zero),
+// e do botão tan (CALC-33: tangente do visor em graus, com Erro em 90° + 180°·k),
+// e do botão xʸ (CALC-29: potência binária com precedência sobre × e ÷, associação à direita e Erro para resultado não real),
 // e do botão M- (CALC-23: subtrai o visor da memória),
 // e do botão MR (CALC-24: copia a memória para o visor como operando),
 // e do botão MC (CALC-25: zera a memória e o indicador),
@@ -157,6 +160,9 @@ function createCalculator({ storage = {} } = {}) {
   // x² também fica fora do teclado, na linha da memória, como em index.html.
   const squareElement = createElementMock("button");
   squareElement.dataset = { action: "square" };
+  // log também fica na linha da memória, fora do teclado, como em index.html.
+  const logElement = createElementMock("button");
+  logElement.dataset = { action: "log" };
   // sen também fica fora do teclado, na linha da memória, como em index.html.
   const sineElement = createElementMock("button");
   sineElement.dataset = { action: "sine" };
@@ -169,6 +175,12 @@ function createCalculator({ storage = {} } = {}) {
   // x! também fica fora do teclado, na linha da memória, como em index.html.
   const factorialElement = createElementMock("button");
   factorialElement.dataset = { action: "factorial" };
+  // tan também fica fora do teclado, na linha da memória, como em index.html.
+  const tangentElement = createElementMock("button");
+  tangentElement.dataset = { action: "tan" };
+  // xʸ também fica fora do teclado, na linha da memória, como em index.html.
+  const powerElement = createElementMock("button");
+  powerElement.dataset = { action: "power" };
   let onKeypadClick = null;
   let onKeyDown = null;
   let onKeyUp = null;
@@ -185,10 +197,13 @@ function createCalculator({ storage = {} } = {}) {
   buttonByKey["M+"] = memoryAddElement;
   buttonByKey["M-"] = memorySubtractElement;
   buttonByKey["x²"] = squareElement;
+  buttonByKey["log"] = logElement;
   buttonByKey["sen"] = sineElement;
   buttonByKey["π"] = piElement;
   buttonByKey["1/x"] = inverseElement;
   buttonByKey["x!"] = factorialElement;
+  buttonByKey["tan"] = tangentElement;
+  buttonByKey["xʸ"] = powerElement;
 
   const keypad = {
     addEventListener(type, listener) {
@@ -219,10 +234,13 @@ function createCalculator({ storage = {} } = {}) {
     "memory-subtract": memorySubtractElement,
     "memory-indicator": memoryIndicatorElement,
     "square-button": squareElement,
+    "log-button": logElement,
     "sine-button": sineElement,
     "pi-button": piElement,
     "inverse-button": inverseElement,
     "factorial-button": factorialElement,
+    "tan-button": tangentElement,
+    "power-button": powerElement,
   };
 
   const document = {
@@ -251,7 +269,7 @@ function createCalculator({ storage = {} } = {}) {
   const context = vm.createContext({ document, window, localStorage });
   vm.runInContext(SCRIPT_SOURCE, context, { filename: "script.js" });
 
-  // Aperta as teclas em sequência e devolve o texto final do display. MC, MR, M+, M-, x², sen, π e 1/x são clicados pelo próprio botão, fora do teclado.
+  // Aperta as teclas em sequência e devolve o texto final do display. MC, MR, M+, M-, x², log, sen, π e 1/x são clicados pelo próprio botão, fora do teclado.
   function press(...keys) {
     for (const key of keys) {
       if (key === "MC") {
@@ -274,6 +292,10 @@ function createCalculator({ storage = {} } = {}) {
         squareElement.dispatch("click");
         continue;
       }
+      if (key === "log") {
+        logElement.dispatch("click");
+        continue;
+      }
       if (key === "sen") {
         sineElement.dispatch("click");
         continue;
@@ -288,6 +310,14 @@ function createCalculator({ storage = {} } = {}) {
       }
       if (key === "x!") {
         factorialElement.dispatch("click");
+        continue;
+      }
+      if (key === "tan") {
+        tangentElement.dispatch("click");
+        continue;
+      }
+      if (key === "xʸ") {
+        powerElement.dispatch("click");
         continue;
       }
       const button = buttonByKey[key];
@@ -540,9 +570,9 @@ describe("CALC-5: critérios mínimos da lógica de operações", () => {
     assert.equal(calc.press("9", "÷", "3", "="), "3");
   });
 
-  test("2 + 3 × 4 = resulta em 20 (avaliação da esquerda para a direita)", () => {
+  test("2 + 3 × 4 = resulta em 14 (× antes de +, CALC-28)", () => {
     const calc = createCalculator();
-    assert.equal(calc.press("2", "+", "3", "×", "4", "="), "20");
+    assert.equal(calc.press("2", "+", "3", "×", "4", "="), "14");
   });
 
   test("trocar + por − antes do segundo número aplica a subtração: 7, +, −, 2, igual resulta em 5", () => {
@@ -885,6 +915,137 @@ describe("CALC-5: formatação de resultados", () => {
   });
 });
 
+// CALC-28: × e ÷ antes de + e −. Mesma precedência segue da esquerda para a direita.
+describe("CALC-28: critérios de aceite da precedência de operações", () => {
+  test("2 + 3 × 4 = resulta em 14", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("2", "+", "3", "×", "4", "="), "14");
+  });
+
+  test("10 − 6 ÷ 2 = resulta em 7", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("1", "0", "−", "6", "÷", "2", "="), "7");
+  });
+});
+
+describe("CALC-28: casos de borda da precedência de operações", () => {
+  test("× antes de + também do lado esquerdo: 2 × 3 + 4 = resulta em 10", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("2", "×", "3", "+", "4", "="), "10");
+  });
+
+  test("× e ÷ com a mesma precedência seguem a ordem da esquerda: 10 ÷ 2 × 5 = resulta em 25", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("1", "0", "÷", "2", "×", "5", "="), "25");
+  });
+
+  test("+ e − com a mesma precedência seguem a ordem da esquerda: 2 − 3 + 4 = resulta em 3", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("2", "−", "3", "+", "4", "="), "3");
+  });
+
+  test("subtração com multiplicação: 2 − 3 × 2 = resulta em -4", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("2", "−", "3", "×", "2", "="), "-4");
+  });
+
+  test("termo em × ou ÷ com três parcelas: 2 + 3 × 4 + 1 = resulta em 15", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("2", "+", "3", "×", "4", "+", "1", "="), "15");
+  });
+
+  test("o visor mostra o parcial ao fechar um termo de mesma precedência: 2 + 3 × 4 × mostra 12", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("2", "+", "3", "×", "4", "×"), "12");
+  });
+
+  test("apertar + com um termo fechado mostra o resultado parcial: 10 − 6 ÷ 2 − mostra 7", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("1", "0", "−", "6", "÷", "2", "−"), "7");
+  });
+
+  test("× pendente não é calculado antes do segundo número: 2 + 3 × mostra 3", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("2", "+", "3", "×"), "3");
+  });
+
+  test("trocar × por + antes do segundo número refaz a conta: 2 + 3 × + 4 mostra 5 e resulta em 9", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("2", "+", "3", "×", "+"), "5");
+    assert.equal(calc.press("4", "="), "9");
+  });
+
+  test("trocar + por × depois de termo já fechado reabre o termo: 1 + 2 × 3 + × mostra 6", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("1", "+", "2", "×", "3", "+", "×"), "6");
+  });
+
+  test("trocar + por × depois de termo já fechado: 1 + 2 × 3 + × 4 = resulta em 25 (1 + 2 × 3 × 4)", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("1", "+", "2", "×", "3", "+", "×", "4", "="), "25");
+  });
+
+  test("trocar + por ÷ depois de termo já fechado: 1 + 2 × 3 + ÷ 4 = resulta em 2.5 (1 + 6 ÷ 4)", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("1", "+", "2", "×", "3", "+", "÷", "4", "="), "2.5");
+  });
+
+  test("trocar + por − depois de termo já fechado: 1 + 2 × 3 + − 4 = resulta em 3 (1 + 6 − 4)", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("1", "+", "2", "×", "3", "+", "−", "4", "="), "3");
+  });
+
+  test("trocar + por − antes do segundo número, com termo fechado: 10 − 6 + − 2 = resulta em 2 (10 − 6 − 2)", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("1", "0", "−", "6", "+", "−", "2", "="), "2");
+  });
+
+  test("igual logo após × repete o último número: 2 + 3 × = resulta em 11 (2 + 3 × 3)", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("2", "+", "3", "×", "="), "11");
+  });
+
+  test("decimais respeitam a precedência: 0.5 + 0.5 × 4 = resulta em 2.5", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("0", ".", "5", "+", "0", ".", "5", "×", "4", "="), "2.5");
+  });
+
+  test("depois do igual, a conta seguinte começa do resultado: 2 + 3 × 4 =, + 1 = resulta em 15", () => {
+    const calc = createCalculator({ storage: {} });
+    calc.press("2", "+", "3", "×", "4", "=");
+    assert.equal(calc.press("+", "1", "="), "15");
+  });
+
+  test("divisão por zero dentro do termo mostra Erro: 1 + 2 ÷ 0 = resulta em Erro", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("1", "+", "2", "÷", "0", "="), "Erro");
+  });
+
+  test("divisão por zero dentro do termo também aparece ao apertar operador: 1 + 2 ÷ 0 + mostra Erro", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("1", "+", "2", "÷", "0", "+"), "Erro");
+  });
+
+  test("resultado do termo acima de 2^53 mostra Erro: 2 + 999999999 × 999999999 = resulta em Erro", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(
+      calc.press("2", "+", "9", "9", "9", "9", "9", "9", "9", "9", "9", "×", "9", "9", "9", "9", "9", "9", "9", "9", "9", "="),
+      "Erro",
+    );
+  });
+
+  test("pelo teclado, * tem precedência como ×: 2 + 3 * 4 Enter resulta em 14", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.type("2", "+", "3", "*", "4", "Enter"), "14");
+  });
+
+  test("histórico grava a conta na ordem digitada: 10 − 6 ÷ 2 = grava 10 − 6 ÷ 2 = 7", () => {
+    const calc = createCalculator({ storage: {} });
+    calc.press("1", "0", "−", "6", "÷", "2", "=");
+    assert.deepEqual(calc.historyItems(), ["10 − 6 ÷ 2 = 7"]);
+  });
+});
+
 describe("CALC-9: critérios de aceite do destaque do operador", () => {
   test("operador selecionado fica destacado até o segundo número: 2, + destaca o +, 3 remove o destaque", () => {
     const calc = createCalculator();
@@ -1170,10 +1331,10 @@ describe("CALC-19: casos de borda do histórico de cálculos", () => {
     assert.deepEqual(calc.historyItems(), ["2 + 2 = 4"]);
   });
 
-  test("encadeamento grava a expressão inteira: 2 + 3 × 4 = grava 2 + 3 × 4 = 20", () => {
+  test("encadeamento grava a expressão inteira: 2 + 3 × 4 = grava 2 + 3 × 4 = 14", () => {
     const calc = createCalculator({ storage: {} });
-    assert.equal(calc.press("2", "+", "3", "×", "4", "="), "20");
-    assert.deepEqual(calc.historyItems(), ["2 + 3 × 4 = 20"]);
+    assert.equal(calc.press("2", "+", "3", "×", "4", "="), "14");
+    assert.deepEqual(calc.historyItems(), ["2 + 3 × 4 = 14"]);
   });
 
   test("trocar de operador antes do segundo número grava o operador escolhido: 2 + × 3 = grava 2 × 3 = 6", () => {
@@ -1817,6 +1978,109 @@ describe("CALC-26: teclado, foco e estrutura do x²", () => {
   });
 });
 
+describe("CALC-34: critérios de aceite do log (logaritmo decimal)", () => {
+  test("log(1000) = 3: 1000, log resulta em 3", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("1", "0", "0", "0", "log"), "3");
+  });
+
+  test("log(0) mostra Erro: 0, log resulta em Erro", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("0", "log"), "Erro");
+  });
+
+  test("log(-1) mostra Erro: 1, +/-, log resulta em Erro", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("1", "+/-", "log"), "Erro");
+  });
+});
+
+describe("CALC-34: casos de borda do log (logaritmo decimal)", () => {
+  test("log(1) = 0: 1, log resulta em 0", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("1", "log"), "0");
+  });
+
+  test("log(10) = 1: 1, 0, log resulta em 1", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("1", "0", "log"), "1");
+  });
+
+  test("valor entre 0 e 1 tem log negativo: 0,1 log resulta em -1", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("0", ".", "1", "log"), "-1");
+  });
+
+  test("resultado não exato segue a precisão do visor: 2 log resulta em 0.30103 (8 casas, zeros à direita removidos)", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("2", "log"), "0.30103");
+  });
+
+  test("resultado negativo não exato também é arredondado: 0,5 log resulta em -0.30103", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("0", ".", "5", "log"), "-0.30103");
+  });
+
+  test("log muito próximo de 0 não mostra -0 nem notação científica: 1,00000001 log resulta em 0", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("1", ".", "0", "0", "0", "0", "0", "0", "0", "1", "log"), "0");
+  });
+
+  test("valor muito pequeno sem notação científica: 0,00000001 log resulta em -8", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("0", ".", "0", "0", "0", "0", "0", "0", "0", "1", "log"), "-8");
+  });
+
+  test("Erro reinicia com o próximo dígito: 0, log, 7 resulta em 7", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("0", "log", "7"), "7");
+  });
+
+  test("log com Erro no visor mantém o Erro: 0, log, log resulta em Erro", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("0", "log", "log"), "Erro");
+  });
+
+  test("log depois do igual usa o resultado: 2 + 3 =, log resulta em 0.69897", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("2", "+", "3", "=", "log"), "0.69897");
+  });
+
+  test("log no segundo operando entra na conta, como o x²: 2 + log =, resulta em 2.30103", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("2", "+", "log", "="), "2.30103");
+  });
+});
+
+describe("CALC-34: histórico, teclado, foco e estrutura do log", () => {
+  test("log não grava no histórico sozinho: 1000 log não cria item nem chave no localStorage", () => {
+    const storage = {};
+    const calc = createCalculator({ storage });
+    calc.press("1", "0", "0", "0", "log");
+    assert.deepEqual(calc.historyItems(), []);
+    assert.equal(HISTORY_KEY in storage, false);
+  });
+
+  test("Enter com o foco no log não vira igual: o botão é que age (clique nativo), o cálculo em curso fica", () => {
+    const calc = createCalculator({ storage: {} });
+    calc.press("2", "+", "3");
+    const event = calc.keyDown("Enter", { target: { tagName: "BUTTON" } });
+    assert.equal(event.defaultPrevented, false);
+    assert.equal(calc.display(), "3");
+  });
+
+  test("index.html tem o botão log na linha da memória (fora do teclado), com rótulo que anuncia a operação", () => {
+    assert.match(
+      HTML_SOURCE,
+      /<div class="memory">[\s\S]*?<button type="button" id="log-button" class="log-button" data-action="log" aria-label="Logaritmo na base 10 \(log\)">log<\/button>[\s\S]*?<\/div>\s*<div class="keypad">/,
+    );
+  });
+
+  test("o log tem foco visível com contorno branco, sem remover o outline", () => {
+    assert.match(CSS_SOURCE, /\.log-button:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
+  });
+});
+
 describe("CALC-31: critérios de aceite do seno (sen, em graus)", () => {
   test("sen(30°) = 0.5: 3, 0, sen resulta em 0.5", () => {
     const calc = createCalculator({ storage: {} });
@@ -2320,6 +2584,117 @@ describe("CALC-24: teclado, foco e estrutura do MR", () => {
   });
 });
 
+describe("CALC-33: critérios de aceite da tangente (tan, em graus)", () => {
+  test("tan(45°) = 1: 4, 5, tan resulta em 1", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("4", "5", "tan"), "1");
+  });
+
+  test("tan(90°) mostra Erro: 9, 0, tan resulta em Erro", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("9", "0", "tan"), "Erro");
+  });
+});
+
+describe("CALC-33: casos de borda da tangente", () => {
+  test("múltiplos de 45° saem exatos, sem 0.9999999999999999: 135 resulta em -1 e 225 em 1", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("1", "3", "5", "tan"), "-1");
+    assert.equal(calc.press("AC", "2", "2", "5", "tan"), "1");
+  });
+
+  test("tan 0° e tan 180° resultam em 0 (sem -0), e tan 360° também: 0 tan, 1 8 0 tan, 3 6 0 tan", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("0", "tan"), "0");
+    assert.equal(calc.press("AC", "1", "8", "0", "tan"), "0");
+    assert.equal(calc.press("AC", "3", "6", "0", "tan"), "0");
+  });
+
+  test("a tangente é indefinida em 90° + 180°·k: 270, -90 e -270 mostram Erro", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("2", "7", "0", "tan"), "Erro");
+    assert.equal(calc.press("AC", "9", "0", "+/-", "tan"), "Erro");
+    assert.equal(calc.press("AC", "2", "7", "0", "+/-", "tan"), "Erro");
+  });
+
+  test("ângulo negativo usa a redução módulo 180: -45 resulta em -1", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("4", "5", "+/-", "tan"), "-1");
+  });
+
+  test("ângulo fora de 0 a 180 é reduzido: 225 resulta em 1 e 135 em -1", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("2", "2", "5", "tan"), "1");
+    assert.equal(calc.press("AC", "1", "3", "5", "tan"), "-1");
+  });
+
+  test("valores não exatos seguem o arredondamento de 8 casas: tan 30° = 0.57735027, tan 60° = 1.73205081, tan 10° = 0.17632698", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("3", "0", "tan"), "0.57735027");
+    assert.equal(calc.press("AC", "6", "0", "tan"), "1.73205081");
+    assert.equal(calc.press("AC", "1", "0", "tan"), "0.17632698");
+  });
+
+  test("tan 1° e tan 5° arredondam a 8 casas: 1 tan mostra 0.01745506 e 5 tan mostra 0.08748866", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("1", "tan"), "0.01745506");
+    assert.equal(calc.press("AC", "5", "tan"), "0.08748866");
+  });
+
+  test("ângulo grande com precisão: tan 999999999° = -6.31375151 (módulo 180 antes da tangente)", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("9", "9", "9", "9", "9", "9", "9", "9", "9", "tan"), "-6.31375151");
+  });
+
+  test("tan depois do operador vira o segundo operando, como o sen: 2, +, 4, 5, tan, = resulta em 3", () => {
+    const storage = {};
+    const calc = createCalculator({ storage });
+    assert.equal(calc.press("2", "+", "4", "5", "tan", "="), "3");
+    assert.deepEqual(calc.historyItems(), ["2 + 1 = 3"]);
+  });
+
+  test("tan depois do igual calcula o resultado: 2 + 3 =, tan mostra 0.08748866", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("2", "+", "3", "=", "tan"), "0.08748866");
+  });
+
+  test("com Erro no visor, tan mantém o Erro e a próxima tecla reinicia: 5 ÷ 0 =, tan mostra Erro, 7 resulta em 7", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("5", "÷", "0", "=", "tan"), "Erro");
+    assert.equal(calc.press("7"), "7");
+  });
+
+  test("tan não grava no histórico sozinho e não mexe na memória: 5 M+, AC, 4 5 tan mantém a memória em 5", () => {
+    const storage = {};
+    const calc = createCalculator({ storage });
+    calc.press("5", "M+", "AC", "4", "5", "tan");
+    assert.deepEqual(calc.historyItems(), []);
+    assert.equal(HISTORY_KEY in storage, false);
+    assert.equal(calc.memoryValue(), 5);
+  });
+});
+
+describe("CALC-33: teclado, foco e estrutura do tan", () => {
+  test("tan não tem tecla própria: Enter com o foco no botão tan não vira igual, o cálculo em curso fica", () => {
+    const calc = createCalculator({ storage: {} });
+    calc.press("2", "+", "3");
+    const event = calc.keyDown("Enter", { target: { tagName: "BUTTON" } });
+    assert.equal(event.defaultPrevented, false);
+    assert.equal(calc.display(), "3");
+  });
+
+  test("index.html tem o botão tan na linha da memória (fora do teclado), com rótulo que anuncia a operação", () => {
+    assert.match(
+      HTML_SOURCE,
+      /<div class="memory">[\s\S]*?<button type="button" id="tan-button" class="tan-add" data-action="tan" aria-label="Tangente em graus \(tan\)">tan<\/button>[\s\S]*?<\/div>\s*<div class="keypad">/,
+    );
+  });
+
+  test("o tan tem foco visível com contorno branco, sem remover o outline", () => {
+    assert.match(CSS_SOURCE, /\.tan-add:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
+  });
+});
+
 describe("CALC-25: critérios de aceite do MC", () => {
   test("após MC, MR mostra 0: 5, M+, AC, MC, MR mostra 0", () => {
     const calc = createCalculator({ storage: {} });
@@ -2567,5 +2942,166 @@ describe("CALC-39: teclado, foco e estrutura do x!", () => {
   test("o x! tem o mesmo estilo de pílula cinza dos demais botões da linha e foco visível com contorno branco", () => {
     assert.match(CSS_SOURCE, /\.factorial-add\s*\{[^}]*border-radius:\s*999px;[^}]*color:\s*#a5a5a5;[^}]*\}/);
     assert.match(CSS_SOURCE, /\.factorial-add:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
+  });
+});
+
+describe("CALC-29: critérios de aceite do xʸ (potência)", () => {
+  test("2 xʸ 10 = resulta em 1024", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("2", "xʸ", "1", "0", "="), "1024");
+  });
+
+  test("a potência vem antes da soma: 2 + 3 xʸ 2 = resulta em 11", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("2", "+", "3", "xʸ", "2", "="), "11");
+  });
+
+  test("expoente negativo: 2 xʸ -1 = resulta em 0.5", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("2", "xʸ", "1", "+/-", "="), "0.5");
+  });
+
+  test("expoente decimal com raiz: 4 xʸ 0.5 = resulta em 2", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("4", "xʸ", "0", ".", "5", "="), "2");
+  });
+
+  test("resultado irracional arredondado a 8 casas: 2 xʸ 0.5 = resulta em 1.41421356", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("2", "xʸ", "0", ".", "5", "="), "1.41421356");
+  });
+
+  test("0 xʸ 0 = resulta em 1", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("0", "xʸ", "0", "="), "1");
+  });
+
+  test("base negativa com expoente fracionário mostra Erro, sem NaN: (-4) xʸ 0.5 = resulta em Erro", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("4", "+/-", "xʸ", "0", ".", "5", "="), "Erro");
+  });
+
+  test("0 elevado a negativo mostra Erro: 0 xʸ -1 = resulta em Erro", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("0", "xʸ", "1", "+/-", "="), "Erro");
+  });
+});
+
+describe("CALC-29: casos de borda do xʸ (potência)", () => {
+  test("expoente zero: 5 xʸ 0 = resulta em 1", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("5", "xʸ", "0", "="), "1");
+  });
+
+  test("base decimal: 0.5 xʸ 2 = resulta em 0.25", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("0", ".", "5", "xʸ", "2", "="), "0.25");
+  });
+
+  test("base negativa com expoente inteiro é real: (-2) xʸ 3 = resulta em -8", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("2", "+/-", "xʸ", "3", "="), "-8");
+  });
+
+  test("resultado acima de 2^53 mostra Erro: 2 xʸ 100 = resulta em Erro", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("2", "xʸ", "1", "0", "0", "="), "Erro");
+  });
+
+  test("com Erro no visor, xʸ recomeça do zero como os outros operadores: 2 xʸ 100 =, xʸ, 3 = resulta em 0", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("2", "xʸ", "1", "0", "0", "="), "Erro");
+    assert.equal(calc.press("xʸ", "3", "="), "0");
+  });
+
+  test("× antes do xʸ: 2 × 3 xʸ 2 = resulta em 18 (2 × 9)", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("2", "×", "3", "xʸ", "2", "="), "18");
+  });
+
+  test("xʸ antes do ×: 2 xʸ 3 × 2 = resulta em 16 (8 × 2)", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("2", "xʸ", "3", "×", "2", "="), "16");
+  });
+
+  test("xʸ antes da divisão: 8 ÷ 2 xʸ 2 = resulta em 2 (8 ÷ 4)", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("8", "÷", "2", "xʸ", "2", "="), "2");
+  });
+
+  test("xʸ com termo já fechado: 1 + 2 xʸ 3 × 2 = resulta em 17 (1 + 8 × 2)", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("1", "+", "2", "xʸ", "3", "×", "2", "="), "17");
+  });
+
+  test("xʸ é associado à direita: 2 xʸ 3 xʸ 2 = resulta em 512 (2 xʸ 9), e não 64", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("2", "xʸ", "3", "xʸ", "2", "="), "512");
+  });
+
+  test("xʸ encadeado mostra o último número fechado, não o resultado parcial: 2 xʸ 3 xʸ mostra 3", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("2", "xʸ", "3", "xʸ"), "3");
+  });
+
+  test("apertar + depois do xʸ mostra o parcial: 2 xʸ 3 + mostra 8 e resulta em 9", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("2", "xʸ", "3", "+"), "8");
+    assert.equal(calc.press("1", "="), "9");
+  });
+
+  test("trocar o operador antes do segundo número substitui o xʸ: 2 × xʸ 3 = resulta em 8", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("2", "×", "xʸ", "3", "="), "8");
+  });
+
+  test("igual logo após xʸ repete o número: 3 xʸ = resulta em 27", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("3", "xʸ", "="), "27");
+  });
+
+  test("xʸ não mexe na memória: 5 M+, AC, 2 xʸ 3 = mostra 8 e a memória fica em 5", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("5", "M+", "AC", "2", "xʸ", "3", "="), "8");
+    assert.equal(calc.memoryValue(), 5);
+  });
+
+  test("a conta entra no histórico com o símbolo xʸ: 2 xʸ 10 = grava 2 xʸ 10 = 1024", () => {
+    const calc = createCalculator({ storage: {} });
+    calc.press("2", "xʸ", "1", "0", "=");
+    assert.deepEqual(calc.historyItems(), ["2 xʸ 10 = 1024"]);
+  });
+
+  test("xʸ pendente fica destacado até o segundo número: 2 xʸ destaca o xʸ, 3 remove o destaque", () => {
+    const calc = createCalculator({ storage: {} });
+    calc.press("2", "xʸ");
+    assert.deepEqual(calc.selectedOperator(), ["xʸ"]);
+    calc.press("3");
+    assert.deepEqual(calc.selectedOperator(), []);
+  });
+});
+
+describe("CALC-29: teclado, foco e estrutura do xʸ", () => {
+  test("xʸ não tem tecla própria: Enter com o foco no botão xʸ não vira igual, o cálculo em curso fica", () => {
+    const calc = createCalculator({ storage: {} });
+    calc.press("2", "+", "3");
+    const event = calc.keyDown("Enter", { target: { tagName: "BUTTON" } });
+    assert.equal(event.defaultPrevented, false);
+    assert.equal(calc.display(), "3");
+  });
+
+  test("index.html tem o botão xʸ na linha da memória (fora do teclado), depois do tan, com rótulo que anuncia a operação", () => {
+    assert.match(
+      HTML_SOURCE,
+      /<div class="memory">[\s\S]*?<button type="button" id="tan-button"[^>]*>tan<\/button>\s*<button type="button" id="power-button" class="power-add" data-action="power" aria-label="Elevar à potência \(xʸ\)">xʸ<\/button>[\s\S]*?<\/div>\s*<div class="keypad">/,
+    );
+  });
+
+  test("o xʸ tem foco visível com contorno branco, sem remover o outline", () => {
+    assert.match(CSS_SOURCE, /\.power-add:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
+  });
+
+  test("o xʸ pendente tem o destaque de operador do teclado (texto laranja sobre branco)", () => {
+    assert.match(CSS_SOURCE, /\.power-add\[aria-pressed="true"\]\s*\{[^}]*background:\s*#ffffff;[^}]*color:\s*#b35c00;/);
   });
 });
