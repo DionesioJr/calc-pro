@@ -18,9 +18,11 @@
 // e do botão M- (CALC-23: subtrai o visor da memória),
 // e do botão MR (CALC-24: copia a memória para o visor como operando),
 // e do botão MC (CALC-25: zera a memória e o indicador),
+// e do botão ln (CALC-35: logaritmo natural do visor, com Erro para valor menor ou igual a zero),
 // e do botão x! (CALC-39: fatorial do visor, com notação científica acima de 2^53 e Erro para negativo, decimal e overflow),
 // e do botão cos (CALC-32: cosseno do visor em graus, sem ruído de ponto flutuante).
-// e do botão √x (CALC-27: raiz quadrada do visor, com Erro para negativos).
+// e do botão √x (CALC-27: raiz quadrada do visor, com Erro para negativos),
+// e do valor completo de e em √x e cos (CALC-49),
 // e do histórico das funções avançadas (CALC-43: cada função aplicada ao visor vira uma linha, como √16 = 4 ou sen(30) = 0.5).
 // Executa script.js real num contexto isolado, com um DOM mínimo, e aperta
 // os botões pelo mesmo caminho de clique que o navegador usa; o teclado usa o mesmo
@@ -191,6 +193,9 @@ function createCalculator({ storage = {} } = {}) {
   // tan também fica fora do teclado, na linha da memória, como em index.html.
   const tangentElement = createElementMock("button");
   tangentElement.dataset = { action: "tan" };
+  // ln também fica fora do teclado, na linha da memória, logo depois do log, como em index.html.
+  const lnElement = createElementMock("button");
+  lnElement.dataset = { action: "ln" };
   // xʸ também fica fora do teclado, na linha da memória, como em index.html.
   const powerElement = createElementMock("button");
   powerElement.dataset = { action: "power" };
@@ -211,6 +216,7 @@ function createCalculator({ storage = {} } = {}) {
   buttonByKey["M-"] = memorySubtractElement;
   buttonByKey["x²"] = squareElement;
   buttonByKey["log"] = logElement;
+  buttonByKey["ln"] = lnElement;
   buttonByKey["sen"] = sineElement;
   buttonByKey["π"] = piElement;
   buttonByKey["e"] = eElement;
@@ -251,6 +257,7 @@ function createCalculator({ storage = {} } = {}) {
     "memory-indicator": memoryIndicatorElement,
     "square-button": squareElement,
     "log-button": logElement,
+    "ln-button": lnElement,
     "sine-button": sineElement,
     "pi-button": piElement,
     "e-button": eElement,
@@ -317,6 +324,10 @@ function createCalculator({ storage = {} } = {}) {
       }
       if (key === "log") {
         logElement.dispatch("click");
+        continue;
+      }
+      if (key === "ln") {
+        lnElement.dispatch("click");
         continue;
       }
       if (key === "sen") {
@@ -2406,7 +2417,7 @@ describe("CALC-37: critérios de aceite do e (número de Euler)", () => {
     assert.equal(calc.press("e"), "2.71828183");
   });
 
-  // xʸ (CALC-29) ainda não existe nesta calculadora; e² sai de e seguido de x², que é o mesmo cálculo.
+  // e² sai de e seguido de x² (o botão x² eleva o valor completo de e ao quadrado).
   test("e elevado a 2 usa o valor correto: e, x² resulta em 7.3890561 (e² = 7.38905610, sem zero à direita)", () => {
     const calc = createCalculator({ storage: {} });
     assert.equal(calc.press("e", "x²"), "7.3890561");
@@ -2485,7 +2496,8 @@ describe("CALC-37: casos de borda do e", () => {
 });
 
 describe("CALC-37: teclado, foco e estrutura do e", () => {
-  test("e não tem tecla própria: Enter com o foco no botão e não vira igual, o cálculo em curso fica", () => {
+  // O botão e existe na linha da memória (é clicado pelo press("e")); só não tem tecla no teclado físico.
+  test("o botão e não tem tecla no teclado físico: Enter com o foco no botão e não vira igual, o cálculo em curso fica", () => {
     const calc = createCalculator({ storage: {} });
     calc.press("2", "+", "3");
     const event = calc.keyDown("Enter", { target: { tagName: "BUTTON" } });
@@ -2690,6 +2702,32 @@ describe("CALC-27: casos de borda do √x", () => {
     assert.deepEqual(calc.historyItems(), ["√4 = 2"]);
     assert.deepEqual(JSON.parse(storage[HISTORY_KEY]), ["√4 = 2"]);
     assert.equal(calc.memoryValue(), 5);
+  });
+});
+
+// CALC-49: √x e cos usam o valor completo de e (Math.E), como as demais contas, e trocam o visor pelo resultado.
+describe("CALC-49: √x e cos com e usam o valor completo", () => {
+  // Mesmo formato do visor: 8 casas, sem zeros à direita.
+  const formatted = (value) => value.toFixed(8).replace(/\.?0+$/, "");
+
+  test("√e usa o valor completo: e, √x resulta em 1.64872127 (√ de Math.E)", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("e", "√x"), formatted(Math.sqrt(Math.E)));
+  });
+
+  test("depois de e, √x, o visor é o operando: e, √x, x² resulta em 2.71828183 (não 7.3890561 de e²)", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("e", "√x", "x²"), "2.71828183");
+  });
+
+  test("cos usa o valor completo de e: e, cos resulta no cosseno de Math.E graus", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("e", "cos"), formatted(Math.cos((Math.E * Math.PI) / 180)));
+  });
+
+  test("depois de e, cos, o visor é o operando: e, cos, x² não usa e² (não mostra 7.3890561)", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.notEqual(calc.press("e", "cos", "x²"), "7.3890561");
   });
 });
 
@@ -3459,6 +3497,98 @@ describe("CALC-29: teclado, foco e estrutura do xʸ", () => {
   });
 });
 
+// CALC-35: ln (logaritmo natural). ln(e) é conferido tanto com o número digitado 2,71828182 (arredonda para 1 nas 8 casas)
+// quanto com a tecla e, que usa o valor completo da constante (CALC-37).
+describe("CALC-35: critérios de aceite do ln (logaritmo natural)", () => {
+  test("ln(e) = 1: 2,71828182, ln resulta em 1", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("2", ".", "7", "1", "8", "2", "8", "1", "8", "2", "ln"), "1");
+  });
+
+  test("ln(e) = 1 pela tecla e: e, ln resulta em 1", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("e", "ln"), "1");
+  });
+
+  // Regressão: ln com a constante e não pode deixar o valor completo de e ativo para a próxima conta.
+  test("ln de e não deixa o valor completo de e para trás: e, ln, x² resulta em 1 (e não 7.3890561)", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("e", "ln", "x²"), "1");
+  });
+
+  test("ln de e não deixa o valor completo de e para trás: e, ln, log resulta em 0 (e não 0.43429448)", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("e", "ln", "log"), "0");
+  });
+
+  test("ln(0) mostra Erro: 0, ln resulta em Erro", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("0", "ln"), "Erro");
+  });
+
+  test("ln(-1) mostra Erro: 1, +/-, ln resulta em Erro", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("1", "+/-", "ln"), "Erro");
+  });
+});
+
+describe("CALC-35: casos de borda do ln (logaritmo natural)", () => {
+  test("ln(1) = 0: 1, ln resulta em 0", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("1", "ln"), "0");
+  });
+
+  test("ln(10) não exato segue a precisão do visor: 10, ln resulta em 2.30258509", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("1", "0", "ln"), "2.30258509");
+  });
+
+  test("ln(2) não exato arredondado a 8 casas: 2, ln resulta em 0.69314718", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("2", "ln"), "0.69314718");
+  });
+
+  test("valor entre 0 e 1 tem ln negativo: 0,5 ln resulta em -0.69314718", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("0", ".", "5", "ln"), "-0.69314718");
+  });
+
+  test("ln de valor logo acima de 1 fica sem notação científica: 1,00000001 ln resulta em 0.00000001", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("1", ".", "0", "0", "0", "0", "0", "0", "0", "1", "ln"), "0.00000001");
+  });
+
+  test("ln de valor abaixo de 1 perto do limite não mostra -0: 0,999999999 ln resulta em 0", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("0", ".", "9", "9", "9", "9", "9", "9", "9", "9", "9", "ln"), "0");
+  });
+
+  test("Erro reinicia com o próximo dígito: 0, ln, 7 resulta em 7", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("0", "ln", "7"), "7");
+  });
+
+  test("ln com Erro no visor mantém o Erro: 0, ln, ln resulta em Erro", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("0", "ln", "ln"), "Erro");
+  });
+
+  test("ln depois do igual usa o resultado: 2 + 3 =, ln resulta em 1.60943791", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("2", "+", "3", "=", "ln"), "1.60943791");
+  });
+
+  test("ln no segundo operando entra na conta, como o log: 2 + ln =, resulta em 2.69314718", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("2", "+", "ln", "="), "2.69314718");
+  });
+
+  test("ln de zero dentro de uma conta mostra Erro: 2 + 0 ln resulta em Erro", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("2", "+", "0", "ln"), "Erro");
+  });
+});
+
 // CALC-43: cada função avançada aplicada ao visor vira uma linha do histórico, "expressão = resultado" (mesmo texto do visor).
 describe("CALC-43: critérios de aceite do histórico das funções avançadas", () => {
   test("√16 = 4: 1, 6, √x grava √16 = 4, com a linha acessível e o resultado no visor", () => {
@@ -3629,5 +3759,49 @@ describe("CALC-44: precedência com funções avançadas no meio da conta", () =
     const calc = createCalculator({ storage: {} });
     assert.equal(calc.press("1", "+", "2", "×", "3", "x²", "−"), "19");
     assert.equal(calc.press("1", "="), "18");
+  });
+});
+
+describe("CALC-35: histórico, teclado, foco e estrutura do ln", () => {
+  // ln é função aplicada ao visor: grava linha no histórico, como log (regra do CALC-43).
+  test("ln grava no histórico: 1 ln grava ln(1) = 0", () => {
+    const storage = {};
+    const calc = createCalculator({ storage });
+    calc.press("1", "ln");
+    assert.deepEqual(calc.historyItems(), ["ln(1) = 0"]);
+    assert.deepEqual(JSON.parse(storage[HISTORY_KEY]), ["ln(1) = 0"]);
+  });
+
+  test("ln de e grava o número mostrado e o resultado: e, ln grava ln(2.71828183) = 1", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("e", "ln"), "1");
+    assert.deepEqual(calc.historyItems(), ["ln(2.71828183) = 1"]);
+  });
+
+  test("ln que dá Erro não grava: 0 ln não cria linha no histórico nem chave no localStorage", () => {
+    const storage = {};
+    const calc = createCalculator({ storage });
+    assert.equal(calc.press("0", "ln"), "Erro");
+    assert.deepEqual(calc.historyItems(), []);
+    assert.equal(HISTORY_KEY in storage, false);
+  });
+
+  test("Enter com o foco no ln não vira igual: o botão é que age (clique nativo), o cálculo em curso fica", () => {
+    const calc = createCalculator({ storage: {} });
+    calc.press("2", "+", "3");
+    const event = calc.keyDown("Enter", { target: { tagName: "BUTTON" } });
+    assert.equal(event.defaultPrevented, false);
+    assert.equal(calc.display(), "3");
+  });
+
+  test("index.html tem o botão ln na linha da memória (fora do teclado), logo depois do log, com rótulo que anuncia a operação", () => {
+    assert.match(
+      HTML_SOURCE,
+      /<div class="scientific">[\s\S]*?<button type="button" id="log-button"[^>]*>log<\/button>\s*<button type="button" id="ln-button" class="ln-add" data-action="ln" aria-label="Logaritmo natural \(ln\)">ln<\/button>[\s\S]*?<\/div>\s*<div class="keypad">/,
+    );
+  });
+
+  test("o ln tem foco visível com contorno branco, sem remover o outline", () => {
+    assert.match(CSS_SOURCE, /\.ln-add:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
   });
 });
