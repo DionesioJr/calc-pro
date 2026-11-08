@@ -3604,3 +3604,30 @@ describe("CALC-43: casos de borda do histórico das funções avançadas", () =>
     assert.deepEqual(calc.historyItems(), ["√16 = 4"]);
   });
 });
+
+// CALC-44: função aplicada no meio da conta é um operando comum: entra na precedência de × e ÷ como um número.
+describe("CALC-44: precedência com funções avançadas no meio da conta", () => {
+  test("x² é termo de ×: 2 + 3 x² × 2 = resulta em 20 (2 + 9 × 2), e o histórico guarda a conta inteira", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("2", "+", "3", "x²", "×", "2", "="), "20");
+    assert.deepEqual(calc.historyItems(), ["2 + 9 × 2 = 20", "3² = 9"]);
+  });
+
+  test("√x é termo de ×: 2 + 1 6 √x × 2 = resulta em 10 (2 + 4 × 2)", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("2", "+", "1", "6", "√x", "×", "2", "="), "10");
+    assert.deepEqual(calc.historyItems(), ["2 + 4 × 2 = 10", "√16 = 4"]);
+  });
+
+  test("1/x com resultado decimal é termo de ×: 2 + 4 1/x × 8 = resulta em 4 (2 + 0.25 × 8)", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("2", "+", "4", "1/x", "×", "8", "="), "4");
+    assert.deepEqual(calc.historyItems(), ["2 + 0.25 × 8 = 4", "1/4 = 0.25"]);
+  });
+
+  test("função em termo já aberto, seguida de − menor: 1 + 2 × 3 x² − mostra 19, e 1 = resulta em 18", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("1", "+", "2", "×", "3", "x²", "−"), "19");
+    assert.equal(calc.press("1", "="), "18");
+  });
+});
