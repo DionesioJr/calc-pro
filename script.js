@@ -111,10 +111,14 @@ const logButton = document.getElementById("log-button");
 const sineButton = document.getElementById("sine-button");
 // Botão π também fica nessa linha, pelo mesmo motivo.
 const piButton = document.getElementById("pi-button");
+// Botão cos também fica nessa linha, pelo mesmo motivo.
+const cosineButton = document.getElementById("cos-button");
 // Botão e também fica nessa linha, pelo mesmo motivo.
 const eButton = document.getElementById("e-button");
 // Botão 1/x também fica nessa linha, pelo mesmo motivo.
 const inverseButton = document.getElementById("inverse-button");
+// Botão x! também fica nessa linha, pelo mesmo motivo.
+const factorialButton = document.getElementById("factorial-button");
 // Botão √x também fica nessa linha, pelo mesmo motivo.
 const squareRootButton = document.getElementById("sqrt-button");
 // Botão tan também fica nessa linha, pelo mesmo motivo.
@@ -361,7 +365,7 @@ function inputDigit(digit) {
   if (state.error) {
     reset();
   }
-  if (state.waitingForOperand) {
+  if (state.waitingForOperand || isScientific(state.current)) {
     setCurrent(digit);
     state.waitingForOperand = false;
     return;
@@ -378,7 +382,7 @@ function inputDecimal() {
   if (state.error) {
     reset();
   }
-  if (state.waitingForOperand) {
+  if (state.waitingForOperand || isScientific(state.current)) {
     setCurrent("0.");
     state.waitingForOperand = false;
     return;
@@ -509,6 +513,28 @@ function sine() {
   state.waitingForOperand = false;
 }
 
+// Cosseno em graus, com a mesma regra do seno: múltiplos de 90° saem exatos (cos 0° = 1, cos 90° = 0, cos 180° = -1, cos 270° = 0),
+// sem o ruído de ponto flutuante do Math.cos (ex.: 6.12e-17 em 90°). Os demais usam radianos.
+const EXACT_COSINES = [1, 0, -1, 0];
+
+function cosineDegrees(degrees) {
+  const angle = ((degrees % 360) + 360) % 360;
+  if (angle % 90 === 0) {
+    return EXACT_COSINES[angle / 90];
+  }
+  return Math.cos((angle * Math.PI) / 180);
+}
+
+// cos: troca o número exibido pelo cosseno dele, com a mesma regra de segundo operando do sen.
+// Com Erro no visor não calcula e mantém o Erro. O cosseno fica entre -1 e 1, então não há limite de 2^53 a checar.
+function cosine() {
+  if (state.error) {
+    return;
+  }
+  state.current = formatResult(cosineDegrees(Number(state.current)));
+  state.waitingForOperand = false;
+}
+
 // π: insere pi (3.14159265, com as 8 casas de qualquer resultado) como operando, substituindo o número em curso,
 // como o sen. Após Erro, começa uma calculadora nova, como um dígito.
 // O cálculo usa o valor completo; o visor mostra o que couber.
@@ -565,6 +591,42 @@ function squareRoot() {
   }
   state.current = formatResult(Math.sqrt(value));
   state.waitingForOperand = false;
+}
+
+// x!: fatorial do número exibido, só para inteiros não negativos (0! = 1). Negativo e decimal mostram Erro.
+// Até 2^53 o resultado é inteiro exato e aparece por extenso; acima disso vai para notação científica (20! → 2.4329020081766E+18).
+// Acima de 170! o resultado passa do maior double (Infinity) e mostra Erro de overflow. Com Erro no visor não calcula.
+function factorial() {
+  if (state.error) {
+    return;
+  }
+  const n = Number(state.current);
+  if (!Number.isInteger(n) || n < 0) {
+    setError();
+    return;
+  }
+  // O laço para assim que o produto vira Infinity, então n grande (ex.: 999999999) não custa mais que ~171 multiplicações.
+  let result = 1;
+  for (let i = 2; i <= n && Number.isFinite(result); i++) {
+    result *= i;
+  }
+  if (!Number.isFinite(result)) {
+    setError();
+    return;
+  }
+  state.current = Math.abs(result) > MAX_RESULT ? toScientific(result) : formatResult(result);
+  state.waitingForOperand = false;
+}
+
+// Notação científica com 14 algarismos significativos, sem zeros à direita na mantissa (2432902008176640000 → 2.4329020081766E+18).
+function toScientific(value) {
+  const [mantissa, exponent] = value.toExponential(13).split("e");
+  return `${mantissa.replace(/\.?0+$/, "")}E${exponent}`;
+}
+
+// Resultado em notação científica não é um número em edição: o próximo dígito ou ponto começa um número novo.
+function isScientific(text) {
+  return /E\+\d+$/.test(text);
 }
 
 // Tangente em graus (o visor mostra DEG). A tangente tem período de 180°, então o ângulo é reduzido módulo 180 antes.
@@ -765,6 +827,8 @@ function handleButton(button) {
     logarithm();
   } else if (action === "sine") {
     sine();
+  } else if (action === "cos") {
+    cosine();
   } else if (action === "tan") {
     tangent();
   } else if (action === "pi") {
@@ -773,6 +837,8 @@ function handleButton(button) {
     insertEuler();
   } else if (action === "inverse") {
     inverse();
+  } else if (action === "factorial") {
+    factorial();
   } else if (action === "sqrt") {
     squareRoot();
   } else if (action in OPERATIONS) {
@@ -909,6 +975,13 @@ if (sineButton) {
   });
 }
 
+if (cosineButton) {
+  cosineButton.addEventListener("click", () => {
+    handleButton(cosineButton);
+    render();
+  });
+}
+
 if (tangentButton) {
   tangentButton.addEventListener("click", () => {
     handleButton(tangentButton);
@@ -940,6 +1013,13 @@ if (eButton) {
 if (inverseButton) {
   inverseButton.addEventListener("click", () => {
     handleButton(inverseButton);
+    render();
+  });
+}
+
+if (factorialButton) {
+  factorialButton.addEventListener("click", () => {
+    handleButton(factorialButton);
     render();
   });
 }

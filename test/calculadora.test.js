@@ -17,8 +17,10 @@
 // e do botão xʸ (CALC-29: potência binária com precedência sobre × e ÷, associação à direita e Erro para resultado não real),
 // e do botão M- (CALC-23: subtrai o visor da memória),
 // e do botão MR (CALC-24: copia a memória para o visor como operando),
+// e do botão MC (CALC-25: zera a memória e o indicador),
+// e do botão x! (CALC-39: fatorial do visor, com notação científica acima de 2^53 e Erro para negativo, decimal e overflow),
+// e do botão cos (CALC-32: cosseno do visor em graus, sem ruído de ponto flutuante).
 // e do botão √x (CALC-27: raiz quadrada do visor, com Erro para negativos).
-// e do botão MC (CALC-25: zera a memória e o indicador).
 // Executa script.js real num contexto isolado, com um DOM mínimo, e aperta
 // os botões pelo mesmo caminho de clique que o navegador usa; o teclado usa o mesmo
 // caminho de keydown.
@@ -176,6 +178,12 @@ function createCalculator({ storage = {} } = {}) {
   // 1/x também fica fora do teclado, na linha da memória, como em index.html.
   const inverseElement = createElementMock("button");
   inverseElement.dataset = { action: "inverse" };
+  // x! também fica fora do teclado, na linha da memória, como em index.html.
+  const factorialElement = createElementMock("button");
+  factorialElement.dataset = { action: "factorial" };
+  // cos também fica fora do teclado, na linha da memória, como em index.html.
+  const cosineElement = createElementMock("button");
+  cosineElement.dataset = { action: "cos" };
   // √x também fica fora do teclado, na linha da memória, como em index.html.
   const squareRootElement = createElementMock("button");
   squareRootElement.dataset = { action: "sqrt" };
@@ -206,6 +214,8 @@ function createCalculator({ storage = {} } = {}) {
   buttonByKey["π"] = piElement;
   buttonByKey["e"] = eElement;
   buttonByKey["1/x"] = inverseElement;
+  buttonByKey["x!"] = factorialElement;
+  buttonByKey["cos"] = cosineElement;
   buttonByKey["√x"] = squareRootElement;
   buttonByKey["tan"] = tangentElement;
   buttonByKey["xʸ"] = powerElement;
@@ -244,6 +254,8 @@ function createCalculator({ storage = {} } = {}) {
     "pi-button": piElement,
     "e-button": eElement,
     "inverse-button": inverseElement,
+    "factorial-button": factorialElement,
+    "cos-button": cosineElement,
     "sqrt-button": squareRootElement,
     "tan-button": tangentElement,
     "power-button": powerElement,
@@ -275,7 +287,7 @@ function createCalculator({ storage = {} } = {}) {
   const context = vm.createContext({ document, window, localStorage });
   vm.runInContext(SCRIPT_SOURCE, context, { filename: "script.js" });
 
-  // Aperta as teclas em sequência e devolve o texto final do display. MC, MR, M+, M-, x², log, sen, π, e e 1/x são clicados pelo próprio botão, fora do teclado.
+  // Aperta as teclas em sequência e devolve o texto final do display. MC, MR, M+, M-, x², log, sen, cos, π, e, 1/x e √x são clicados pelo próprio botão, fora do teclado.
   function press(...keys) {
     for (const key of keys) {
       if (key === "e") {
@@ -316,6 +328,14 @@ function createCalculator({ storage = {} } = {}) {
       }
       if (key === "1/x") {
         inverseElement.dispatch("click");
+        continue;
+      }
+      if (key === "x!") {
+        factorialElement.dispatch("click");
+        continue;
+      }
+      if (key === "cos") {
+        cosineElement.dispatch("click");
         continue;
       }
       if (key === "√x") {
@@ -2198,6 +2218,110 @@ describe("CALC-31: teclado, foco e estrutura do sen", () => {
   });
 });
 
+describe("CALC-32: critérios de aceite do cos (cos, em graus)", () => {
+  test("cos(60°) = 0.5: 6, 0, cos resulta em 0.5", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("6", "0", "cos"), "0.5");
+  });
+
+  test("cos(0) = 1: 0, cos resulta em 1", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("0", "cos"), "1");
+  });
+
+  test("sem ruído de ponto flutuante: cos 90° mostra 0, não 6.12e-17", () => {
+    const calc = createCalculator({ storage: {} });
+    const shown = calc.press("9", "0", "cos");
+    assert.equal(shown, "0");
+    assert.doesNotMatch(shown, /e/);
+  });
+});
+
+describe("CALC-32: casos de borda do cos", () => {
+  test("valores de referência em graus: cos 0° = 1, cos 90° = 0, cos 180° = -1, cos 270° = 0, cos 360° = 1", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("0", "cos"), "1");
+    assert.equal(calc.press("AC", "9", "0", "cos"), "0");
+    assert.equal(calc.press("AC", "1", "8", "0", "cos"), "-1");
+    assert.equal(calc.press("AC", "2", "7", "0", "cos"), "0");
+    assert.equal(calc.press("AC", "3", "6", "0", "cos"), "1");
+  });
+
+  test("270° não mostra ruído: cos 270 resulta em 0 (Math.cos daria -1.8e-16)", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("2", "7", "0", "cos"), "0");
+  });
+
+  test("ângulo negativo: cos(-60°) = 0.5, com +/- antes do cos", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("6", "0", "+/-", "cos"), "0.5");
+  });
+
+  test("ângulos fora de 0 a 360 são reduzidos: cos 390 = 0.8660254 (cos 30°)", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("3", "9", "0", "cos"), "0.8660254");
+  });
+
+  test("resultado com casas decimais segue o arredondamento de 8 casas: cos 1° = 0.9998477", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("1", "cos"), "0.9998477");
+  });
+
+  test("cosseno dentro de 5e-9 de 1 some no arredondamento, sem notação científica: 0.00000001 cos mostra 1", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("0", ".", "0", "0", "0", "0", "0", "0", "0", "1", "cos"), "1");
+  });
+
+  test("com Erro no visor, cos mantém o Erro: 5 ÷ 0 =, cos mostra Erro, e a próxima tecla reinicia", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("5", "÷", "0", "=", "cos"), "Erro");
+    assert.equal(calc.press("7"), "7");
+  });
+
+  test("cos depois do igual calcula o resultado: 2 + 58 =, cos mostra 0.5", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("2", "+", "5", "8", "=", "cos"), "0.5");
+    assert.deepEqual(calc.historyItems(), ["2 + 58 = 60"]);
+  });
+
+  test("cos depois do operador vira o segundo operando, como o sen: 2 + 6 0 cos =, resulta em 2.5", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("2", "+", "6", "0", "cos", "="), "2.5");
+    assert.deepEqual(calc.historyItems(), ["2 + 0.5 = 2.5"]);
+  });
+
+  test("cos não grava no histórico sozinho e não mexe na memória: 5 M+, AC, 6 0 cos mantém a memória em 5", () => {
+    const storage = {};
+    const calc = createCalculator({ storage });
+    calc.press("5", "M+", "AC", "6", "0", "cos");
+    assert.deepEqual(calc.historyItems(), []);
+    assert.equal(HISTORY_KEY in storage, false);
+    assert.equal(calc.memoryValue(), 5);
+  });
+});
+
+describe("CALC-32: teclado, foco e estrutura do cos", () => {
+  test("cos não tem tecla própria: Enter com o foco no botão cos não vira igual, o cálculo em curso fica", () => {
+    const calc = createCalculator({ storage: {} });
+    calc.press("2", "+", "3");
+    const event = calc.keyDown("Enter", { target: { tagName: "BUTTON" } });
+    assert.equal(event.defaultPrevented, false);
+    assert.equal(calc.display(), "3");
+  });
+
+  test("index.html tem o botão cos na grade científica, entre sen e tan, fora do teclado, com rótulo que anuncia a operação", () => {
+    assert.match(
+      HTML_SOURCE,
+      /<div class="scientific">[\s\S]*?<button type="button" id="sine-button"[^>]*>sen<\/button>\s*<button type="button" id="cos-button" class="cos-add" data-action="cos" aria-label="Cosseno em graus \(cos\)">cos<\/button>\s*<button type="button" id="tan-button"[\s\S]*?<\/div>\s*<div class="keypad">/,
+    );
+  });
+
+  test("o cos usa o mesmo estilo de pílula cinza escuro da grade científica e foco visível com contorno branco", () => {
+    assert.match(CSS_SOURCE, /\.scientific > button\s*\{[^}]*border-radius:\s*999px;[^}]*background:\s*#333333;[^}]*\}/);
+    assert.match(CSS_SOURCE, /\.scientific > button:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
+  });
+});
+
 describe("CALC-36: critérios de aceite do π", () => {
   test("π mostra 3.14159265 (8 casas, como os resultados): π resulta em 3.14159265", () => {
     const calc = createCalculator({ storage: {} });
@@ -3005,6 +3129,169 @@ describe("CALC-25: teclado, foco e estrutura do MC", () => {
   });
 
   test("o MC usa o estilo da grade científica (cinza escuro, formato redondo) e foco visível com contorno branco", () => {
+    assert.match(CSS_SOURCE, /\.scientific > button\s*\{[^}]*border-radius:\s*999px;[^}]*background:\s*#333333;[^}]*\}/);
+    assert.match(CSS_SOURCE, /\.scientific > button:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
+  });
+});
+
+describe("CALC-39: critérios de aceite do x! (fatorial)", () => {
+  test("5 x! mostra 120", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("5", "x!"), "120");
+  });
+
+  test("0 x! mostra 1 (0! = 1 por definição)", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("0", "x!"), "1");
+  });
+
+  test("1 x! mostra 1", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("1", "x!"), "1");
+  });
+
+  test("10 x! mostra 3628800", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("1", "0", "x!"), "3628800");
+  });
+
+  test("valor negativo mostra Erro e não trava: 3, +/-, x! resulta em Erro, AC volta a 0 e 7 resulta em 7", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("3", "+/-", "x!"), "Erro");
+    assert.equal(calc.press("AC"), "0");
+    assert.equal(calc.press("7"), "7");
+  });
+
+  test("valor decimal mostra Erro: 2, ., 5, x! resulta em Erro", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("2", ".", "5", "x!"), "Erro");
+  });
+
+  test("20 x! mostra notação científica: 2.4329020081766E+18", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("2", "0", "x!"), "2.4329020081766E+18");
+  });
+
+  test("170 x! mostra um resultado válido em notação científica (≈ 7,257E+306)", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.match(calc.press("1", "7", "0", "x!"), /^7\.2574156153\d*E\+306$/);
+  });
+
+  test("171 x! mostra Erro de overflow, e não Infinity nem NaN", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("1", "7", "1", "x!"), "Erro");
+  });
+
+  test("depois de um erro, digitar um novo número volta ao normal: 171 x!, 7 resulta em 7", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("1", "7", "1", "x!", "7"), "7");
+  });
+
+  test("o resultado de x! é operando da operação seguinte: 5 x! + 10 = resulta em 130", () => {
+    const storage = {};
+    const calc = createCalculator({ storage });
+    assert.equal(calc.press("5", "x!", "+", "1", "0", "="), "130");
+    assert.deepEqual(calc.historyItems(), ["120 + 10 = 130"]);
+  });
+});
+
+describe("CALC-39: casos de borda do x!", () => {
+  test("18 x! é o último inteiro exato por extenso: 6402373705728000", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("1", "8", "x!"), "6402373705728000");
+  });
+
+  test("19 x! passa de 2^53 e vai para notação científica: 1.2164510040883E+17", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("1", "9", "x!"), "1.2164510040883E+17");
+  });
+
+  test("3 x! = 6 e 3 x! × 4 = resulta em 24", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("3", "x!"), "6");
+    assert.equal(calc.press("×", "4", "="), "24");
+  });
+
+  test("x! de número com 0 à frente conta como 0: 0, 0, 3 x! resulta em 6", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("0", "0", "3", "x!"), "6");
+  });
+
+  test("0.5 mostra Erro (decimal, mesmo sem parte inteira visível): 0, ., 5, x! resulta em Erro", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("0", ".", "5", "x!"), "Erro");
+  });
+
+  test("valor grande não trava: 999999999 x! resulta em Erro", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("9", "9", "9", "9", "9", "9", "9", "9", "9", "x!"), "Erro");
+  });
+
+  test("com Erro no visor, x! mantém o Erro: 5 ÷ 0 =, x! resulta em Erro", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("5", "÷", "0", "=", "x!"), "Erro");
+  });
+
+  test("x! do resultado de um cálculo: 2 + 3 = depois x! resulta em 120", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("2", "+", "3", "=", "x!"), "120");
+  });
+
+  test("dígito depois de notação científica começa um número novo: 20 x!, 5 resulta em 5", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("2", "0", "x!", "5"), "5");
+  });
+
+  test("ponto depois de notação científica começa um número novo: 20 x!, ponto resulta em 0.", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("2", "0", "x!", "."), "0.");
+  });
+
+  test("Backspace sobre notação científica volta para 0 (e não apaga pedaços do número): 20 x!, Backspace resulta em 0", () => {
+    const calc = createCalculator({ storage: {} });
+    calc.press("2", "0", "x!");
+    assert.equal(calc.type("Backspace"), "0");
+  });
+
+  test("x! não grava no histórico sozinho: 5 x! não entra no histórico", () => {
+    const storage = {};
+    const calc = createCalculator({ storage });
+    calc.press("5", "x!");
+    assert.deepEqual(calc.historyItems(), []);
+    assert.equal(HISTORY_KEY in storage, false);
+  });
+
+  test("x! não mexe na memória, mas um resultado pode ir para ela: 5 x! M+ guarda 120", () => {
+    const calc = createCalculator({ storage: {} });
+    calc.press("5", "x!", "M+");
+    assert.equal(calc.memoryValue(), 120);
+  });
+
+  test("M+ com x! acima de 2^53 mostra Erro e a memória não muda: 5 M+, AC, 1 9 x!, M+ resulta em Erro e memória 5", () => {
+    const calc = createCalculator({ storage: {} });
+    calc.press("5", "M+", "AC", "1", "9", "x!");
+    assert.equal(calc.press("M+"), "Erro");
+    assert.equal(calc.memoryValue(), 5);
+  });
+});
+
+describe("CALC-39: teclado, foco e estrutura do x!", () => {
+  test("x! não tem tecla própria: Enter com o foco no botão x! não vira igual, o cálculo em curso fica", () => {
+    const calc = createCalculator({ storage: {} });
+    calc.press("2", "+", "3");
+    const event = calc.keyDown("Enter", { target: { tagName: "BUTTON" } });
+    assert.equal(event.defaultPrevented, false);
+    assert.equal(calc.display(), "3");
+  });
+
+  test("index.html tem o botão x! na grade científica (fora do teclado), com rótulo que anuncia a operação", () => {
+    assert.match(
+      HTML_SOURCE,
+      /<div class="scientific">[\s\S]*?<button type="button" id="factorial-button" class="factorial-add" data-action="factorial" aria-label="Fatorial \(x!\)">x!<\/button>[\s\S]*?<\/div>\s*<div class="keypad">/,
+    );
+  });
+
+  test("o x! usa o mesmo estilo de pílula cinza escuro da grade científica e foco visível com contorno branco", () => {
     assert.match(CSS_SOURCE, /\.scientific > button\s*\{[^}]*border-radius:\s*999px;[^}]*background:\s*#333333;[^}]*\}/);
     assert.match(CSS_SOURCE, /\.scientific > button:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
   });

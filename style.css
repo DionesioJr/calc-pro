@@ -96,7 +96,7 @@ body {
   margin-top: 0.5rem;
 }
 
-/* Grade científica: 3 colunas, na ordem do DOM (MC, MR, M+, M-, x², log, sen, tan, xʸ, π, e, 1/x, √x). */
+/* Grade científica: 3 colunas, na ordem do DOM (MC, MR, M+, M-, x², log, sen, cos, tan, xʸ, π, e, 1/x, x!, √x). */
 .scientific {
   display: grid;
   grid-template-columns: repeat(3, var(--cell));
