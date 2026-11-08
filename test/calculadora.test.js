@@ -574,6 +574,36 @@ describe("index.html expõe os botões usados pelos testes", () => {
   });
 });
 
+// CALC-55: a camada de interface (ui.js e keyboard.js) só importa do motor o que desenha ou mapeia teclas; a conta fica em calculator.js.
+describe("CALC-55: ui.js e keyboard.js não fazem conta", () => {
+  const UI_SOURCE = fs.readFileSync(path.join(ROOT, "src", "ui.js"), "utf8");
+  const KEYBOARD_SOURCE = fs.readFileSync(path.join(ROOT, "src", "keyboard.js"), "utf8");
+
+  // Nomes importados de "./calculator.js" por um módulo de interface.
+  function importedFromEngine(source) {
+    const match = source.match(/import\s*\{([^}]*)\}\s*from\s*"\.\/calculator\.js"/);
+    const names = match ? match[1].split(",") : [];
+    return names.map((name) => name.trim()).filter(Boolean);
+  }
+
+  test("ui.js importa do motor só o que desenha: ACTIONS, OPEN_PAREN, openDepth e trailingOperator", () => {
+    assert.deepEqual(importedFromEngine(UI_SOURCE).sort(), ["ACTIONS", "OPEN_PAREN", "openDepth", "trailingOperator"]);
+  });
+
+  test("keyboard.js importa do motor só o registro de ações e datasetOf", () => {
+    assert.deepEqual(importedFromEngine(KEYBOARD_SOURCE).sort(), ["ACTIONS", "datasetOf"]);
+  });
+
+  test("ui.js e keyboard.js não têm operações aritméticas da calculadora nem a tabela OPERATIONS", () => {
+    for (const source of [UI_SOURCE, KEYBOARD_SOURCE]) {
+      assert.doesNotMatch(source, /\bOPERATIONS\b/);
+      assert.doesNotMatch(source, /\bMath\./);
+      assert.doesNotMatch(source, /\btoFixed\b/);
+      assert.doesNotMatch(source, /\bparse(Float|Int)\b|\bNumber\(/);
+    }
+  });
+});
+
 describe("CALC-4: critérios de aceite da entrada de dígitos e ponto decimal", () => {
   test("7, 8, ponto, 5 resulta em 78.5", () => {
     const calc = createCalculator();

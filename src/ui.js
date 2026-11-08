@@ -1,5 +1,5 @@
 // Interface: desenha o visor e os indicadores a partir do estado, e controla o painel do histórico no mobile.
-import { OPEN_PAREN, OPERATIONS, openDepth, trailingOperator } from "./calculator.js";
+import { ACTIONS, OPEN_PAREN, openDepth, trailingOperator } from "./calculator.js";
 
 // Tamanho do display pelo número de caracteres exibidos (sinal e ponto contam).
 const DISPLAY_SIZES = [
@@ -7,6 +7,9 @@ const DISPLAY_SIZES = [
   { maxLength: 8, className: "display-48" },
   { maxLength: Infinity, className: "display-40" },
 ];
+
+// Ids das ações binárias (+, −, ×, ÷, xʸ), tiradas do registro ACTIONS: dizem só quais botões são operadores, não fazem conta.
+const BINARY_ACTION_IDS = new Set(ACTIONS.filter((action) => action.type === "binary").map((action) => action.id));
 
 let display = null;
 let calculatorElement = null;
@@ -35,7 +38,7 @@ export function bindUi(doc, win) {
   // Botões do teclado numérico, mais o xʸ (que fica fora do teclado): operadores binários com destaque pendente.
   const keypad = doc.querySelector(".keypad");
   const buttons = keypad ? Array.from(keypad.querySelectorAll("button")) : [];
-  operatorButtons = buttons.filter((button) => Object.hasOwn(OPERATIONS, button.dataset.action));
+  operatorButtons = buttons.filter((button) => BINARY_ACTION_IDS.has(button.dataset.action));
   const powerButton = doc.getElementById("power-button");
   if (powerButton) {
     operatorButtons.push(powerButton);
