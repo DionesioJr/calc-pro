@@ -81,3 +81,26 @@ describe("CALC-52: o motor recebe e devolve estado", () => {
     assert.equal(result.state.memory, 5);
   });
 });
+
+describe("CALC-57: o % em soma e subtração usa o operando anterior como base", () => {
+  test("100 − 10% = devolve o visor 90 e a linha do histórico 100 − 10 = 90 (não 100 − 0.1)", () => {
+    const result = run(initialState(), [
+      { value: "1" },
+      { value: "0" },
+      { value: "0" },
+      { action: "subtract" },
+      { value: "1" },
+      { value: "0" },
+      { action: "percent" },
+      { action: "equals" },
+    ]);
+    assert.equal(result.state.current, "90");
+    assert.deepEqual(result.history, ["100 − 10 = 90"]);
+  });
+
+  test("10% sozinho continua 0.1 e não grava histórico: 1, 0, % resulta em 0.1", () => {
+    const result = run(initialState(), [{ value: "1" }, { value: "0" }, { action: "percent" }]);
+    assert.equal(result.state.current, "0.1");
+    assert.deepEqual(result.history, []);
+  });
+});
