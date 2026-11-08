@@ -106,23 +106,154 @@ const EXACT_TANGENTS = [0, 1, null, -1];
 // Se sobrar algo que não é um número válido (ex.: "-" ou notação científica), volta para 0.
 const VALID_ENTRY = /^-?\d+(\.\d*)?$/;
 
-// Funções que trocam o número do visor. Aplicadas a um grupo fechado, o texto do grupo sai da expressão (ver dropGroupText).
-const FUNCTION_ACTIONS = [
-  "percent",
-  "toggle-sign",
-  "square",
-  "log",
-  "ln",
-  "sine",
-  "cos",
-  "tan",
-  "pi",
-  "euler",
-  "inverse",
-  "sqrt",
-  "factorial",
-  "memory-recall",
+// Registro único das ações da calculadora (CALC-53): os botões e os atalhos de teclado derivam daqui.
+// id: data-value (dígitos e ponto) ou data-action (o resto) do botão.
+// type: digit, binary, unary, constant, memory ou control.
+// label: símbolo do botão. keys: teclas do teclado físico que disparam a ação. buttonId: id do botão fora do teclado numérico.
+// replacesDisplay: true quando a ação troca o número do visor; aplicada a um grupo fechado, o texto do grupo sai da expressão (ver dropGroupText).
+// apply(s): age na cópia s do estado.
+// Para uma função unária nova: uma entrada aqui, com a função em apply, e um botão em index.html. handleButton não muda.
+export const ACTIONS = [
+  ...["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"].map(digitAction),
+  {
+    id: ".",
+    type: "digit",
+    label: ".",
+    keys: [".", ","],
+    apply: (s) => {
+      implicitMultiplication(s);
+      inputDecimal(s);
+    },
+  },
+  { id: "add", type: "binary", label: "+", keys: ["+"], apply: (s) => inputOperator(s, "add") },
+  { id: "subtract", type: "binary", label: "−", keys: ["-"], apply: (s) => inputOperator(s, "subtract") },
+  { id: "multiply", type: "binary", label: "×", keys: ["*"], apply: (s) => inputOperator(s, "multiply") },
+  { id: "divide", type: "binary", label: "÷", keys: ["/"], apply: (s) => inputOperator(s, "divide") },
+  {
+    id: "power",
+    type: "binary",
+    label: "xʸ",
+    keys: ["^"],
+    buttonId: "power-button",
+    apply: (s) => inputOperator(s, "power"),
+  },
+  { id: "percent", type: "unary", label: "%", replacesDisplay: true, apply: percent },
+  { id: "toggle-sign", type: "unary", label: "+/-", replacesDisplay: true, apply: toggleSign },
+  {
+    id: "square",
+    type: "unary",
+    label: "x²",
+    buttonId: "square-button",
+    replacesDisplay: true,
+    apply: square,
+  },
+  { id: "log", type: "unary", label: "log", buttonId: "log-button", replacesDisplay: true, apply: logarithm },
+  { id: "ln", type: "unary", label: "ln", buttonId: "ln-button", replacesDisplay: true, apply: naturalLogarithm },
+  { id: "sine", type: "unary", label: "sen", buttonId: "sine-button", replacesDisplay: true, apply: sine },
+  { id: "cos", type: "unary", label: "cos", buttonId: "cos-button", replacesDisplay: true, apply: cosine },
+  { id: "tan", type: "unary", label: "tan", buttonId: "tan-button", replacesDisplay: true, apply: tangent },
+  { id: "inverse", type: "unary", label: "1/x", buttonId: "inverse-button", replacesDisplay: true, apply: inverse },
+  { id: "sqrt", type: "unary", label: "√x", buttonId: "sqrt-button", replacesDisplay: true, apply: squareRoot },
+  {
+    id: "factorial",
+    type: "unary",
+    label: "x!",
+    keys: ["!"],
+    buttonId: "factorial-button",
+    replacesDisplay: true,
+    apply: factorial,
+  },
+  {
+    id: "pi",
+    type: "constant",
+    label: "π",
+    keys: ["p", "P"],
+    buttonId: "pi-button",
+    replacesDisplay: true,
+    apply: insertPi,
+  },
+  {
+    id: "euler",
+    type: "constant",
+    label: "e",
+    buttonId: "e-button",
+    replacesDisplay: true,
+    apply: insertEuler,
+  },
+  {
+    id: "memory-add",
+    type: "memory",
+    label: "M+",
+    keys: ["m", "M"],
+    buttonId: "memory-add",
+    apply: memoryAdd,
+  },
+  {
+    id: "memory-subtract",
+    type: "memory",
+    label: "M-",
+    keys: ["_"],
+    buttonId: "memory-subtract",
+    apply: memorySubtract,
+  },
+  {
+    id: "memory-clear",
+    type: "memory",
+    label: "MC",
+    keys: ["c", "C"],
+    buttonId: "memory-clear",
+    apply: memoryClear,
+  },
+  {
+    id: "memory-recall",
+    type: "memory",
+    label: "MR",
+    keys: ["r", "R"],
+    buttonId: "memory-recall",
+    replacesDisplay: true,
+    apply: memoryRecall,
+  },
+  { id: "all-clear", type: "control", label: "AC", keys: ["Escape"], apply: reset },
+  { id: "equals", type: "control", label: "=", keys: ["=", "Enter"], apply: inputEquals },
+  {
+    id: "open-paren",
+    type: "control",
+    label: "(",
+    keys: ["("],
+    buttonId: "open-paren-button",
+    apply: inputOpenParen,
+  },
+  {
+    id: "close-paren",
+    type: "control",
+    label: ")",
+    keys: [")"],
+    buttonId: "close-paren-button",
+    apply: inputCloseParen,
+  },
 ];
+
+// Ação pelo id (data-value ou data-action), para o motor achar a entrada de um botão.
+const ACTION_BY_ID = new Map(ACTIONS.map((action) => [action.id, action]));
+
+// Dígito de 0 a 9: entra no número em edição; depois de um grupo fechado, vira multiplicação implícita.
+function digitAction(digit) {
+  return {
+    id: digit,
+    type: "digit",
+    label: digit,
+    keys: [digit],
+    apply: (s) => {
+      implicitMultiplication(s);
+      inputDigit(s, digit);
+    },
+  };
+}
+
+// data-value (dígitos e ponto) ou data-action do botão da ação, no formato que main.js e keyboard.js passam ao motor.
+export function datasetOf(action) {
+  return action.type === "digit" ? { value: action.id } : { action: action.id };
+}
 
 // Reinicia o cálculo em curso, no estado s (que é uma cópia). O histórico e a memória não são apagados aqui (só pelo botão Limpar histórico, ou MC).
 function reset(s) {
@@ -859,71 +990,18 @@ function inputEquals(s) {
 
 // Aplica uma ação ao estado s (uma cópia, que pode ser alterada). dataset é o data-value (dígitos e ponto) ou o data-action do botão.
 function applyButton(s, dataset) {
-  if (dataset.value !== undefined) {
-    const value = dataset.value;
-
-    if (value === ".") {
-      implicitMultiplication(s);
-      inputDecimal(s);
-    } else if (/^[0-9]$/.test(value)) {
-      implicitMultiplication(s);
-      inputDigit(s, value);
-    }
+  // data-value identifica dígitos e ponto; data-action, o resto. Um botão com o atributo do tipo errado não faz nada.
+  const isDigit = dataset.value !== undefined;
+  const action = ACTION_BY_ID.get(isDigit ? dataset.value : dataset.action);
+  if (action === undefined || (action.type === "digit") !== isDigit) {
     return;
   }
 
-  const action = dataset.action;
-
-  s.functionOnGroup = FUNCTION_ACTIONS.includes(action) && s.valueIsGroup;
+  s.functionOnGroup = action.replacesDisplay === true && s.valueIsGroup;
   if (s.functionOnGroup) {
     dropGroupText(s);
   }
-
-  if (action === "all-clear") {
-    reset(s);
-  } else if (action === "toggle-sign") {
-    toggleSign(s);
-  } else if (action === "percent") {
-    percent(s);
-  } else if (action === "equals") {
-    inputEquals(s);
-  } else if (action === "memory-add") {
-    memoryAdd(s);
-  } else if (action === "memory-subtract") {
-    memorySubtract(s);
-  } else if (action === "memory-clear") {
-    memoryClear(s);
-  } else if (action === "memory-recall") {
-    memoryRecall(s);
-  } else if (action === "square") {
-    square(s);
-  } else if (action === "log") {
-    logarithm(s);
-  } else if (action === "ln") {
-    naturalLogarithm(s);
-  } else if (action === "sine") {
-    sine(s);
-  } else if (action === "cos") {
-    cosine(s);
-  } else if (action === "tan") {
-    tangent(s);
-  } else if (action === "pi") {
-    insertPi(s);
-  } else if (action === "euler") {
-    insertEuler(s);
-  } else if (action === "inverse") {
-    inverse(s);
-  } else if (action === "open-paren") {
-    inputOpenParen(s);
-  } else if (action === "close-paren") {
-    inputCloseParen(s);
-  } else if (action === "factorial") {
-    factorial(s);
-  } else if (action === "sqrt") {
-    squareRoot(s);
-  } else if (action in OPERATIONS) {
-    inputOperator(s, action);
-  }
+  action.apply(s);
   s.functionOnGroup = false;
 }
 
