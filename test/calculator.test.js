@@ -6,10 +6,12 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { ACTIONS, deleteDigit, handleButton, initialState, showResult } from "../src/calculator.js";
+import { fillKeypadMarkup } from "../src/keypad.js";
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 const CALCULATOR_SOURCE = fs.readFileSync(path.join(ROOT, "src", "calculator.js"), "utf8");
-const INDEX_HTML = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
+// HTML final: index.html com os botões gerados a partir do registro (CALC-59).
+const INDEX_HTML = fillKeypadMarkup(fs.readFileSync(path.join(ROOT, "index.html"), "utf8"));
 
 // Aplica uma sequência de botões (data-value ou data-action) e junta as linhas do histórico que as ações geraram.
 function run(state, datasets) {
@@ -89,7 +91,7 @@ describe("CALC-53: o registro de ações é a única fonte de botões e teclas",
     assert.equal(new Set(keys).size, keys.length);
   });
 
-  test("os data-action e data-value de index.html são exatamente os ids do registro", () => {
+  test("os data-action e data-value do HTML final são exatamente os ids do registro", () => {
     const htmlIds = [...INDEX_HTML.matchAll(/data-(?:action|value)="([^"]+)"/g)].map((match) => match[1]);
     const registryIds = ACTIONS.map((action) => action.id);
     assert.deepEqual([...new Set(htmlIds)].sort(), [...registryIds].sort());

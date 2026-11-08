@@ -37,9 +37,11 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { start } from "../src/main.js";
+import { fillKeypadMarkup } from "../src/keypad.js";
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
-const HTML_SOURCE = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
+// HTML final: index.html com a linha de funções e o teclado gerados a partir do registro ACTIONS (CALC-59).
+const HTML_SOURCE = fillKeypadMarkup(fs.readFileSync(path.join(ROOT, "index.html"), "utf8"));
 // Os arquivos de css/ na ordem em que index.html os carrega: essa ordem é a cascata.
 const CSS_FILES = ["tema.css", "display.css", "teclado.css", "historico.css"].map((name) =>
   fs.readFileSync(path.join(ROOT, "css", name), "utf8"),

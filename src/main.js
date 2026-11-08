@@ -4,6 +4,7 @@
 import { ACTIONS, deleteDigit, handleButton, initialState, showResult } from "./calculator.js";
 import { addCalculation, bindHistory } from "./history.js";
 import { bindKeyboard } from "./keyboard.js";
+import { renderKeypad } from "./keypad.js";
 import { bindUi, hideHistoryPanel, render } from "./ui.js";
 
 // Botões fora do teclado numérico (linha da memória e linha de funções), tirados do registro ACTIONS: cada um executa a ação do próprio data-action.
@@ -44,6 +45,8 @@ function recallResult(result) {
 // Devolve um acesso de leitura ao estado atual (os testes usam para conferir a memória).
 export function start(doc, win, storage) {
   state = initialState();
+  // Botões primeiro: o teclado e a ligação de eventos abaixo procuram os botões no documento.
+  renderKeypad(doc);
   bindHistory(doc, storage, recallFromHistory);
   bindUi(doc, win);
   bindKeyboard(doc, win, { press, backspace });

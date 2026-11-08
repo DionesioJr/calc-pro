@@ -112,7 +112,7 @@ const VALID_ENTRY = /^-?\d+(\.\d*)?$/;
 // label: símbolo do botão. keys: teclas do teclado físico que disparam a ação. buttonId: id do botão fora do teclado numérico.
 // replacesDisplay: true quando a ação troca o número do visor; aplicada a um grupo fechado, o texto do grupo sai da expressão (ver dropGroupText).
 // apply(s): age na cópia s do estado.
-// Para uma função unária nova: uma entrada aqui, com a função em apply, e um botão em index.html. handleButton não muda.
+// Para uma função unária nova: uma entrada aqui, com a função em apply, e uma linha em FUNCTION_ROW (src/keypad.js), que gera o botão. handleButton não muda.
 export const ACTIONS = [
   ...["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"].map(digitAction),
   {
