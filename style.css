@@ -64,6 +64,61 @@ body {
   margin-top: 1rem;
 }
 
+/* Linha da memória, entre o visor e o teclado (fora da grade, que segue com 5 linhas). */
+.memory {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 2.25rem;
+  margin-top: 0.5rem;
+}
+
+/* Botão M+: contorno cinza, como o botão Histórico do mobile. */
+.memory-add {
+  padding: 0.4rem 0.9rem;
+  border: 1px solid #a5a5a5;
+  border-radius: 999px;
+  background: transparent;
+  color: #a5a5a5;
+  font: inherit;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.memory-add:hover {
+  border-color: #ffffff;
+  color: #ffffff;
+}
+
+.memory-add:active {
+  filter: brightness(0.8);
+}
+
+.memory-add:focus-visible {
+  outline: 3px solid #ffffff;
+  outline-offset: 2px;
+}
+
+/* Indicador de memória: aparece enquanto o registrador for diferente de 0 (o atributo hidden esconde). */
+.memory-indicator {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #ff9f0a;
+}
+
+/* Texto só para leitor de tela. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 .btn {
   width: 100%;
   aspect-ratio: 1;
@@ -362,6 +417,10 @@ body {
     display: flex;
     flex-direction: column;
     justify-content: flex-end;
+  }
+
+  .memory {
+    flex: none;
   }
 
   .keypad {

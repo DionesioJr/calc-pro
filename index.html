@@ -12,6 +12,10 @@
         <h1>Calculadora Pro</h1>
         <button type="button" id="history-open" class="history-open" aria-controls="history-panel" aria-expanded="false">Histórico</button>
         <output id="display" class="display" aria-live="polite">0</output>
+        <div class="memory">
+          <button type="button" id="memory-add" class="memory-add" data-action="memory-add" aria-label="Somar à memória (M+)">M+</button>
+          <span id="memory-indicator" class="memory-indicator" hidden><span aria-hidden="true">M</span><span class="sr-only">Memória com valor guardado</span></span>
+        </div>
         <div class="keypad">
           <button type="button" class="btn btn-function" data-action="all-clear" aria-label="Limpar">AC</button>
           <button type="button" class="btn btn-function" data-action="toggle-sign" aria-label="Inverter sinal">+/-</button>

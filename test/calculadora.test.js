@@ -5,7 +5,8 @@
 // arredondamento e tamanho da fonte (CALC-7), do feedback visual dos botões (CALC-9),
 // do limite de 2^53 para resultados (CALC-16), do histórico de cálculos no localStorage (CALC-19),
 // do painel de histórico reformulado (CALC-20: itens tocáveis, confirmação ao limpar),
-// e do layout mobile com o painel do histórico em tela cheia (CALC-21).
+// e do layout mobile com o painel do histórico em tela cheia (CALC-21),
+// e do botão M+ com o indicador de memória (CALC-22).
 // Executa script.js real num contexto isolado, com um DOM mínimo, e aperta
 // os botões pelo mesmo caminho de clique que o navegador usa; o teclado usa o mesmo
 // caminho de keydown.
@@ -131,6 +132,11 @@ function createCalculator({ storage = {} } = {}) {
   const historyOpenButton = createElementMock("button");
   const historyCloseButton = createElementMock("button");
   const calculatorMain = createElementMock("main");
+  // M+ fica fora do teclado, como em index.html; o indicador começa escondido, como no HTML.
+  const memoryAddElement = createElementMock("button");
+  memoryAddElement.dataset = { action: "memory-add" };
+  const memoryIndicatorElement = createElementMock("span");
+  memoryIndicatorElement.hidden = true;
   let onKeypadClick = null;
   let onKeyDown = null;
   let onKeyUp = null;
@@ -142,6 +148,7 @@ function createCalculator({ storage = {} } = {}) {
     buttonByKey[key] = createButton(KEY_DATASET[key]);
   }
   const buttons = Object.values(buttonByKey);
+  buttonByKey["M+"] = memoryAddElement;
 
   const keypad = {
     addEventListener(type, listener) {
@@ -166,6 +173,8 @@ function createCalculator({ storage = {} } = {}) {
     "history-open": historyOpenButton,
     "history-close": historyCloseButton,
     calculator: calculatorMain,
+    "memory-add": memoryAddElement,
+    "memory-indicator": memoryIndicatorElement,
   };
 
   const document = {
@@ -190,15 +199,26 @@ function createCalculator({ storage = {} } = {}) {
   };
 
   const localStorage = createLocalStorage(storage);
-  vm.runInNewContext(SCRIPT_SOURCE, { document, window, localStorage }, { filename: "script.js" });
+  // Contexto com o script carregado: depois de rodar, o estado do script (const state) fica lido por runInContext.
+  const context = vm.createContext({ document, window, localStorage });
+  vm.runInContext(SCRIPT_SOURCE, context, { filename: "script.js" });
 
-  // Aperta as teclas em sequência e devolve o texto final do display.
+  // Aperta as teclas em sequência e devolve o texto final do display. M+ é clicado pelo próprio botão, fora do teclado.
   function press(...keys) {
     for (const key of keys) {
+      if (key === "M+") {
+        memoryAddElement.dispatch("click");
+        continue;
+      }
       const button = buttonByKey[key];
       onKeypadClick({ target: { closest: () => button } });
     }
     return display.textContent;
+  }
+
+  // Valor guardado na memória (registrador do script), lido do mesmo contexto.
+  function memoryValue() {
+    return vm.runInContext("state.memory", context);
   }
 
   // Botão do teclado pela tecla (ex.: "7", "+", "AC").
@@ -347,6 +367,9 @@ function createCalculator({ storage = {} } = {}) {
     cancelFocused: () => historyCancel.focused,
     emptyMessageFocused: () => historyEmpty.focused,
     display: () => display.textContent,
+    memoryValue,
+    memoryIndicatorHidden: () => memoryIndicatorElement.hidden,
+    memoryAddFocused: () => memoryAddElement.focused,
   };
 }
 
@@ -1450,5 +1473,144 @@ describe("CALC-21: critérios de aceite do histórico em tela cheia no mobile", 
     calc.tapHistoryOpen();
     assert.equal(calc.tapHistoryItem(0), "5");
     assert.equal(calc.panelShown(), false);
+  });
+});
+
+describe("CALC-22: critérios de aceite do M+ e do indicador de memória", () => {
+  test("display 5, M+, AC, display 3, M+ deixa a memória em 8", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("5", "M+", "AC", "3", "M+"), "3");
+    assert.equal(calc.memoryValue(), 8);
+  });
+
+  test("o indicador de memória aparece com valor guardado e some quando a memória volta a 0", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.memoryIndicatorHidden(), true);
+    calc.press("5", "M+");
+    assert.equal(calc.memoryIndicatorHidden(), false);
+    calc.press("AC", "5", "+/-", "M+");
+    assert.equal(calc.memoryValue(), 0);
+    assert.equal(calc.memoryIndicatorHidden(), true);
+  });
+
+  test("pelo teclado, m e M somam ao registrador: 5, m, 3, M resulta em memória 8 e visor 3", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.type("5", "m", "Escape", "3", "M"), "3");
+    assert.equal(calc.memoryValue(), 8);
+    assert.equal(calc.memoryIndicatorHidden(), false);
+  });
+
+  test("clique e teclado se misturam: 5, M+ (botão), Escape, 3, m (tecla) deixa a memória em 8", () => {
+    const calc = createCalculator({ storage: {} });
+    calc.press("5", "M+");
+    calc.type("Escape", "3", "m");
+    assert.equal(calc.memoryValue(), 8);
+  });
+
+  test("M+ não entra no histórico de cálculos: 5, M+ não grava nada", () => {
+    const storage = {};
+    const calc = createCalculator({ storage });
+    calc.press("5", "M+");
+    assert.deepEqual(calc.historyItems(), []);
+    assert.equal(HISTORY_KEY in storage, false);
+  });
+});
+
+describe("CALC-22: casos de borda do M+ e do indicador de memória", () => {
+  test("M+ com zero no visor não guarda nada: AC, M+ mantém a memória em 0 e o indicador escondido", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("AC", "M+"), "0");
+    assert.equal(calc.memoryValue(), 0);
+    assert.equal(calc.memoryIndicatorHidden(), true);
+  });
+
+  test("AC não apaga a memória: 5, M+, AC mantém a memória em 5 e o indicador visível", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("5", "M+", "AC"), "0");
+    assert.equal(calc.memoryValue(), 5);
+    assert.equal(calc.memoryIndicatorHidden(), false);
+  });
+
+  test("M+ não muda o visor nem o operador pendente: 2, +, 3, M+, = resulta em 5 e a memória fica em 3", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("2", "+", "3", "M+", "="), "5");
+    assert.equal(calc.memoryValue(), 3);
+  });
+
+  test("com Erro no visor, M+ não faz nada: 5, ÷, 0, =, M+ mantém o Erro e a memória em 0", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("5", "÷", "0", "=", "M+"), "Erro");
+    assert.equal(calc.memoryValue(), 0);
+    assert.equal(calc.memoryIndicatorHidden(), true);
+  });
+
+  test("decimais somam sem ruído de ponto flutuante: 0.1, M+, AC, 0.2, M+ deixa a memória em 0.3", () => {
+    const calc = createCalculator({ storage: {} });
+    calc.press("0", ".", "1", "M+", "AC", "0", ".", "2", "M+");
+    assert.equal(calc.memoryValue(), 0.3);
+  });
+
+  test("valor negativo subtrai da memória: 5, M+, AC, 8, +/-, M+ deixa a memória em -3", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("5", "M+", "AC", "8", "+/-", "M+"), "-8");
+    assert.equal(calc.memoryValue(), -3);
+    assert.equal(calc.memoryIndicatorHidden(), false);
+  });
+
+  test("soma acima de 2^53 mostra Erro e a memória fica como estava: 94906265 × 94906265 =, M+, M+", () => {
+    const calc = createCalculator({ storage: {} });
+    calc.press("9", "4", "9", "0", "6", "2", "6", "5", "×", "9", "4", "9", "0", "6", "2", "6", "5", "=", "M+");
+    assert.equal(calc.memoryValue(), 9007199136250225);
+    assert.equal(calc.press("M+"), "Erro");
+    assert.equal(calc.memoryValue(), 9007199136250225);
+  });
+
+  test("a próxima tecla depois do Erro de memória reinicia a calculadora: 7 resulta em 7 e a memória continua", () => {
+    const calc = createCalculator({ storage: {} });
+    calc.press("9", "4", "9", "0", "6", "2", "6", "5", "×", "9", "4", "9", "0", "6", "2", "6", "5", "=", "M+", "M+");
+    assert.equal(calc.press("7"), "7");
+    assert.equal(calc.memoryValue(), 9007199136250225);
+  });
+});
+
+describe("CALC-22: teclado e foco do M+", () => {
+  test("a tecla m deixa o botão M+ destacado até soltar a tecla", () => {
+    const calc = createCalculator({ storage: {} });
+    calc.keyDown("m", { code: "KeyM" });
+    assert.equal(calc.buttonFor("M+").classList.contains("is-pressed"), true);
+    calc.keyUp("m", "KeyM");
+    assert.equal(calc.buttonFor("M+").classList.contains("is-pressed"), false);
+  });
+
+  test("Enter com o foco no M+ não vira igual: o botão é que age (clique nativo), o cálculo em curso fica", () => {
+    const calc = createCalculator({ storage: {} });
+    calc.press("2", "+", "3");
+    const event = calc.keyDown("Enter", { target: { tagName: "BUTTON" } });
+    assert.equal(event.defaultPrevented, false);
+    assert.equal(calc.display(), "3");
+  });
+});
+
+describe("CALC-22: estrutura e estilo do M+ e do indicador", () => {
+  test("index.html tem o botão M+ com rótulo que contém M+, fora do teclado, e o indicador começa escondido", () => {
+    assert.match(
+      HTML_SOURCE,
+      /<button type="button" id="memory-add" class="memory-add" data-action="memory-add" aria-label="Somar à memória \(M\+\)">M\+<\/button>/,
+    );
+    assert.match(HTML_SOURCE, /<span id="memory-indicator" class="memory-indicator" hidden>/);
+    assert.match(HTML_SOURCE, /class="sr-only">Memória com valor guardado</);
+  });
+
+  test("o indicador não define display, para o atributo hidden continuar valendo", () => {
+    assert.doesNotMatch(CSS_SOURCE, /\.memory-indicator\s*\{[^}]*display:/);
+    assert.match(CSS_SOURCE, /\.memory-indicator\s*\{[^}]*color:\s*#ff9f0a;[^}]*\}/);
+  });
+
+  test("o M+ tem foco visível com contorno branco, sem remover o outline", () => {
+    assert.match(CSS_SOURCE, /\.memory-add:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
+  });
+
+  test("no mobile a linha da memória não encolhe com o visor: .memory com flex: none", () => {
+    assert.match(MOBILE_CSS, /\.memory\s*\{\s*flex:\s*none;\s*\}/);
   });
 });

@@ -33,6 +33,8 @@ const state = {
   error: false,
   // Partes da expressão em curso (ex.: ["12", "×", "3", "="]); viram uma linha do histórico no igual.
   expression: [],
+  // Registrador da memória (M+): soma dos valores do visor. Começa em 0; AC não o apaga.
+  memory: 0,
 };
 
 const OPERATIONS = {
@@ -70,6 +72,11 @@ const historyClose = document.getElementById("history-close");
 const buttons = keypad ? Array.from(keypad.querySelectorAll("button")) : [];
 const operatorButtons = buttons.filter((button) => Object.hasOwn(OPERATIONS, button.dataset.action));
 
+// Botão M+ fica fora do teclado numérico, mas recebe as mesmas teclas e o efeito de tecla pressionada.
+const memoryAddButton = document.getElementById("memory-add");
+const memoryIndicator = document.getElementById("memory-indicator");
+const pressableButtons = memoryAddButton ? [...buttons, memoryAddButton] : buttons;
+
 function displaySizeClass(text) {
   return DISPLAY_SIZES.find((size) => text.length <= size.maxLength).className;
 }
@@ -87,6 +94,11 @@ function render() {
   const selectedOperator = state.operator !== null && state.waitingForOperand ? state.operator : null;
   for (const button of operatorButtons) {
     button.setAttribute("aria-pressed", String(button.dataset.action === selectedOperator));
+  }
+
+  // Indicador de memória: visível só enquanto houver valor guardado.
+  if (memoryIndicator) {
+    memoryIndicator.hidden = state.memory === 0;
   }
 }
 
@@ -327,6 +339,20 @@ function percent() {
   state.waitingForOperand = false;
 }
 
+// M+: soma o número exibido à memória (o visor não muda). Com Erro no visor não faz nada.
+// Se a soma passar de 2^53, mostra Erro, como qualquer resultado, e a memória fica como estava.
+function memoryAdd() {
+  if (state.error) {
+    return;
+  }
+  const sum = state.memory + Number(state.current);
+  if (!Number.isFinite(sum) || Math.abs(sum) > MAX_RESULT) {
+    setError();
+    return;
+  }
+  state.memory = Number(formatResult(sum));
+}
+
 // Backspace (teclado): apaga o último caractere do número em edição.
 // Sem número em edição (após operador ou igual) não faz nada. Após erro, reinicia a calculadora.
 // Se sobrar algo que não é um número válido (ex.: "-" ou notação científica), volta para 0.
@@ -435,6 +461,8 @@ function handleButton(button) {
     percent();
   } else if (action === "equals") {
     inputEquals();
+  } else if (action === "memory-add") {
+    memoryAdd();
   } else if (action in OPERATIONS) {
     inputOperator(action);
   }
@@ -451,6 +479,9 @@ const KEY_BUTTONS = {
   Escape: { action: "all-clear" },
   ".": { value: "." },
   ",": { value: "." },
+  // M+ pelo teclado: m ou M (com ou sem Shift).
+  m: { action: "memory-add" },
+  M: { action: "memory-add" },
 };
 
 // Tecla → dataset no mesmo formato de data-value/data-action; null se a tecla não tem botão (ex.: Backspace).
@@ -464,7 +495,7 @@ function datasetForKey(key) {
 // Botão do teclado correspondente a um dataset (ex.: { value: "7" } ou { action: "add" }), ou null.
 function findButton(dataset) {
   const attribute = dataset.value !== undefined ? "value" : "action";
-  return buttons.find((button) => button.dataset[attribute] === dataset[attribute]) ?? null;
+  return pressableButtons.find((button) => button.dataset[attribute] === dataset[attribute]) ?? null;
 }
 
 // Tecla física pressionada: o botão correspondente escurece até a tecla ser solta, ou até a janela perder o foco.
@@ -513,6 +544,13 @@ if (keypad) {
     }
 
     handleButton(button);
+    render();
+  });
+}
+
+if (memoryAddButton) {
+  memoryAddButton.addEventListener("click", () => {
+    handleButton(memoryAddButton);
     render();
   });
 }
