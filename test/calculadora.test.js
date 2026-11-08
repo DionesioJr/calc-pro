@@ -40,7 +40,15 @@ import { start } from "../src/main.js";
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 const HTML_SOURCE = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
-const CSS_SOURCE = fs.readFileSync(path.join(ROOT, "css", "style.css"), "utf8");
+// Os arquivos de css/ na ordem em que index.html os carrega: essa ordem é a cascata.
+const CSS_FILES = ["tema.css", "display.css", "teclado.css", "historico.css"].map((name) =>
+  fs.readFileSync(path.join(ROOT, "css", name), "utf8"),
+);
+const CSS_SOURCE = CSS_FILES.join("\n");
+// Partes antes e depois do corte de 768px, de cada arquivo (cada um tem o seu bloco desktop).
+const DESKTOP_MEDIA = "@media (min-width: 768px)";
+const CSS_BASE = CSS_FILES.map((css) => css.split(DESKTOP_MEDIA)[0]).join("\n");
+const CSS_DESKTOP = CSS_FILES.map((css) => css.split(DESKTOP_MEDIA)[1] ?? "").join("\n");
 
 // Teclas usadas nos testes, com os mesmos data-* que index.html define para cada botão.
 const KEY_DATASET = {
@@ -1492,7 +1500,8 @@ describe("CALC-19: estrutura e estilo do histórico", () => {
   });
 
   test("o histórico fica escondido no mobile e aparece a partir de 768px, no mesmo corte do projeto", () => {
-    const [base, desktop] = CSS_SOURCE.split("@media (min-width: 768px)");
+    const base = CSS_BASE;
+    const desktop = CSS_DESKTOP;
     assert.match(base, /\.history\s*\{\s*display:\s*none;\s*\}/);
     assert.match(desktop, /\.history\s*\{[^}]*display:\s*flex;/);
   });
@@ -1648,7 +1657,7 @@ describe("CALC-20: estilo e estrutura do histórico reformulado", () => {
   });
 
   test("no desktop o painel tem a mesma largura da calculadora (360px) e fica alinhado ao topo dela", () => {
-    const desktop = CSS_SOURCE.split("@media (min-width: 768px)")[1];
+    const desktop = CSS_DESKTOP;
     assert.match(desktop, /\.calculator\s*\{[^}]*width:\s*360px;[^}]*\}/);
     assert.match(desktop, /\.history\s*\{[^}]*width:\s*min\(360px,\s*100%\);[^}]*\}/);
     assert.match(desktop, /\.layout\s*\{[^}]*align-items:\s*start;[^}]*\}/);
@@ -1678,10 +1687,10 @@ describe("CALC-20: estilo e estrutura do histórico reformulado", () => {
   });
 });
 
-// Regras do mobile: o bloco @media (max-width: 767px) fica no fim do css/style.css.
-const MOBILE_CSS = (CSS_SOURCE.match(/@media \(max-width: 767px\) \{[\s\S]*$/) || [""])[0];
+// Regras do mobile: o bloco @media (max-width: 767px) fica no fim de cada arquivo de css/, somados aqui.
+const MOBILE_CSS = CSS_FILES.map((css) => (css.match(/@media \(max-width: 767px\) \{[\s\S]*$/) || [""])[0]).join("\n");
 
-// Lado do botão no mobile, como o style.css calcula em --cell: o menor entre a largura (7 colunas, com 6 espaços)
+// Lado do botão no mobile, como o tema.css calcula em --cell: o menor entre a largura (7 colunas, com 6 espaços)
 // e a altura (5 linhas, com o visor com pelo menos --display-min e a linha de status). Em px, com 1rem = 16px:
 // --pad 14, --gap 4, --display-min 72, --status-height 24.
 function mobileButtonSide(width, height) {
