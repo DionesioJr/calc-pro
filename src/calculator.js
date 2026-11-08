@@ -367,13 +367,29 @@ function toggleSign(s) {
   s.waitingForOperand = false;
 }
 
-// %: divide o número exibido por 100. Mesma regra de segundo operando do +/-. Após erro, reinicia.
+// %: com + ou − pendente, o número exibido vira a porcentagem da base, que é o número à esquerda do operador já acumulado na pilha
+// (100 − 10% → 100 − 10 = 90; 2 × 3 + 10% → 6 + 0.6). O visor mostra esse valor, que é o que entra na conta e no histórico.
+// Em qualquer outro caso (× e ÷, xʸ, início de conta, dentro de "(") vale o percentual em decimal (100 × 10% → 100 × 0.1 = 10).
+// Após erro, reinicia.
 function percent(s) {
   if (s.error) {
     reset(s);
     return;
   }
-  setCurrent(s, formatResult(operandValue(s) / 100));
+  const pending = s.terms[s.terms.length - 1];
+  if (pending !== "add" && pending !== "subtract") {
+    setCurrent(s, formatResult(operandValue(s) / 100));
+    s.waitingForOperand = false;
+    return;
+  }
+  // A pilha termina com o operador pendente; o número logo antes dele é a base, já reduzido pela precedência.
+  const base = s.stack[s.stack.length - 2];
+  const amount = (base * operandValue(s)) / 100;
+  if (!Number.isFinite(amount) || Math.abs(amount) > MAX_RESULT) {
+    setError(s);
+    return;
+  }
+  setCurrent(s, formatResult(amount));
   s.waitingForOperand = false;
 }
 
