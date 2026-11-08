@@ -7,7 +7,8 @@
 // do painel de histórico reformulado (CALC-20: itens tocáveis, confirmação ao limpar),
 // e do layout mobile com o painel do histórico em tela cheia (CALC-21),
 // e do botão M+ com o indicador de memória (CALC-22),
-// e do botão x² (CALC-26: eleva o visor ao quadrado, com erro e formatação do visor).
+// e do botão x² (CALC-26: eleva o visor ao quadrado, com erro e formatação do visor),
+// e do botão sen (CALC-31: seno do visor em graus, com a unidade DEG visível).
 // Executa script.js real num contexto isolado, com um DOM mínimo, e aperta
 // os botões pelo mesmo caminho de clique que o navegador usa; o teclado usa o mesmo
 // caminho de keydown.
@@ -141,6 +142,9 @@ function createCalculator({ storage = {} } = {}) {
   // x² também fica fora do teclado, na linha da memória, como em index.html.
   const squareElement = createElementMock("button");
   squareElement.dataset = { action: "square" };
+  // sen também fica fora do teclado, na linha da memória, como em index.html.
+  const sineElement = createElementMock("button");
+  sineElement.dataset = { action: "sine" };
   let onKeypadClick = null;
   let onKeyDown = null;
   let onKeyUp = null;
@@ -154,6 +158,7 @@ function createCalculator({ storage = {} } = {}) {
   const buttons = Object.values(buttonByKey);
   buttonByKey["M+"] = memoryAddElement;
   buttonByKey["x²"] = squareElement;
+  buttonByKey["sen"] = sineElement;
 
   const keypad = {
     addEventListener(type, listener) {
@@ -181,6 +186,7 @@ function createCalculator({ storage = {} } = {}) {
     "memory-add": memoryAddElement,
     "memory-indicator": memoryIndicatorElement,
     "square-button": squareElement,
+    "sine-button": sineElement,
   };
 
   const document = {
@@ -209,7 +215,7 @@ function createCalculator({ storage = {} } = {}) {
   const context = vm.createContext({ document, window, localStorage });
   vm.runInContext(SCRIPT_SOURCE, context, { filename: "script.js" });
 
-  // Aperta as teclas em sequência e devolve o texto final do display. M+ e x² são clicados pelo próprio botão, fora do teclado.
+  // Aperta as teclas em sequência e devolve o texto final do display. M+, x² e sen são clicados pelo próprio botão, fora do teclado.
   function press(...keys) {
     for (const key of keys) {
       if (key === "M+") {
@@ -218,6 +224,10 @@ function createCalculator({ storage = {} } = {}) {
       }
       if (key === "x²") {
         squareElement.dispatch("click");
+        continue;
+      }
+      if (key === "sen") {
+        sineElement.dispatch("click");
         continue;
       }
       const button = buttonByKey[key];
@@ -1742,5 +1752,107 @@ describe("CALC-26: teclado, foco e estrutura do x²", () => {
 
   test("o x² tem foco visível com contorno branco, sem remover o outline", () => {
     assert.match(CSS_SOURCE, /\.square-add:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
+  });
+});
+
+describe("CALC-31: critérios de aceite do seno (sen, em graus)", () => {
+  test("sen(30°) = 0.5: 3, 0, sen resulta em 0.5", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("3", "0", "sen"), "0.5");
+  });
+
+  test("a unidade angular fica visível o tempo todo: DEG aparece no HTML sem o atributo hidden", () => {
+    assert.match(HTML_SOURCE, /<span id="angle-unit" class="angle-unit"><span aria-hidden="true">DEG<\/span>/);
+    assert.doesNotMatch(HTML_SOURCE, /id="angle-unit"[^>]*hidden/);
+    assert.doesNotMatch(CSS_SOURCE, /\.angle-unit\s*\{[^}]*display:\s*none;[^}]*\}/);
+  });
+});
+
+describe("CALC-31: casos de borda do seno", () => {
+  test("valores de referência em graus: sen 0° = 0, sen 90° = 1, sen 180° = 0, sen 270° = -1", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("0", "sen"), "0");
+    assert.equal(calc.press("AC", "9", "0", "sen"), "1");
+    assert.equal(calc.press("AC", "1", "8", "0", "sen"), "0");
+    assert.equal(calc.press("AC", "2", "7", "0", "sen"), "-1");
+  });
+
+  test("180° não mostra -0: sen 180 resulta em 0", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("1", "8", "0", "sen"), "0");
+  });
+
+  test("ângulo negativo: sen(-30°) = -0.5, com +/- antes do sen", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("3", "0", "+/-", "sen"), "-0.5");
+  });
+
+  test("ângulos fora de 0 a 360 são reduzidos: sen 390 = 0.5 e sen 360 = 0", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("3", "9", "0", "sen"), "0.5");
+    assert.equal(calc.press("AC", "3", "6", "0", "sen"), "0");
+  });
+
+  test("ângulo grande com precisão: sen 999999999° = -0.98768834 (módulo 360 antes do seno)", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("9", "9", "9", "9", "9", "9", "9", "9", "9", "sen"), "-0.98768834");
+  });
+
+  test("resultado com casas decimais segue o arredondamento de 8 casas: sen 60° = 0.8660254 e sen 1° = 0.01745241", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("6", "0", "sen"), "0.8660254");
+    assert.equal(calc.press("AC", "1", "sen"), "0.01745241");
+  });
+
+  test("seno menor que 5e-9 some no arredondamento, sem notação científica: 0.00000001 sen mostra 0", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("0", ".", "0", "0", "0", "0", "0", "0", "0", "1", "sen"), "0");
+  });
+
+  test("com Erro no visor, sen mantém o Erro: 5 ÷ 0 =, sen mostra Erro, e a próxima tecla reinicia", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("5", "÷", "0", "=", "sen"), "Erro");
+    assert.equal(calc.press("7"), "7");
+  });
+
+  test("sen depois do igual calcula o resultado: 2 + 3 =, sen mostra 0.08715574", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("2", "+", "3", "=", "sen"), "0.08715574");
+  });
+
+  test("sen depois do operador vira o segundo operando, como o % e o x²: 2 + 3 0 sen =, resulta em 2.5", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("2", "+", "3", "0", "sen", "="), "2.5");
+    assert.deepEqual(calc.historyItems(), ["2 + 0.5 = 2.5"]);
+  });
+
+  test("sen não grava no histórico sozinho e não mexe na memória: 5 M+, AC, 3 0 sen mantém a memória em 5", () => {
+    const storage = {};
+    const calc = createCalculator({ storage });
+    calc.press("5", "M+", "AC", "3", "0", "sen");
+    assert.deepEqual(calc.historyItems(), []);
+    assert.equal(HISTORY_KEY in storage, false);
+    assert.equal(calc.memoryValue(), 5);
+  });
+});
+
+describe("CALC-31: teclado, foco e estrutura do sen", () => {
+  test("sen não tem tecla própria: Enter com o foco no botão sen não vira igual, o cálculo em curso fica", () => {
+    const calc = createCalculator({ storage: {} });
+    calc.press("2", "+", "3");
+    const event = calc.keyDown("Enter", { target: { tagName: "BUTTON" } });
+    assert.equal(event.defaultPrevented, false);
+    assert.equal(calc.display(), "3");
+  });
+
+  test("index.html tem o botão sen na linha da memória (fora do teclado), com rótulo que anuncia a operação", () => {
+    assert.match(
+      HTML_SOURCE,
+      /<div class="memory">[\s\S]*?<button type="button" id="sine-button" class="sine-add" data-action="sine" aria-label="Seno em graus \(sen\)">sen<\/button>[\s\S]*?<\/div>\s*<div class="keypad">/,
+    );
+  });
+
+  test("o sen tem foco visível com contorno branco, sem remover o outline", () => {
+    assert.match(CSS_SOURCE, /\.sine-add:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
   });
 });

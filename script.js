@@ -78,6 +78,8 @@ const memoryIndicator = document.getElementById("memory-indicator");
 
 // Botão x² fica na mesma linha do M+, fora do teclado numérico (que segue com 5 linhas).
 const squareButton = document.getElementById("square-button");
+// Botão sen também fica nessa linha, pelo mesmo motivo.
+const sineButton = document.getElementById("sine-button");
 const pressableButtons = memoryAddButton ? [...buttons, memoryAddButton] : buttons;
 
 function displaySizeClass(text) {
@@ -371,6 +373,28 @@ function square() {
   state.waitingForOperand = false;
 }
 
+// Seno em graus (o visor mostra DEG). Múltiplos de 90° saem exatos (sen 0° = 0, sen 90° = 1); os demais usam radianos.
+// Reduzir módulo 360 antes evita perder precisão com ângulos grandes.
+const EXACT_SINES = [0, 1, 0, -1];
+
+function sineDegrees(degrees) {
+  const angle = ((degrees % 360) + 360) % 360;
+  if (angle % 90 === 0) {
+    return EXACT_SINES[angle / 90];
+  }
+  return Math.sin((angle * Math.PI) / 180);
+}
+
+// sen: troca o número exibido pelo seno dele, com a mesma regra de segundo operando do % e do x².
+// Com Erro no visor não calcula e mantém o Erro. O seno fica entre -1 e 1, então não há limite de 2^53 a checar.
+function sine() {
+  if (state.error) {
+    return;
+  }
+  state.current = formatResult(sineDegrees(Number(state.current)));
+  state.waitingForOperand = false;
+}
+
 // Backspace (teclado): apaga o último caractere do número em edição.
 // Sem número em edição (após operador ou igual) não faz nada. Após erro, reinicia a calculadora.
 // Se sobrar algo que não é um número válido (ex.: "-" ou notação científica), volta para 0.
@@ -483,6 +507,8 @@ function handleButton(button) {
     memoryAdd();
   } else if (action === "square") {
     square();
+  } else if (action === "sine") {
+    sine();
   } else if (action in OPERATIONS) {
     inputOperator(action);
   }
@@ -578,6 +604,13 @@ if (memoryAddButton) {
 if (squareButton) {
   squareButton.addEventListener("click", () => {
     handleButton(squareButton);
+    render();
+  });
+}
+
+if (sineButton) {
+  sineButton.addEventListener("click", () => {
+    handleButton(sineButton);
     render();
   });
 }
