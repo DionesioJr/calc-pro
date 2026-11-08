@@ -580,6 +580,40 @@ describe("index.html expõe os botões usados pelos testes", () => {
   });
 });
 
+// CALC-55: a camada de interface (ui.js e keyboard.js) só usa do motor o que desenha ou mapeia teclas; a conta fica em calculator.js.
+// Scripts clássicos não têm import: os nomes do motor chegam pelo escopo global, então a checagem conta quais deles cada arquivo usa.
+describe("CALC-55: ui.js e keyboard.js não fazem conta", () => {
+  const UI_SOURCE = fs.readFileSync(path.join(ROOT, "src", "ui.js"), "utf8");
+  const KEYBOARD_SOURCE = fs.readFileSync(path.join(ROOT, "src", "keyboard.js"), "utf8");
+  const ENGINE_SOURCE = fs.readFileSync(path.join(ROOT, "src", "calculator.js"), "utf8");
+
+  // Nomes que calculator.js declara no nível de topo (const, let ou function).
+  const ENGINE_NAMES = [...ENGINE_SOURCE.matchAll(/^(?:const|let|function)\s+(\w+)/gm)].map((match) => match[1]);
+
+  // Nomes do motor usados no código do arquivo (comentários de linha não contam).
+  function usedFromEngine(source) {
+    const code = source.replace(/\/\/.*$/gm, "");
+    return ENGINE_NAMES.filter((name) => new RegExp(`\\b${name}\\b`).test(code)).sort();
+  }
+
+  test("ui.js usa do motor só o que desenha: ACTIONS, OPEN_PAREN, openDepth e trailingOperator", () => {
+    assert.deepEqual(usedFromEngine(UI_SOURCE), ["ACTIONS", "OPEN_PAREN", "openDepth", "trailingOperator"]);
+  });
+
+  test("keyboard.js usa do motor só o registro de ações e datasetOf", () => {
+    assert.deepEqual(usedFromEngine(KEYBOARD_SOURCE), ["ACTIONS", "datasetOf"]);
+  });
+
+  test("ui.js e keyboard.js não têm operações aritméticas da calculadora nem a tabela OPERATIONS", () => {
+    for (const source of [UI_SOURCE, KEYBOARD_SOURCE]) {
+      assert.doesNotMatch(source, /\bOPERATIONS\b/);
+      assert.doesNotMatch(source, /\bMath\./);
+      assert.doesNotMatch(source, /\btoFixed\b/);
+      assert.doesNotMatch(source, /\bparse(Float|Int)\b|\bNumber\(/);
+    }
+  });
+});
+
 describe("CALC-4: critérios de aceite da entrada de dígitos e ponto decimal", () => {
   test("7, 8, ponto, 5 resulta em 78.5", () => {
     const calc = createCalculator();
@@ -739,9 +773,9 @@ describe("CALC-6: casos de borda de AC, +/- e %", () => {
     assert.equal(calc.press("%"), "0");
   });
 
-  test("% depois do operador vira o segundo operando: 5, +, %, = resulta em 5.05", () => {
+  test("% depois do operador vira o segundo operando: 5, +, %, = resulta em 5.25 (5 + 5% de 5, CALC-57)", () => {
     const calc = createCalculator();
-    assert.equal(calc.press("5", "+", "%", "="), "5.05");
+    assert.equal(calc.press("5", "+", "%", "="), "5.25");
   });
 
   test("+/- após erro reinicia a calculadora: 5, ÷, 0, =, +/- resulta em 0", () => {
@@ -752,6 +786,81 @@ describe("CALC-6: casos de borda de AC, +/- e %", () => {
   test("% após erro reinicia a calculadora: 5, ÷, 0, =, % resulta em 0", () => {
     const calc = createCalculator();
     assert.equal(calc.press("5", "÷", "0", "=", "%"), "0");
+  });
+});
+
+describe("CALC-57: critérios de aceite do % em soma e subtração", () => {
+  test("100 − 10% resulta em 90 (base é o 100)", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("1", "0", "0", "−", "1", "0", "%", "="), "90");
+  });
+
+  test("100 + 10% resulta em 110", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("1", "0", "0", "+", "1", "0", "%", "="), "110");
+  });
+
+  test("100 × 10% resulta em 10 (multiplicação usa o decimal 0.1)", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("1", "0", "0", "×", "1", "0", "%", "="), "10");
+  });
+
+  test("100 ÷ 10% resulta em 1000 (divisão usa o decimal 0.1)", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("1", "0", "0", "÷", "1", "0", "%", "="), "1000");
+  });
+
+  test("10% sozinho resulta em 0.1 (sem operador pendente)", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("1", "0", "%"), "0.1");
+  });
+
+  test("funciona com decimais: 250 − 12.5% resulta em 218.75", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("2", "5", "0", "−", "1", "2", ".", "5", "%", "="), "218.75");
+  });
+
+  test("histórico mostra a expressão convertida: 100 − 10% grava 100 − 10 = 90, não 100 − 0.1", () => {
+    const calc = createCalculator({ storage: {} });
+    calc.press("1", "0", "0", "−", "1", "0", "%", "=");
+    assert.deepEqual(calc.historyItems(), ["100 − 10 = 90"]);
+  });
+
+  test("histórico de × continua com o decimal: 100 × 10% grava 100 × 0.1 = 10", () => {
+    const calc = createCalculator({ storage: {} });
+    calc.press("1", "0", "0", "×", "1", "0", "%", "=");
+    assert.deepEqual(calc.historyItems(), ["100 × 0.1 = 10"]);
+  });
+
+  test("o visor mostra o valor convertido antes do igual: 100 − 10% mostra 10", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("1", "0", "0", "−", "1", "0", "%"), "10");
+  });
+
+  test("a base é o valor acumulado à esquerda: 2 × 3 + 10% resulta em 6.6 (base 6)", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("2", "×", "3", "+", "1", "0", "%", "="), "6.6");
+  });
+
+  test("% depois de × não usa a base da soma: 2 + 3 × 10% resulta em 2.3 (3 × 0.1)", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("2", "+", "3", "×", "1", "0", "%", "="), "2.3");
+  });
+
+  test("encadeado, a base é o parcial: 100 + 10% + 10% resulta em 121 (110 + 11)", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("1", "0", "0", "+", "1", "0", "%", "+", "1", "0", "%", "="), "121");
+    assert.deepEqual(calc.historyItems(), ["100 + 10 + 11 = 121"]);
+  });
+
+  test("% no grupo sem operador externo continua decimal: (2 + 3) % resulta em 0.05", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("(", "2", "+", "3", ")", "%"), "0.05");
+  });
+
+  test("% dentro de um grupo usa a base do grupo: ( 100 − 10 % ) = resulta em 90", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("(", "1", "0", "0", "−", "1", "0", "%", ")", "="), "90");
   });
 });
 
@@ -1434,10 +1543,10 @@ describe("CALC-19: casos de borda do histórico de cálculos", () => {
     assert.deepEqual(calc.historyItems(), ["2 + 3 = 5"]);
   });
 
-  test("percentual como segundo operando grava o valor usado: 5 + % = grava 5 + 0.05 = 5.05", () => {
+  test("percentual como segundo operando grava o valor usado: 5 + % = grava 5 + 0.25 = 5.25 (CALC-57)", () => {
     const calc = createCalculator({ storage: {} });
-    assert.equal(calc.press("5", "+", "%", "="), "5.05");
-    assert.deepEqual(calc.historyItems(), ["5 + 0.05 = 5.05"]);
+    assert.equal(calc.press("5", "+", "%", "="), "5.25");
+    assert.deepEqual(calc.historyItems(), ["5 + 0.25 = 5.25"]);
   });
 
   test("conta com erro não entra no histórico: 5 ÷ 0 = mostra Erro e não grava", () => {

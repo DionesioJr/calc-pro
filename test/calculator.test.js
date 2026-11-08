@@ -8,15 +8,16 @@ import { fileURLToPath } from "node:url";
 
 const SRC_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "src");
 const CALCULATOR_SOURCE = fs.readFileSync(path.join(SRC_DIR, "calculator.js"), "utf8");
+const INDEX_HTML = fs.readFileSync(path.join(SRC_DIR, "..", "index.html"), "utf8");
 
 // src/calculator.js é um script clássico (o navegador o carrega sem import/export): aqui ele é avaliado e as funções são devolvidas.
 function carregarScripts(arquivos, nomes) {
   const codigo = arquivos.map((arquivo) => fs.readFileSync(path.join(SRC_DIR, arquivo), "utf8")).join("\n;\n");
   return new Function(`${codigo}\nreturn { ${nomes.join(", ")} };`)();
 }
-const { deleteDigit, handleButton, initialState, showResult } = carregarScripts(
+const { ACTIONS, deleteDigit, handleButton, initialState, showResult } = carregarScripts(
   ["calculator.js"],
-  ["deleteDigit", "handleButton", "initialState", "showResult"],
+  ["ACTIONS", "deleteDigit", "handleButton", "initialState", "showResult"],
 );
 
 // Aplica uma sequência de botões (data-value ou data-action) e junta as linhas do histórico que as ações geraram.
@@ -86,5 +87,65 @@ describe("CALC-52: o motor recebe e devolve estado", () => {
   test("M+ grava o visor na memória do estado devolvido: 5, M+ resulta em memória 5", () => {
     const result = run(initialState(), [{ value: "5" }, { action: "memory-add" }]);
     assert.equal(result.state.memory, 5);
+  });
+});
+
+describe("CALC-57: o % em soma e subtração usa o operando anterior como base", () => {
+  test("100 − 10% = devolve o visor 90 e a linha do histórico 100 − 10 = 90 (não 100 − 0.1)", () => {
+    const result = run(initialState(), [
+      { value: "1" },
+      { value: "0" },
+      { value: "0" },
+      { action: "subtract" },
+      { value: "1" },
+      { value: "0" },
+      { action: "percent" },
+      { action: "equals" },
+    ]);
+    assert.equal(result.state.current, "90");
+    assert.deepEqual(result.history, ["100 − 10 = 90"]);
+  });
+
+  test("10% sozinho continua 0.1 e não grava histórico: 1, 0, % resulta em 0.1", () => {
+    const result = run(initialState(), [{ value: "1" }, { value: "0" }, { action: "percent" }]);
+    assert.equal(result.state.current, "0.1");
+    assert.deepEqual(result.history, []);
+  });
+});
+
+describe("CALC-53: o registro de ações é a única fonte de botões e teclas", () => {
+  test("cada id e cada tecla aparecem em uma só entrada", () => {
+    const ids = ACTIONS.map((action) => action.id);
+    assert.equal(new Set(ids).size, ids.length);
+    const keys = ACTIONS.flatMap((action) => action.keys ?? []);
+    assert.equal(new Set(keys).size, keys.length);
+  });
+
+  test("os data-action e data-value de index.html são exatamente os ids do registro", () => {
+    const htmlIds = [...INDEX_HTML.matchAll(/data-(?:action|value)="([^"]+)"/g)].map((match) => match[1]);
+    const registryIds = ACTIONS.map((action) => action.id);
+    assert.deepEqual([...new Set(htmlIds)].sort(), [...registryIds].sort());
+  });
+
+  test("cada buttonId é um botão de index.html com o data-action da própria entrada", () => {
+    for (const action of ACTIONS.filter((item) => item.buttonId !== undefined)) {
+      assert.match(
+        INDEX_HTML,
+        new RegExp(`<button[^>]*id="${action.buttonId}"[^>]*data-action="${action.id}"`),
+        `botão ${action.buttonId}`,
+      );
+    }
+  });
+
+  test("uma função unária do registro é aplicada por handleButton: √x de 16 resulta em 4", () => {
+    const result = run(showResult(initialState(), "16"), [{ action: "sqrt" }]);
+    assert.equal(result.state.current, "4");
+    assert.deepEqual(result.history, ["√16 = 4"]);
+  });
+
+  test("dígito com data-action (tipo errado) não faz nada: { action: 7 } devolve o mesmo visor", () => {
+    const result = handleButton(initialState(), { action: "7" });
+    assert.equal(result.state.current, "0");
+    assert.deepEqual(result.history, []);
   });
 });

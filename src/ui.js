@@ -8,6 +8,9 @@ const DISPLAY_SIZES = [
   { maxLength: Infinity, className: "display-40" },
 ];
 
+// Ids das ações binárias (+, −, ×, ÷, xʸ), tiradas do registro ACTIONS: dizem só quais botões são operadores, não fazem conta.
+const BINARY_ACTION_IDS = new Set(ACTIONS.filter((action) => action.type === "binary").map((action) => action.id));
+
 let display = null;
 let calculatorElement = null;
 let historyOpen = null;
@@ -35,7 +38,7 @@ function bindUi(doc, win) {
   // Botões do teclado numérico, mais o xʸ (que fica fora do teclado): operadores binários com destaque pendente.
   const keypad = doc.querySelector(".keypad");
   const buttons = keypad ? Array.from(keypad.querySelectorAll("button")) : [];
-  operatorButtons = buttons.filter((button) => Object.hasOwn(OPERATIONS, button.dataset.action));
+  operatorButtons = buttons.filter((button) => BINARY_ACTION_IDS.has(button.dataset.action));
   const powerButton = doc.getElementById("power-button");
   if (powerButton) {
     operatorButtons.push(powerButton);
