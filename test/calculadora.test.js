@@ -22,6 +22,7 @@
 // e do botão x! (CALC-39: fatorial do visor, com notação científica acima de 2^53 e Erro para negativo, decimal e overflow),
 // e do botão cos (CALC-32: cosseno do visor em graus, sem ruído de ponto flutuante).
 // e do botão √x (CALC-27: raiz quadrada do visor, com Erro para negativos).
+// e do histórico das funções avançadas (CALC-43: cada função aplicada ao visor vira uma linha, como √16 = 4 ou sen(30) = 0.5).
 // Executa script.js real num contexto isolado, com um DOM mínimo, e aperta
 // os botões pelo mesmo caminho de clique que o navegador usa; o teclado usa o mesmo
 // caminho de keydown.
@@ -1652,14 +1653,16 @@ describe("CALC-20: estilo e estrutura do histórico reformulado", () => {
 // Regras do mobile: o bloco @media (max-width: 767px) fica no fim do style.css.
 const MOBILE_CSS = (CSS_SOURCE.match(/@media \(max-width: 767px\) \{[\s\S]*$/) || [""])[0];
 
-// Lado do botão no mobile, como o style.css calcula em --cell: o menor entre a largura (4 colunas) e a altura
-// (5 linhas, com o visor com pelo menos --display-min). Em px, com 1rem = 16px: --pad 16, --gap 12, --display-min 72.
+// Lado do botão no mobile, como o style.css calcula em --cell: o menor entre a largura (7 colunas, com 6 espaços)
+// e a altura (5 linhas, com o visor com pelo menos --display-min e a linha de status). Em px, com 1rem = 16px:
+// --pad 14, --gap 4, --display-min 72, --status-height 24.
 function mobileButtonSide(width, height) {
-  const pad = 16;
-  const gap = 12;
+  const pad = 14;
+  const gap = 4;
   const displayMin = 72;
-  const byWidth = (width - 2 * pad - 3 * gap) / 4;
-  const byHeight = (height - 2 * pad - 4 * gap - displayMin) / 5;
+  const statusHeight = 24;
+  const byWidth = (width - 2 * pad - 6 * gap) / 7;
+  const byHeight = (height - 2 * pad - 4 * gap - displayMin - statusHeight) / 5;
   return Math.min(byWidth, byHeight);
 }
 
@@ -1671,10 +1674,12 @@ describe("CALC-21: critérios de aceite do layout mobile", () => {
     assert.match(MOBILE_CSS, /\.calculator\s*\{[^}]*width:\s*100%;[^}]*height:\s*100%;[^}]*border-radius:\s*0;[^}]*\}/);
   });
 
-  test("botões são quadrados do mesmo lado (--cell) e o 0 ocupa duas colunas", () => {
-    assert.match(MOBILE_CSS, /\.keypad\s*\{[^}]*--cell:\s*min\(/);
-    assert.match(MOBILE_CSS, /\.keypad\s*\{[^}]*grid-template-columns:\s*repeat\(4,\s*var\(--cell\)\);[^}]*\}/);
-    assert.match(MOBILE_CSS, /\.keypad\s*\{[^}]*grid-auto-rows:\s*var\(--cell\);[^}]*\}/);
+  test("botões são quadrados do mesmo lado (--cell), a grade científica e o teclado usam o mesmo lado, e o 0 ocupa duas colunas", () => {
+    assert.match(MOBILE_CSS, /\.calculator\s*\{[^}]*--cell:\s*min\(/);
+    assert.match(CSS_SOURCE, /\.keypad\s*\{[^}]*grid-template-columns:\s*repeat\(4,\s*var\(--cell\)\);[^}]*\}/);
+    assert.match(CSS_SOURCE, /\.keypad\s*\{[^}]*grid-auto-rows:\s*var\(--cell\);[^}]*\}/);
+    assert.match(CSS_SOURCE, /\.scientific\s*\{[^}]*grid-template-columns:\s*repeat\(3,\s*var\(--cell\)\);[^}]*\}/);
+    assert.match(CSS_SOURCE, /\.scientific\s*\{[^}]*grid-auto-rows:\s*var\(--cell\);[^}]*\}/);
     assert.match(CSS_SOURCE, /\.btn-zero\s*\{[^}]*grid-column:\s*span 2;[^}]*\}/);
   });
 
@@ -1686,9 +1691,10 @@ describe("CALC-21: critérios de aceite do layout mobile", () => {
       [844, 390],
     ]) {
       const side = mobileButtonSide(width, height);
-      const keypadHeight = 5 * side + 4 * 12;
+      const keypadHeight = 5 * side + 4 * 4;
       assert.ok(side >= 44, `${width}x${height}: botão de ${side}px`);
-      assert.ok(2 * 16 + keypadHeight + 72 <= height, `${width}x${height}: teclado não cabe na altura`);
+      // Padding 14 nos dois lados, linha de status 24, visor mínimo 72 e o teclado (5 linhas).
+      assert.ok(2 * 14 + 24 + 72 + keypadHeight <= height, `${width}x${height}: teclado não cabe na altura`);
     }
   });
 
@@ -1892,11 +1898,11 @@ describe("CALC-22: estrutura e estilo do M+ e do indicador", () => {
   });
 
   test("o M+ tem foco visível com contorno branco, sem remover o outline", () => {
-    assert.match(CSS_SOURCE, /\.memory-add:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
+    assert.match(CSS_SOURCE, /\.scientific > button:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
   });
 
-  test("no mobile a linha da memória não encolhe com o visor: .memory com flex: none", () => {
-    assert.match(MOBILE_CSS, /\.memory\s*\{\s*flex:\s*none;\s*\}/);
+  test("no mobile a grade científica e o teclado não encolhem com o visor: .panel com flex: none", () => {
+    assert.match(MOBILE_CSS, /\.panel\s*\{\s*flex:\s*none;/);
   });
 });
 
@@ -1978,18 +1984,18 @@ describe("CALC-26: casos de borda do x² (quadrado)", () => {
     assert.equal(calc.press("2", "+", "x²", "="), "6");
   });
 
-  test("x² não grava no histórico sozinho: 9 x² não cria item nem chave no localStorage", () => {
+  test("x² grava a própria linha no histórico (CALC-43): 9 x² grava 9² = 81", () => {
     const storage = {};
     const calc = createCalculator({ storage });
     calc.press("9", "x²");
-    assert.deepEqual(calc.historyItems(), []);
-    assert.equal(HISTORY_KEY in storage, false);
+    assert.deepEqual(calc.historyItems(), ["9² = 81"]);
+    assert.deepEqual(JSON.parse(storage[HISTORY_KEY]), ["9² = 81"]);
   });
 
-  test("o cálculo usa o valor elevado no histórico: 2 + 3 x², = grava 2 + 9 = 11", () => {
+  test("o cálculo usa o valor elevado no histórico: 2 + 3 x², = grava 2 + 9 = 11 e antes 3² = 9", () => {
     const calc = createCalculator({ storage: {} });
     calc.press("2", "+", "3", "x²", "=");
-    assert.deepEqual(calc.historyItems(), ["2 + 9 = 11"]);
+    assert.deepEqual(calc.historyItems(), ["2 + 9 = 11", "3² = 9"]);
   });
 
   test("x² não mexe na memória: 5 M+, 3 x² mantém a memória em 5", () => {
@@ -2011,12 +2017,12 @@ describe("CALC-26: teclado, foco e estrutura do x²", () => {
   test("index.html tem o botão x² na linha da memória (fora do teclado), com rótulo que anuncia a operação", () => {
     assert.match(
       HTML_SOURCE,
-      /<div class="memory">[\s\S]*?<button type="button" id="square-button" class="square-add" data-action="square" aria-label="Elevar ao quadrado \(x²\)">x²<\/button>[\s\S]*?<\/div>\s*<div class="keypad">/,
+      /<div class="scientific">[\s\S]*?<button type="button" id="square-button" class="square-add" data-action="square" aria-label="Elevar ao quadrado \(x²\)">x²<\/button>[\s\S]*?<\/div>\s*<div class="keypad">/,
     );
   });
 
   test("o x² tem foco visível com contorno branco, sem remover o outline", () => {
-    assert.match(CSS_SOURCE, /\.square-add:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
+    assert.match(CSS_SOURCE, /\.scientific > button:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
   });
 });
 
@@ -2095,12 +2101,12 @@ describe("CALC-34: casos de borda do log (logaritmo decimal)", () => {
 });
 
 describe("CALC-34: histórico, teclado, foco e estrutura do log", () => {
-  test("log não grava no histórico sozinho: 1000 log não cria item nem chave no localStorage", () => {
+  test("log grava a própria linha no histórico (CALC-43): 1000 log grava log(1000) = 3", () => {
     const storage = {};
     const calc = createCalculator({ storage });
     calc.press("1", "0", "0", "0", "log");
-    assert.deepEqual(calc.historyItems(), []);
-    assert.equal(HISTORY_KEY in storage, false);
+    assert.deepEqual(calc.historyItems(), ["log(1000) = 3"]);
+    assert.deepEqual(JSON.parse(storage[HISTORY_KEY]), ["log(1000) = 3"]);
   });
 
   test("Enter com o foco no log não vira igual: o botão é que age (clique nativo), o cálculo em curso fica", () => {
@@ -2114,12 +2120,12 @@ describe("CALC-34: histórico, teclado, foco e estrutura do log", () => {
   test("index.html tem o botão log na linha da memória (fora do teclado), com rótulo que anuncia a operação", () => {
     assert.match(
       HTML_SOURCE,
-      /<div class="memory">[\s\S]*?<button type="button" id="log-button" class="log-button" data-action="log" aria-label="Logaritmo na base 10 \(log\)">log<\/button>[\s\S]*?<\/div>\s*<div class="keypad">/,
+      /<div class="scientific">[\s\S]*?<button type="button" id="log-button" class="log-button" data-action="log" aria-label="Logaritmo na base 10 \(log\)">log<\/button>[\s\S]*?<\/div>\s*<div class="keypad">/,
     );
   });
 
   test("o log tem foco visível com contorno branco, sem remover o outline", () => {
-    assert.match(CSS_SOURCE, /\.log-button:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
+    assert.match(CSS_SOURCE, /\.scientific > button:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
   });
 });
 
@@ -2194,15 +2200,15 @@ describe("CALC-31: casos de borda do seno", () => {
   test("sen depois do operador vira o segundo operando, como o % e o x²: 2 + 3 0 sen =, resulta em 2.5", () => {
     const calc = createCalculator({ storage: {} });
     assert.equal(calc.press("2", "+", "3", "0", "sen", "="), "2.5");
-    assert.deepEqual(calc.historyItems(), ["2 + 0.5 = 2.5"]);
+    assert.deepEqual(calc.historyItems(), ["2 + 0.5 = 2.5", "sen(30) = 0.5"]);
   });
 
-  test("sen não grava no histórico sozinho e não mexe na memória: 5 M+, AC, 3 0 sen mantém a memória em 5", () => {
+  test("sen grava a própria linha no histórico e não mexe na memória (CALC-43): 5 M+, AC, 3 0 sen grava sen(30) = 0.5 e mantém a memória em 5", () => {
     const storage = {};
     const calc = createCalculator({ storage });
     calc.press("5", "M+", "AC", "3", "0", "sen");
-    assert.deepEqual(calc.historyItems(), []);
-    assert.equal(HISTORY_KEY in storage, false);
+    assert.deepEqual(calc.historyItems(), ["sen(30) = 0.5"]);
+    assert.deepEqual(JSON.parse(storage[HISTORY_KEY]), ["sen(30) = 0.5"]);
     assert.equal(calc.memoryValue(), 5);
   });
 });
@@ -2219,12 +2225,12 @@ describe("CALC-31: teclado, foco e estrutura do sen", () => {
   test("index.html tem o botão sen na linha da memória (fora do teclado), com rótulo que anuncia a operação", () => {
     assert.match(
       HTML_SOURCE,
-      /<div class="memory">[\s\S]*?<button type="button" id="sine-button" class="sine-add" data-action="sine" aria-label="Seno \(sen\)">sen<\/button>[\s\S]*?<\/div>\s*<div class="keypad">/,
+      /<div class="scientific">[\s\S]*?<button type="button" id="sine-button" class="sine-add" data-action="sine" aria-label="Seno \(sen\)">sen<\/button>[\s\S]*?<\/div>\s*<div class="keypad">/,
     );
   });
 
   test("o sen tem foco visível com contorno branco, sem remover o outline", () => {
-    assert.match(CSS_SOURCE, /\.sine-add:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
+    assert.match(CSS_SOURCE, /\.scientific > button:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
   });
 });
 
@@ -2396,21 +2402,21 @@ describe("CALC-32: casos de borda do cos", () => {
   test("cos depois do igual calcula o resultado: 2 + 58 =, cos mostra 0.5", () => {
     const calc = createCalculator({ storage: {} });
     assert.equal(calc.press("2", "+", "5", "8", "=", "cos"), "0.5");
-    assert.deepEqual(calc.historyItems(), ["2 + 58 = 60"]);
+    assert.deepEqual(calc.historyItems(), ["cos(60) = 0.5", "2 + 58 = 60"]);
   });
 
   test("cos depois do operador vira o segundo operando, como o sen: 2 + 6 0 cos =, resulta em 2.5", () => {
     const calc = createCalculator({ storage: {} });
     assert.equal(calc.press("2", "+", "6", "0", "cos", "="), "2.5");
-    assert.deepEqual(calc.historyItems(), ["2 + 0.5 = 2.5"]);
+    assert.deepEqual(calc.historyItems(), ["2 + 0.5 = 2.5", "cos(60) = 0.5"]);
   });
 
-  test("cos não grava no histórico sozinho e não mexe na memória: 5 M+, AC, 6 0 cos mantém a memória em 5", () => {
+  test("cos grava a própria linha no histórico e não mexe na memória (CALC-43): 5 M+, AC, 6 0 cos grava cos(60) = 0.5 e mantém a memória em 5", () => {
     const storage = {};
     const calc = createCalculator({ storage });
     calc.press("5", "M+", "AC", "6", "0", "cos");
-    assert.deepEqual(calc.historyItems(), []);
-    assert.equal(HISTORY_KEY in storage, false);
+    assert.deepEqual(calc.historyItems(), ["cos(60) = 0.5"]);
+    assert.deepEqual(JSON.parse(storage[HISTORY_KEY]), ["cos(60) = 0.5"]);
     assert.equal(calc.memoryValue(), 5);
   });
 
@@ -2429,10 +2435,10 @@ describe("CALC-32: casos de borda do cos", () => {
 });
 
 describe("CALC-41: estrutura e foco do botão DEG/RAD", () => {
-  test("o botão DEG/RAD fica na linha da memória (fora do teclado), como um botão nativo", () => {
+  test("o botão DEG/RAD fica na linha de status, acima do visor (fora do teclado), como um botão nativo", () => {
     assert.match(
       HTML_SOURCE,
-      /<div class="memory">[\s\S]*?<button type="button" id="angle-unit" class="angle-unit" data-action="angle-unit"[^>]*>DEG<\/button>[\s\S]*?<\/div>\s*<div class="keypad">/,
+      /<div class="status">[\s\S]*?<button type="button" id="angle-unit" class="angle-unit" data-action="angle-unit"[^>]*>DEG<\/button>\s*<\/div>\s*<output id="display"/,
     );
   });
 
@@ -2440,8 +2446,8 @@ describe("CALC-41: estrutura e foco do botão DEG/RAD", () => {
     assert.match(CSS_SOURCE, /\.angle-unit:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
   });
 
-  test("o botão DEG/RAD não divide a linha da memória: .angle-unit com flex: 0 0 auto", () => {
-    assert.match(CSS_SOURCE, /\.memory > \.angle-unit\s*\{\s*flex:\s*0 0 auto;\s*\}/);
+  test("o botão DEG/RAD fica à direita da linha de status: .status com justify-content: flex-end", () => {
+    assert.match(CSS_SOURCE, /\.status\s*\{[^}]*justify-content:\s*flex-end;[^}]*\}/);
   });
 });
 
@@ -2454,16 +2460,16 @@ describe("CALC-32: teclado, foco e estrutura do cos", () => {
     assert.equal(calc.display(), "3");
   });
 
-  test("index.html tem o botão cos na linha da memória, entre sen e π, fora do teclado, com rótulo que anuncia a operação", () => {
+  test("index.html tem o botão cos na grade científica, entre sen e tan, fora do teclado, com rótulo que anuncia a operação", () => {
     assert.match(
       HTML_SOURCE,
-      /<div class="memory">[\s\S]*?<button type="button" id="sine-button"[^>]*>sen<\/button>\s*<button type="button" id="cos-button" class="cos-add" data-action="cos" aria-label="Cosseno \(cos\)">cos<\/button>\s*<button type="button" id="pi-button"[\s\S]*?<\/div>\s*<div class="keypad">/,
+      /<div class="scientific">[\s\S]*?<button type="button" id="sine-button"[^>]*>sen<\/button>\s*<button type="button" id="cos-button" class="cos-add" data-action="cos" aria-label="Cosseno \(cos\)">cos<\/button>\s*<button type="button" id="tan-button"[\s\S]*?<\/div>\s*<div class="keypad">/,
     );
   });
 
-  test("o cos tem o mesmo estilo de pílula cinza do sen e foco visível com contorno branco", () => {
-    assert.match(CSS_SOURCE, /\.cos-add\s*\{[^}]*border-radius:\s*999px;[^}]*color:\s*#a5a5a5;[^}]*\}/);
-    assert.match(CSS_SOURCE, /\.cos-add:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
+  test("o cos usa o mesmo estilo de pílula cinza escuro da grade científica e foco visível com contorno branco", () => {
+    assert.match(CSS_SOURCE, /\.scientific > button\s*\{[^}]*border-radius:\s*999px;[^}]*background:\s*#333333;[^}]*\}/);
+    assert.match(CSS_SOURCE, /\.scientific > button:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
   });
 });
 
@@ -2535,12 +2541,12 @@ describe("CALC-36: teclado, foco e estrutura do π", () => {
   test("index.html tem o botão π na linha da memória (fora do teclado), com rótulo que anuncia a operação", () => {
     assert.match(
       HTML_SOURCE,
-      /<div class="memory">[\s\S]*?<button type="button" id="pi-button" class="pi-add" data-action="pi" aria-label="Inserir pi \(π\)">π<\/button>[\s\S]*?<\/div>\s*<div class="keypad">/,
+      /<div class="scientific">[\s\S]*?<button type="button" id="pi-button" class="pi-add" data-action="pi" aria-label="Inserir pi \(π\)">π<\/button>[\s\S]*?<\/div>\s*<div class="keypad">/,
     );
   });
 
   test("o π tem foco visível com contorno branco, sem remover o outline", () => {
-    assert.match(CSS_SOURCE, /\.pi-add:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
+    assert.match(CSS_SOURCE, /\.scientific > button:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
   });
 });
 
@@ -2640,12 +2646,12 @@ describe("CALC-37: teclado, foco e estrutura do e", () => {
   test("index.html tem o botão e na linha da memória (fora do teclado), com rótulo que anuncia a operação", () => {
     assert.match(
       HTML_SOURCE,
-      /<div class="memory">[\s\S]*?<button type="button" id="e-button" class="e-add" data-action="euler" aria-label="Inserir número de Euler \(e\)">e<\/button>[\s\S]*?<\/div>\s*<div class="keypad">/,
+      /<div class="scientific">[\s\S]*?<button type="button" id="e-button" class="e-add" data-action="euler" aria-label="Inserir número de Euler \(e\)">e<\/button>[\s\S]*?<\/div>\s*<div class="keypad">/,
     );
   });
 
   test("o e tem foco visível com contorno branco, sem remover o outline", () => {
-    assert.match(CSS_SOURCE, /\.e-add:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
+    assert.match(CSS_SOURCE, /\.scientific > button:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
   });
 });
 
@@ -2706,7 +2712,7 @@ describe("CALC-38: casos de borda do 1/x", () => {
     const storage = {};
     const calc = createCalculator({ storage });
     assert.equal(calc.press("2", "+", "4", "1/x", "="), "2.25");
-    assert.deepEqual(calc.historyItems(), ["2 + 0.25 = 2.25"]);
+    assert.deepEqual(calc.historyItems(), ["2 + 0.25 = 2.25", "1/4 = 0.25"]);
   });
 
   test("1/x depois do igual calcula o resultado: 2 + 2 =, 1/x mostra 0.25", () => {
@@ -2720,12 +2726,12 @@ describe("CALC-38: casos de borda do 1/x", () => {
     assert.equal(calc.press("7"), "7");
   });
 
-  test("1/x não grava no histórico sozinho e não mexe na memória: 5 M+, AC, 4 1/x mantém a memória em 5", () => {
+  test("1/x grava a própria linha no histórico e não mexe na memória (CALC-43): 5 M+, AC, 4 1/x grava 1/4 = 0.25 e mantém a memória em 5", () => {
     const storage = {};
     const calc = createCalculator({ storage });
     calc.press("5", "M+", "AC", "4", "1/x");
-    assert.deepEqual(calc.historyItems(), []);
-    assert.equal(HISTORY_KEY in storage, false);
+    assert.deepEqual(calc.historyItems(), ["1/4 = 0.25"]);
+    assert.deepEqual(JSON.parse(storage[HISTORY_KEY]), ["1/4 = 0.25"]);
     assert.equal(calc.memoryValue(), 5);
   });
 });
@@ -2742,12 +2748,12 @@ describe("CALC-38: teclado, foco e estrutura do 1/x", () => {
   test("index.html tem o botão 1/x na linha da memória (fora do teclado), com rótulo que anuncia a operação", () => {
     assert.match(
       HTML_SOURCE,
-      /<div class="memory">[\s\S]*?<button type="button" id="inverse-button" class="inverse-add" data-action="inverse" aria-label="Inverso \(1\/x\)">1\/x<\/button>[\s\S]*?<\/div>\s*<div class="keypad">/,
+      /<div class="scientific">[\s\S]*?<button type="button" id="inverse-button" class="inverse-add" data-action="inverse" aria-label="Inverso \(1\/x\)">1\/x<\/button>[\s\S]*?<\/div>\s*<div class="keypad">/,
     );
   });
 
   test("o 1/x tem foco visível com contorno branco, sem remover o outline", () => {
-    assert.match(CSS_SOURCE, /\.inverse-add:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
+    assert.match(CSS_SOURCE, /\.scientific > button:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
   });
 });
 
@@ -2809,7 +2815,7 @@ describe("CALC-27: casos de borda do √x", () => {
     const storage = {};
     const calc = createCalculator({ storage });
     assert.equal(calc.press("2", "+", "9", "√x", "="), "5");
-    assert.deepEqual(calc.historyItems(), ["2 + 3 = 5"]);
+    assert.deepEqual(calc.historyItems(), ["2 + 3 = 5", "√9 = 3"]);
   });
 
   test("√x depois do igual calcula o resultado: 2 + 2 =, √x mostra 2", () => {
@@ -2827,12 +2833,12 @@ describe("CALC-27: casos de borda do √x", () => {
     assert.equal(calc.press("1", "+/-", "√x", "7"), "7");
   });
 
-  test("√x não grava no histórico sozinho e não mexe na memória: 5 M+, AC, 4 √x mantém a memória em 5", () => {
+  test("√x grava a própria linha no histórico e não mexe na memória (CALC-43): 5 M+, AC, 4 √x grava √4 = 2 e mantém a memória em 5", () => {
     const storage = {};
     const calc = createCalculator({ storage });
     calc.press("5", "M+", "AC", "4", "√x");
-    assert.deepEqual(calc.historyItems(), []);
-    assert.equal(HISTORY_KEY in storage, false);
+    assert.deepEqual(calc.historyItems(), ["√4 = 2"]);
+    assert.deepEqual(JSON.parse(storage[HISTORY_KEY]), ["√4 = 2"]);
     assert.equal(calc.memoryValue(), 5);
   });
 });
@@ -2849,12 +2855,12 @@ describe("CALC-27: teclado, foco e estrutura do √x", () => {
   test("index.html tem o botão √x na linha da memória (fora do teclado), com rótulo que anuncia a operação", () => {
     assert.match(
       HTML_SOURCE,
-      /<div class="memory">[\s\S]*?<button type="button" id="sqrt-button" class="sqrt-add" data-action="sqrt" aria-label="Raiz quadrada \(√x\)">√x<\/button>[\s\S]*?<\/div>\s*<div class="keypad">/,
+      /<div class="scientific">[\s\S]*?<button type="button" id="sqrt-button" class="sqrt-add" data-action="sqrt" aria-label="Raiz quadrada \(√x\)">√x<\/button>[\s\S]*?<\/div>\s*<div class="keypad">/,
     );
   });
 
   test("o √x tem foco visível com contorno branco, sem remover o outline", () => {
-    assert.match(CSS_SOURCE, /\.sqrt-add:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
+    assert.match(CSS_SOURCE, /\.scientific > button:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
   });
 });
 
@@ -2962,17 +2968,18 @@ describe("CALC-23: teclado, foco e estrutura do M-", () => {
   test("index.html tem o botão M- ao lado do M+, na linha da memória, fora do teclado, com rótulo que anuncia a operação", () => {
     assert.match(
       HTML_SOURCE,
-      /<div class="memory">\s*(?:<button type="button" id="memory-clear"[^>]*>MC<\/button>\s*)?<button type="button" id="memory-recall"[^>]*>MR<\/button>\s*<button type="button" id="memory-add"[^>]*>M\+<\/button>\s*<button type="button" id="memory-subtract" class="memory-subtract" data-action="memory-subtract" aria-label="Subtrair da memória \(M-\)">M-<\/button>\s*<button type="button" id="square-button"[\s\S]*?<\/div>\s*<div class="keypad">/,
+      /<div class="scientific">\s*(?:<button type="button" id="memory-clear"[^>]*>MC<\/button>\s*)?<button type="button" id="memory-recall"[^>]*>MR<\/button>\s*<button type="button" id="memory-add"[^>]*>M\+<\/button>\s*<button type="button" id="memory-subtract" class="memory-subtract" data-action="memory-subtract" aria-label="Subtrair da memória \(M-\)">M-<\/button>\s*<button type="button" id="square-button"[\s\S]*?<\/div>\s*<div class="keypad">/,
     );
   });
 
-  test("o M- tem o mesmo estilo de pílula cinza do M+ e foco visível com contorno branco", () => {
-    assert.match(CSS_SOURCE, /\.memory-subtract\s*\{[^}]*border-radius:\s*999px;[^}]*color:\s*#a5a5a5;[^}]*\}/);
-    assert.match(CSS_SOURCE, /\.memory-subtract:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
+  test("o M- usa o estilo da grade científica (cinza escuro, formato redondo) e foco visível com contorno branco", () => {
+    assert.match(CSS_SOURCE, /\.scientific > button\s*\{[^}]*border-radius:\s*999px;[^}]*background:\s*#333333;[^}]*\}/);
+    assert.match(CSS_SOURCE, /\.scientific > button:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
   });
 
-  test("a linha da memória quebra linha em vez de estourar a largura com seis botões: .memory com flex-wrap: wrap", () => {
-    assert.match(CSS_SOURCE, /\.memory\s*\{[^}]*flex-wrap:\s*wrap;[^}]*\}/);
+  test("a grade científica tem 3 colunas do mesmo lado dos botões do teclado, à esquerda dele: .scientific antes de .keypad no DOM", () => {
+    assert.match(CSS_SOURCE, /\.scientific\s*\{[^}]*grid-template-columns:\s*repeat\(3,\s*var\(--cell\)\);[^}]*\}/);
+    assert.match(HTML_SOURCE, /<div class="panel">\s*<div class="scientific">[\s\S]*?<\/div>\s*<div class="keypad">/);
   });
 });
 
@@ -3070,13 +3077,13 @@ describe("CALC-24: teclado, foco e estrutura do MR", () => {
   test("index.html tem o botão MR antes do M+, na linha da memória, fora do teclado, com rótulo que anuncia a operação", () => {
     assert.match(
       HTML_SOURCE,
-      /<div class="memory">\s*(?:<button type="button" id="memory-clear"[^>]*>MC<\/button>\s*)?<button type="button" id="memory-recall" class="memory-recall" data-action="memory-recall" aria-label="Recuperar memória \(MR\)">MR<\/button>\s*<button type="button" id="memory-add"/,
+      /<div class="scientific">\s*(?:<button type="button" id="memory-clear"[^>]*>MC<\/button>\s*)?<button type="button" id="memory-recall" class="memory-recall" data-action="memory-recall" aria-label="Recuperar memória \(MR\)">MR<\/button>\s*<button type="button" id="memory-add"/,
     );
   });
 
-  test("o MR tem o mesmo estilo de pílula cinza do M+ e foco visível com contorno branco", () => {
-    assert.match(CSS_SOURCE, /\.memory-recall\s*\{[^}]*border-radius:\s*999px;[^}]*color:\s*#a5a5a5;[^}]*\}/);
-    assert.match(CSS_SOURCE, /\.memory-recall:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
+  test("o MR usa o estilo da grade científica (cinza escuro, formato redondo) e foco visível com contorno branco", () => {
+    assert.match(CSS_SOURCE, /\.scientific > button\s*\{[^}]*border-radius:\s*999px;[^}]*background:\s*#333333;[^}]*\}/);
+    assert.match(CSS_SOURCE, /\.scientific > button:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
   });
 });
 
@@ -3146,7 +3153,7 @@ describe("CALC-33: casos de borda da tangente", () => {
     const storage = {};
     const calc = createCalculator({ storage });
     assert.equal(calc.press("2", "+", "4", "5", "tan", "="), "3");
-    assert.deepEqual(calc.historyItems(), ["2 + 1 = 3"]);
+    assert.deepEqual(calc.historyItems(), ["2 + 1 = 3", "tan(45) = 1"]);
   });
 
   test("tan depois do igual calcula o resultado: 2 + 3 =, tan mostra 0.08748866", () => {
@@ -3188,12 +3195,12 @@ describe("CALC-33: casos de borda da tangente", () => {
     assert.equal(calc.press("unidade"), "0.01745506");
   });
 
-  test("tan não grava no histórico sozinho e não mexe na memória: 5 M+, AC, 4 5 tan mantém a memória em 5", () => {
+  test("tan grava a própria linha no histórico e não mexe na memória (CALC-43): 5 M+, AC, 4 5 tan grava tan(45) = 1 e mantém a memória em 5", () => {
     const storage = {};
     const calc = createCalculator({ storage });
     calc.press("5", "M+", "AC", "4", "5", "tan");
-    assert.deepEqual(calc.historyItems(), []);
-    assert.equal(HISTORY_KEY in storage, false);
+    assert.deepEqual(calc.historyItems(), ["tan(45) = 1"]);
+    assert.deepEqual(JSON.parse(storage[HISTORY_KEY]), ["tan(45) = 1"]);
     assert.equal(calc.memoryValue(), 5);
   });
 });
@@ -3210,12 +3217,12 @@ describe("CALC-33: teclado, foco e estrutura do tan", () => {
   test("index.html tem o botão tan na linha da memória (fora do teclado), com rótulo que anuncia a operação", () => {
     assert.match(
       HTML_SOURCE,
-      /<div class="memory">[\s\S]*?<button type="button" id="tan-button" class="tan-add" data-action="tan" aria-label="Tangente \(tan\)">tan<\/button>[\s\S]*?<\/div>\s*<div class="keypad">/,
+      /<div class="scientific">[\s\S]*?<button type="button" id="tan-button" class="tan-add" data-action="tan" aria-label="Tangente \(tan\)">tan<\/button>[\s\S]*?<\/div>\s*<div class="keypad">/,
     );
   });
 
   test("o tan tem foco visível com contorno branco, sem remover o outline", () => {
-    assert.match(CSS_SOURCE, /\.tan-add:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
+    assert.match(CSS_SOURCE, /\.scientific > button:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
   });
 });
 
@@ -3296,13 +3303,13 @@ describe("CALC-25: teclado, foco e estrutura do MC", () => {
   test("index.html tem o botão MC antes do MR, na linha da memória, fora do teclado, com rótulo que anuncia a operação", () => {
     assert.match(
       HTML_SOURCE,
-      /<div class="memory">\s*<button type="button" id="memory-clear" class="memory-clear" data-action="memory-clear" aria-label="Limpar memória \(MC\)">MC<\/button>\s*<button type="button" id="memory-recall"/,
+      /<div class="scientific">\s*<button type="button" id="memory-clear" class="memory-clear" data-action="memory-clear" aria-label="Limpar memória \(MC\)">MC<\/button>\s*<button type="button" id="memory-recall"/,
     );
   });
 
-  test("o MC tem o mesmo estilo de pílula cinza do MR e foco visível com contorno branco", () => {
-    assert.match(CSS_SOURCE, /\.memory-clear\s*\{[^}]*border-radius:\s*999px;[^}]*color:\s*#a5a5a5;[^}]*\}/);
-    assert.match(CSS_SOURCE, /\.memory-clear:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
+  test("o MC usa o estilo da grade científica (cinza escuro, formato redondo) e foco visível com contorno branco", () => {
+    assert.match(CSS_SOURCE, /\.scientific > button\s*\{[^}]*border-radius:\s*999px;[^}]*background:\s*#333333;[^}]*\}/);
+    assert.match(CSS_SOURCE, /\.scientific > button:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
   });
 });
 
@@ -3363,7 +3370,7 @@ describe("CALC-39: critérios de aceite do x! (fatorial)", () => {
     const storage = {};
     const calc = createCalculator({ storage });
     assert.equal(calc.press("5", "x!", "+", "1", "0", "="), "130");
-    assert.deepEqual(calc.historyItems(), ["120 + 10 = 130"]);
+    assert.deepEqual(calc.historyItems(), ["120 + 10 = 130", "5! = 120"]);
   });
 });
 
@@ -3425,12 +3432,12 @@ describe("CALC-39: casos de borda do x!", () => {
     assert.equal(calc.type("Backspace"), "0");
   });
 
-  test("x! não grava no histórico sozinho: 5 x! não entra no histórico", () => {
+  test("x! grava a própria linha no histórico (CALC-43): 5 x! grava 5! = 120", () => {
     const storage = {};
     const calc = createCalculator({ storage });
     calc.press("5", "x!");
-    assert.deepEqual(calc.historyItems(), []);
-    assert.equal(HISTORY_KEY in storage, false);
+    assert.deepEqual(calc.historyItems(), ["5! = 120"]);
+    assert.deepEqual(JSON.parse(storage[HISTORY_KEY]), ["5! = 120"]);
   });
 
   test("x! não mexe na memória, mas um resultado pode ir para ela: 5 x! M+ guarda 120", () => {
@@ -3456,16 +3463,16 @@ describe("CALC-39: teclado, foco e estrutura do x!", () => {
     assert.equal(calc.display(), "3");
   });
 
-  test("index.html tem o botão x! na linha da memória (fora do teclado), com rótulo que anuncia a operação", () => {
+  test("index.html tem o botão x! na grade científica (fora do teclado), com rótulo que anuncia a operação", () => {
     assert.match(
       HTML_SOURCE,
-      /<div class="memory">[\s\S]*?<button type="button" id="factorial-button" class="factorial-add" data-action="factorial" aria-label="Fatorial \(x!\)">x!<\/button>[\s\S]*?<\/div>\s*<div class="keypad">/,
+      /<div class="scientific">[\s\S]*?<button type="button" id="factorial-button" class="factorial-add" data-action="factorial" aria-label="Fatorial \(x!\)">x!<\/button>[\s\S]*?<\/div>\s*<div class="keypad">/,
     );
   });
 
-  test("o x! tem o mesmo estilo de pílula cinza dos demais botões da linha e foco visível com contorno branco", () => {
-    assert.match(CSS_SOURCE, /\.factorial-add\s*\{[^}]*border-radius:\s*999px;[^}]*color:\s*#a5a5a5;[^}]*\}/);
-    assert.match(CSS_SOURCE, /\.factorial-add:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
+  test("o x! usa o mesmo estilo de pílula cinza escuro da grade científica e foco visível com contorno branco", () => {
+    assert.match(CSS_SOURCE, /\.scientific > button\s*\{[^}]*border-radius:\s*999px;[^}]*background:\s*#333333;[^}]*\}/);
+    assert.match(CSS_SOURCE, /\.scientific > button:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
   });
 });
 
@@ -3617,15 +3624,161 @@ describe("CALC-29: teclado, foco e estrutura do xʸ", () => {
   test("index.html tem o botão xʸ na linha da memória (fora do teclado), depois do tan, com rótulo que anuncia a operação", () => {
     assert.match(
       HTML_SOURCE,
-      /<div class="memory">[\s\S]*?<button type="button" id="tan-button"[^>]*>tan<\/button>\s*<button type="button" id="power-button" class="power-add" data-action="power" aria-label="Elevar à potência \(xʸ\)">xʸ<\/button>[\s\S]*?<\/div>\s*<div class="keypad">/,
+      /<div class="scientific">[\s\S]*?<button type="button" id="tan-button"[^>]*>tan<\/button>\s*<button type="button" id="power-button" class="power-add" data-action="power" aria-label="Elevar à potência \(xʸ\)">xʸ<\/button>[\s\S]*?<\/div>\s*<div class="keypad">/,
     );
   });
 
   test("o xʸ tem foco visível com contorno branco, sem remover o outline", () => {
-    assert.match(CSS_SOURCE, /\.power-add:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
+    assert.match(CSS_SOURCE, /\.scientific > button:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
   });
 
   test("o xʸ pendente tem o destaque de operador do teclado (texto laranja sobre branco)", () => {
     assert.match(CSS_SOURCE, /\.power-add\[aria-pressed="true"\]\s*\{[^}]*background:\s*#ffffff;[^}]*color:\s*#b35c00;/);
+  });
+});
+
+// CALC-43: cada função avançada aplicada ao visor vira uma linha do histórico, "expressão = resultado" (mesmo texto do visor).
+describe("CALC-43: critérios de aceite do histórico das funções avançadas", () => {
+  test("√16 = 4: 1, 6, √x grava √16 = 4, com a linha acessível e o resultado no visor", () => {
+    const storage = {};
+    const calc = createCalculator({ storage });
+    assert.equal(calc.press("1", "6", "√x"), "4");
+    assert.deepEqual(calc.historyItems(), ["√16 = 4"]);
+    assert.deepEqual(JSON.parse(storage[HISTORY_KEY]), ["√16 = 4"]);
+    assert.deepEqual(calc.historyItemParts(0), {
+      expression: "√16",
+      result: "4",
+      label: "√16 igual a 4, usar no visor",
+    });
+  });
+
+  test("sen(30) = 0.5: 3, 0, sen grava sen(30) = 0.5", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("3", "0", "sen"), "0.5");
+    assert.deepEqual(calc.historyItems(), ["sen(30) = 0.5"]);
+  });
+
+  test("cos, tan e log gravam a própria linha: 6 0 cos, 4 5 tan e 1 0 0 0 log", () => {
+    const cosCalc = createCalculator({ storage: {} });
+    cosCalc.press("6", "0", "cos");
+    assert.deepEqual(cosCalc.historyItems(), ["cos(60) = 0.5"]);
+    const tanCalc = createCalculator({ storage: {} });
+    tanCalc.press("4", "5", "tan");
+    assert.deepEqual(tanCalc.historyItems(), ["tan(45) = 1"]);
+    const logCalc = createCalculator({ storage: {} });
+    logCalc.press("1", "0", "0", "0", "log");
+    assert.deepEqual(logCalc.historyItems(), ["log(1000) = 3"]);
+  });
+
+  test("x², 1/x e x! gravam a própria linha: 9 x² grava 9² = 81, 4 1/x grava 1/4 = 0.25, 5 x! grava 5! = 120", () => {
+    const squareCalc = createCalculator({ storage: {} });
+    squareCalc.press("9", "x²");
+    assert.deepEqual(squareCalc.historyItems(), ["9² = 81"]);
+    const inverseCalc = createCalculator({ storage: {} });
+    inverseCalc.press("4", "1/x");
+    assert.deepEqual(inverseCalc.historyItems(), ["1/4 = 0.25"]);
+    const factorialCalc = createCalculator({ storage: {} });
+    factorialCalc.press("5", "x!");
+    assert.deepEqual(factorialCalc.historyItems(), ["5! = 120"]);
+  });
+
+  test("cada função vira uma linha, do mais recente para o mais antigo: 1 6 √x √x grava √4 = 2 e depois √16 = 4", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("1", "6", "√x", "√x"), "2");
+    assert.deepEqual(calc.historyItems(), ["√4 = 2", "√16 = 4"]);
+  });
+
+  test("função depois do igual grava a função com o resultado do igual: 2 + 3 =, √x grava √5 = 2.23606798 antes da conta", () => {
+    const calc = createCalculator({ storage: {} });
+    calc.press("2", "+", "3", "=", "√x");
+    assert.deepEqual(calc.historyItems(), ["√5 = 2.23606798", "2 + 3 = 5"]);
+  });
+
+  test("Limpar histórico apaga também as linhas das funções: 1 6 √x, Limpar e Apagar deixam o histórico vazio e sem chave no localStorage", () => {
+    const storage = {};
+    const calc = createCalculator({ storage });
+    calc.press("1", "6", "√x");
+    calc.clickClear();
+    assert.deepEqual(calc.historyItems(), []);
+    assert.equal(HISTORY_KEY in storage, false);
+    assert.equal(calc.historyEmptyHidden(), false);
+  });
+
+  test("depois de limpar, função nova grava de novo: 1 6 √x, Limpar, AC, 9 √x mostra só √9 = 3", () => {
+    const calc = createCalculator({ storage: {} });
+    calc.press("1", "6", "√x");
+    calc.clickClear();
+    calc.press("AC", "9", "√x");
+    assert.deepEqual(calc.historyItems(), ["√9 = 3"]);
+  });
+
+  test("a linha da função continua depois de recarregar a página: 1 6 √x e nova instância mostra √16 = 4", () => {
+    const storage = {};
+    createCalculator({ storage }).press("1", "6", "√x");
+    assert.deepEqual(createCalculator({ storage }).historyItems(), ["√16 = 4"]);
+  });
+
+  test("tocar na linha da função põe o resultado no visor: 1 6 √x, AC, toque no item mostra 4", () => {
+    const calc = createCalculator({ storage: {} });
+    calc.press("1", "6", "√x", "AC");
+    assert.equal(calc.tapHistoryItem(0), "4");
+  });
+});
+
+describe("CALC-43: casos de borda do histórico das funções avançadas", () => {
+  test("negativo fica entre parênteses no quadrado e no inverso: 3 +/- x² grava (-3)² = 9; 4 +/- 1/x grava 1/(-4) = -0.25", () => {
+    const squareCalc = createCalculator({ storage: {} });
+    squareCalc.press("3", "+/-", "x²");
+    assert.deepEqual(squareCalc.historyItems(), ["(-3)² = 9"]);
+    const inverseCalc = createCalculator({ storage: {} });
+    inverseCalc.press("4", "+/-", "1/x");
+    assert.deepEqual(inverseCalc.historyItems(), ["1/(-4) = -0.25"]);
+  });
+
+  test("seno de ângulo negativo não ganha parênteses extras: 3 0 +/- sen grava sen(-30) = -0.5", () => {
+    const calc = createCalculator({ storage: {} });
+    calc.press("3", "0", "+/-", "sen");
+    assert.deepEqual(calc.historyItems(), ["sen(-30) = -0.5"]);
+  });
+
+  test("e entra na linha com o número mostrado, e o resultado usa o valor completo: e x² grava 2.71828183² = 7.3890561", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("e", "x²"), "7.3890561");
+    assert.deepEqual(calc.historyItems(), ["2.71828183² = 7.3890561"]);
+  });
+
+  test("função com operador pendente grava a função antes do igual: 2 + 3 x² (sem =) grava só 3² = 9", () => {
+    const calc = createCalculator({ storage: {} });
+    calc.press("2", "+", "3", "x²");
+    assert.deepEqual(calc.historyItems(), ["3² = 9"]);
+  });
+
+  test("x! acima de 2^53 grava o resultado em notação científica, como o visor: 2 0 x! grava 20! = 2.4329020081766E+18", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("2", "0", "x!"), "2.4329020081766E+18");
+    assert.deepEqual(calc.historyItems(), ["20! = 2.4329020081766E+18"]);
+  });
+
+  test("função que dá Erro não grava: √ de negativo, tan de 90°, x! de 171 e 1/x de zero não entram no histórico", () => {
+    const storage = {};
+    const calc = createCalculator({ storage });
+    assert.equal(calc.press("1", "+/-", "√x"), "Erro");
+    assert.equal(calc.press("AC", "9", "0", "tan"), "Erro");
+    assert.equal(calc.press("AC", "1", "7", "1", "x!"), "Erro");
+    assert.equal(calc.press("AC", "0", "1/x"), "Erro");
+    assert.deepEqual(calc.historyItems(), []);
+    assert.equal(HISTORY_KEY in storage, false);
+  });
+
+  test("função com Erro no visor não grava nada e não cria linha: 5 ÷ 0 =, √x mantém o Erro e o histórico fica sem a função", () => {
+    const calc = createCalculator({ storage: {} });
+    calc.press("5", "÷", "0", "=", "√x");
+    assert.deepEqual(calc.historyItems(), []);
+  });
+
+  test("operação que falha depois de uma função bem-sucedida mantém a linha da função: 1 6 √x, depois 5 ÷ 0 = grava só √16 = 4", () => {
+    const calc = createCalculator({ storage: {} });
+    calc.press("1", "6", "√x", "AC", "5", "÷", "0", "=");
+    assert.deepEqual(calc.historyItems(), ["√16 = 4"]);
   });
 });

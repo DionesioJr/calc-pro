@@ -337,6 +337,17 @@ function addCalculation(text) {
   renderHistory();
 }
 
+// Função aplicada ao visor (ex.: √16, sen(30)) vira uma linha do histórico, com o resultado que ficou no visor.
+// Só é chamada quando a função deu certo: Erro não grava.
+function recordFunction(expression) {
+  addCalculation(`${expression} = ${state.current}`);
+}
+
+// Negativo entre parênteses nas funções que escrevem o número antes ou depois do símbolo (ex.: (-3)²), para não ler como -(3²).
+function operandText(text) {
+  return text.startsWith("-") ? `(${text})` : text;
+}
+
 // Limpar pede confirmação: o botão dá lugar a "Apagar todo o histórico?" com Cancelar (foco inicial) e Apagar.
 function showClearConfirm() {
   if (!historyClear || !historyConfirm || !historyCancel) {
@@ -488,8 +499,10 @@ function square() {
     setError();
     return;
   }
+  const expression = `${operandText(state.current)}²`;
   setCurrent(formatResult(result));
   state.waitingForOperand = false;
+  recordFunction(expression);
 }
 
 // log: logaritmo decimal (base 10) do número exibido, com a mesma regra de segundo operando do % e do x²
@@ -504,8 +517,10 @@ function logarithm() {
     setError();
     return;
   }
+  const expression = `log(${state.current})`;
   setCurrent(formatResult(Math.log10(value)));
   state.waitingForOperand = false;
+  recordFunction(expression);
 }
 
 // Seno em graus. Múltiplos de 90° saem exatos (sen 0° = 0, sen 90° = 1); os demais usam radianos internamente.
@@ -527,10 +542,12 @@ function sine() {
   if (state.error) {
     return;
   }
+  const expression = `sen(${state.current})`;
   const value = operandValue();
   const result = state.angleUnit === "rad" ? Math.sin(value) : sineDegrees(value);
   setCurrent(formatResult(result));
   state.waitingForOperand = false;
+  recordFunction(expression);
 }
 
 // DEG/RAD: alterna a unidade angular do sen, do cos e do tan. Não recalcula o visor nem mexe na conta pendente, na memória ou no histórico;
@@ -558,10 +575,12 @@ function cosine() {
   if (state.error) {
     return;
   }
+  const expression = `cos(${state.current})`;
   const value = operandValue();
   const result = state.angleUnit === "rad" ? Math.cos(value) : cosineDegrees(value);
   setCurrent(formatResult(result));
   state.waitingForOperand = false;
+  recordFunction(expression);
 }
 
 // π: insere pi (3.14159265, com as 8 casas de qualquer resultado) como operando, substituindo o número em curso,
@@ -602,8 +621,10 @@ function inverse() {
     setError();
     return;
   }
+  const expression = `1/${operandText(state.current)}`;
   setCurrent(formatResult(result));
   state.waitingForOperand = false;
+  recordFunction(expression);
 }
 
 // √x: troca o número exibido pela raiz quadrada dele, com a mesma regra de segundo operando do %, do x², do sen, do π e do 1/x.
@@ -618,8 +639,10 @@ function squareRoot() {
     setError();
     return;
   }
+  const expression = `√${state.current}`;
   state.current = formatResult(Math.sqrt(value));
   state.waitingForOperand = false;
+  recordFunction(expression);
 }
 
 // x!: fatorial do número exibido, só para inteiros não negativos (0! = 1). Negativo e decimal mostram Erro.
@@ -643,8 +666,10 @@ function factorial() {
     setError();
     return;
   }
+  const expression = `${state.current}!`;
   state.current = Math.abs(result) > MAX_RESULT ? toScientific(result) : formatResult(result);
   state.waitingForOperand = false;
+  recordFunction(expression);
 }
 
 // Notação científica com 14 algarismos significativos, sem zeros à direita na mantissa (2432902008176640000 → 2.4329020081766E+18).
@@ -683,8 +708,10 @@ function tangent() {
     setError();
     return;
   }
+  const expression = `tan(${state.current})`;
   setCurrent(formatResult(result));
   state.waitingForOperand = false;
+  recordFunction(expression);
 }
 
 // Backspace (teclado): apaga o último caractere do número em edição.
