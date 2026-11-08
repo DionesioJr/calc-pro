@@ -113,6 +113,8 @@ const lnButton = document.getElementById("ln-button");
 const sineButton = document.getElementById("sine-button");
 // Botão π também fica nessa linha, pelo mesmo motivo.
 const piButton = document.getElementById("pi-button");
+// Botão cos também fica nessa linha, pelo mesmo motivo.
+const cosineButton = document.getElementById("cos-button");
 // Botão e também fica nessa linha, pelo mesmo motivo.
 const eButton = document.getElementById("e-button");
 // Botão 1/x também fica nessa linha, pelo mesmo motivo.
@@ -496,12 +498,12 @@ function naturalLogarithm() {
   if (state.error) {
     return;
   }
-  const value = Number(state.current);
+  const value = operandValue();
   if (value <= 0) {
     setError();
     return;
   }
-  state.current = formatResult(Math.log(value));
+  setCurrent(formatResult(Math.log(value)));
   state.waitingForOperand = false;
 }
 
@@ -524,6 +526,28 @@ function sine() {
     return;
   }
   setCurrent(formatResult(sineDegrees(operandValue())));
+  state.waitingForOperand = false;
+}
+
+// Cosseno em graus, com a mesma regra do seno: múltiplos de 90° saem exatos (cos 0° = 1, cos 90° = 0, cos 180° = -1, cos 270° = 0),
+// sem o ruído de ponto flutuante do Math.cos (ex.: 6.12e-17 em 90°). Os demais usam radianos.
+const EXACT_COSINES = [1, 0, -1, 0];
+
+function cosineDegrees(degrees) {
+  const angle = ((degrees % 360) + 360) % 360;
+  if (angle % 90 === 0) {
+    return EXACT_COSINES[angle / 90];
+  }
+  return Math.cos((angle * Math.PI) / 180);
+}
+
+// cos: troca o número exibido pelo cosseno dele, com a mesma regra de segundo operando do sen.
+// Com Erro no visor não calcula e mantém o Erro. O cosseno fica entre -1 e 1, então não há limite de 2^53 a checar.
+function cosine() {
+  if (state.error) {
+    return;
+  }
+  state.current = formatResult(cosineDegrees(Number(state.current)));
   state.waitingForOperand = false;
 }
 
@@ -785,6 +809,8 @@ function handleButton(button) {
     naturalLogarithm();
   } else if (action === "sine") {
     sine();
+  } else if (action === "cos") {
+    cosine();
   } else if (action === "tan") {
     tangent();
   } else if (action === "pi") {
@@ -932,6 +958,13 @@ if (lnButton) {
 if (sineButton) {
   sineButton.addEventListener("click", () => {
     handleButton(sineButton);
+    render();
+  });
+}
+
+if (cosineButton) {
+  cosineButton.addEventListener("click", () => {
+    handleButton(cosineButton);
     render();
   });
 }
