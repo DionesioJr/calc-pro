@@ -37,6 +37,14 @@ const state = {
   expression: [],
   // Registrador da memória (M+): soma dos valores do visor. Começa em 0; AC não o apaga, só MC.
   memory: 0,
+  // Unidade angular do sen: "deg" (padrão, graus) ou "rad" (radianos). Só em memória: volta a graus ao recarregar.
+  angleUnit: "deg",
+};
+
+// Rótulos da unidade angular: o visível (DEG/RAD), o nome por extenso e o nome da unidade para trocar.
+const ANGLE_UNITS = {
+  deg: { label: "DEG", name: "graus", next: "radianos" },
+  rad: { label: "RAD", name: "radianos", next: "graus" },
 };
 
 const OPERATIONS = {
@@ -101,6 +109,8 @@ const sineButton = document.getElementById("sine-button");
 const piButton = document.getElementById("pi-button");
 // Botão 1/x também fica nessa linha, pelo mesmo motivo.
 const inverseButton = document.getElementById("inverse-button");
+// Botão DEG/RAD (unidade angular) fica nessa linha, à direita; alterna a unidade usada pelo sen.
+const angleUnitButton = document.getElementById("angle-unit");
 const pressableButtons = memoryAddButton ? [...buttons, memoryAddButton] : buttons;
 
 function displaySizeClass(text) {
@@ -125,6 +135,13 @@ function render() {
   // Indicador de memória: visível só enquanto houver valor guardado.
   if (memoryIndicator) {
     memoryIndicator.hidden = state.memory === 0;
+  }
+
+  // Unidade angular: DEG ou RAD sempre visível; o nome acessível diz a unidade atual e para qual ela troca.
+  if (angleUnitButton) {
+    const unit = ANGLE_UNITS[state.angleUnit];
+    angleUnitButton.textContent = unit.label;
+    angleUnitButton.setAttribute("aria-label", `${unit.label} (${unit.name}), trocar para ${unit.next}`);
   }
 }
 
@@ -445,7 +462,7 @@ function logarithm() {
   state.waitingForOperand = false;
 }
 
-// Seno em graus (o visor mostra DEG). Múltiplos de 90° saem exatos (sen 0° = 0, sen 90° = 1); os demais usam radianos.
+// Seno em graus. Múltiplos de 90° saem exatos (sen 0° = 0, sen 90° = 1); os demais usam radianos internamente.
 // Reduzir módulo 360 antes evita perder precisão com ângulos grandes.
 const EXACT_SINES = [0, 1, 0, -1];
 
@@ -459,12 +476,21 @@ function sineDegrees(degrees) {
 
 // sen: troca o número exibido pelo seno dele, com a mesma regra de segundo operando do % e do x².
 // Com Erro no visor não calcula e mantém o Erro. O seno fica entre -1 e 1, então não há limite de 2^53 a checar.
+// A unidade vem de state.angleUnit: em graus usa sineDegrees; em radianos, Math.sin direto sobre o número exibido.
 function sine() {
   if (state.error) {
     return;
   }
-  state.current = formatResult(sineDegrees(Number(state.current)));
+  const value = Number(state.current);
+  const result = state.angleUnit === "rad" ? Math.sin(value) : sineDegrees(value);
+  state.current = formatResult(result);
   state.waitingForOperand = false;
+}
+
+// DEG/RAD: alterna a unidade angular do sen. Não recalcula o visor nem mexe na conta pendente, na memória ou no histórico;
+// só vale para o próximo sen. Como a memória, funciona também com Erro no visor.
+function toggleAngleUnit() {
+  state.angleUnit = state.angleUnit === "deg" ? "rad" : "deg";
 }
 
 // π: insere pi (3.14159265, com as 8 casas de qualquer resultado) como operando, substituindo o número em curso,
@@ -663,6 +689,8 @@ function handleButton(button) {
     insertPi();
   } else if (action === "inverse") {
     inverse();
+  } else if (action === "angle-unit") {
+    toggleAngleUnit();
   } else if (action in OPERATIONS) {
     inputOperator(action);
   }
@@ -807,6 +835,13 @@ if (piButton) {
 if (inverseButton) {
   inverseButton.addEventListener("click", () => {
     handleButton(inverseButton);
+    render();
+  });
+}
+
+if (angleUnitButton) {
+  angleUnitButton.addEventListener("click", () => {
+    handleButton(angleUnitButton);
     render();
   });
 }
