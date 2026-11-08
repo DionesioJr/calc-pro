@@ -335,6 +335,39 @@ body {
   outline-offset: 2px;
 }
 
+/* Botões ( e ): mesmo estilo do M+ e das outras pílulas da linha da memória (contorno cinza). */
+.paren-add {
+  padding: 0.4rem 0.9rem;
+  border: 1px solid #a5a5a5;
+  border-radius: 999px;
+  background: transparent;
+  color: #a5a5a5;
+  font: inherit;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.paren-add:hover {
+  border-color: #ffffff;
+  color: #ffffff;
+}
+
+.paren-add:active {
+  filter: brightness(0.8);
+}
+
+.paren-add:focus-visible {
+  outline: 3px solid #ffffff;
+  outline-offset: 2px;
+}
+
+/* Indicador de parênteses abertos: laranja como o indicador de memória, um "(" por nível. */
+.paren-indicator {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #ff9f0a;
+}
+
 /* Pílulas da linha da memória: padding horizontal menor e largura que cresce para ocupar a linha toda.
  * Assim as seis cabem em 320px sem rolagem horizontal, mesmo com o indicador M e a unidade DEG visíveis. */
 .memory > button {

@@ -34,10 +34,16 @@ const state = {
   // true quando a última operação falhou (divisão por zero).
   error: false,
   // Partes da expressão em curso (ex.: ["12", "×", "3", "="]); viram uma linha do histórico no igual.
+  // Parênteses entram como "(" e ")", e o texto do grupo fechado já está aqui quando valueIsGroup é true.
   expression: [],
+  // true logo depois de fechar um grupo ")": o número do visor é o valor do grupo, e o texto do grupo já está em expression.
+  valueIsGroup: false,
   // Registrador da memória (M+): soma dos valores do visor. Começa em 0; AC não o apaga, só MC.
   memory: 0,
 };
+
+// Marcador de grupo aberto dentro de terms e da pilha. Um ")" nunca fica guardado: ao fechar, o grupo vira número.
+const OPEN_PAREN = "(";
 
 const OPERATIONS = {
   add: (a, b) => a + b,
@@ -103,7 +109,14 @@ const piButton = document.getElementById("pi-button");
 const inverseButton = document.getElementById("inverse-button");
 // Botão tan também fica nessa linha, pelo mesmo motivo.
 const tangentButton = document.getElementById("tan-button");
-const pressableButtons = memoryAddButton ? [...buttons, memoryAddButton] : buttons;
+// Botões ( e ) ficam na linha da memória, com o mesmo estilo das outras funções.
+const openParenButton = document.getElementById("open-paren-button");
+const closeParenButton = document.getElementById("close-paren-button");
+// Indicador de parênteses abertos: visível só com grupo aberto; um "(" por nível.
+const parenIndicator = document.getElementById("paren-indicator");
+const parenSymbols = document.getElementById("paren-symbols");
+const parenText = document.getElementById("paren-text");
+const pressableButtons = [...buttons, memoryAddButton, openParenButton, closeParenButton].filter(Boolean);
 
 function displaySizeClass(text) {
   return DISPLAY_SIZES.find((size) => text.length <= size.maxLength).className;
@@ -128,6 +141,18 @@ function render() {
   if (memoryIndicator) {
     memoryIndicator.hidden = state.memory === 0;
   }
+
+  // Indicador de parênteses: visível só com grupo aberto. Os "(" aparecem no visor da linha e o texto vai para o leitor de tela.
+  if (parenIndicator) {
+    const depth = openDepth();
+    parenIndicator.hidden = depth === 0;
+    if (parenSymbols) {
+      parenSymbols.textContent = OPEN_PAREN.repeat(depth);
+    }
+    if (parenText) {
+      parenText.textContent = depth === 1 ? "1 parêntese aberto" : `${depth} parênteses abertos`;
+    }
+  }
 }
 
 // Reinicia o cálculo em curso. O histórico não é apagado aqui (só pelo botão Limpar histórico).
@@ -138,6 +163,7 @@ function reset() {
   state.waitingForOperand = false;
   state.error = false;
   state.expression = [];
+  state.valueIsGroup = false;
 }
 
 function setError() {
@@ -147,12 +173,13 @@ function setError() {
   state.waitingForOperand = true;
   state.error = true;
   state.expression = [];
+  state.valueIsGroup = false;
 }
 
-// Operador pendente (está no fim da pilha), ou null se a pilha termina em número.
+// Operador pendente (está no fim da pilha), ou null se a pilha termina em número. "(" não é operador.
 function trailingOperator() {
   const last = state.stack[state.stack.length - 1];
-  return typeof last === "string" ? last : null;
+  return isOperator(last) ? last : null;
 }
 
 // Na sequência crua, operador é o nome (ex.: "add"); número é o texto digitado (ex.: "2", "0.5").
@@ -572,7 +599,10 @@ function foldTerms(terms) {
   let display = "0";
   for (let i = 0; i < terms.length; i++) {
     const term = terms[i];
-    if (isOperator(term)) {
+    if (term === OPEN_PAREN) {
+      // Grupo aberto: marcador na pilha. reduceStack não passa por ele, então o que está dentro não se mistura com o de fora.
+      stack.push(OPEN_PAREN);
+    } else if (isOperator(term)) {
       const reduced = reduceStack(stack, PRECEDENCE[term]);
       if (reduced === null) {
         return null;
@@ -586,20 +616,55 @@ function foldTerms(terms) {
   return { stack, display };
 }
 
+// Quantos grupos estão abertos: cada "(" em terms é um grupo que ainda não foi fechado.
+function openDepth() {
+  return state.terms.filter((term) => term === OPEN_PAREN).length;
+}
+
+// Recalcula a pilha a partir da sequência crua. Devolve false (e mostra Erro) se a conta falhar.
+function refreshStack() {
+  const folded = foldTerms(state.terms);
+  if (folded === null) {
+    setError();
+    return false;
+  }
+  state.stack = folded.stack;
+  return true;
+}
+
+// Calcula uma sequência crua sozinha (usada para o conteúdo de um grupo). Devolve o valor, ou null se a conta falhar.
+function evaluateTerms(terms) {
+  const folded = foldTerms(terms);
+  if (folded === null) {
+    return null;
+  }
+  const reduced = reduceStack(folded.stack, 0);
+  return reduced === null ? null : reduced.stack[0];
+}
+
 function inputOperator(operator) {
   if (state.error) {
     reset();
   }
 
-  if (state.waitingForOperand && trailingOperator() !== null) {
+  const last = state.terms[state.terms.length - 1];
+  if (state.waitingForOperand && isOperator(last)) {
     // Trocar de operador antes do segundo número substitui o anterior (também na expressão e na sequência crua).
     state.terms[state.terms.length - 1] = operator;
     state.expression[state.expression.length - 1] = OPERATOR_SYMBOLS[operator];
+  } else if (state.waitingForOperand && last === OPEN_PAREN) {
+    // Operador logo depois de "(" não tem número à esquerda dentro do grupo: é ignorado.
+    return;
   } else {
     // O número que está sendo fechado agora entra na sequência crua, sem reduzir.
+    // Se for o valor de um grupo fechado, o texto do grupo já está na expressão e não se repete.
     state.terms.push(state.current, operator);
-    state.expression.push(state.current, OPERATOR_SYMBOLS[operator]);
+    if (!state.valueIsGroup) {
+      state.expression.push(state.current);
+    }
+    state.expression.push(OPERATOR_SYMBOLS[operator]);
   }
+  state.valueIsGroup = false;
 
   // A pilha é sempre refeita da sequência crua: assim, trocar o operador também reabre termos já fechados.
   // Ex.: 2 + 3 × deixa o 3 pendente; 2 + 3 × 4 + resolve para 14.
@@ -613,12 +678,170 @@ function inputOperator(operator) {
   state.waitingForOperand = true;
 }
 
+// "(": abre um grupo. Depois de um número ou de um grupo fechado vira multiplicação implícita: 2 ( 3 + 1 ) = 2 × (3 + 1).
+// No início (visor 0, sem conta) não há multiplicação.
+function inputOpenParen() {
+  if (state.error) {
+    reset();
+  }
+  if (!state.waitingForOperand && (state.valueIsGroup || state.terms.length > 0 || state.current !== "0")) {
+    inputOperator("multiply");
+    if (state.error) {
+      return;
+    }
+  }
+  state.terms.push(OPEN_PAREN);
+  state.expression.push("(");
+  state.current = "0";
+  state.waitingForOperand = true;
+  refreshStack();
+}
+
+// ")": fecha o grupo mais interno. Só vale com um número no fim do grupo e um "(" aberto; fora disso é ignorado.
+function inputCloseParen() {
+  if (state.error) {
+    reset();
+    return;
+  }
+  if (openDepth() === 0 || state.waitingForOperand) {
+    return;
+  }
+  closeGroup();
+}
+
+// Fecha o grupo mais interno: o número em curso (se ainda não estiver na sequência) entra no grupo, que é calculado sozinho
+// e vira o número do visor, ainda pendente, como um número digitado. Conta que falha no grupo mostra Erro.
+function closeGroup() {
+  const start = state.terms.lastIndexOf(OPEN_PAREN);
+  const body = state.terms.slice(start + 1);
+  body.push(state.current);
+  if (!state.valueIsGroup) {
+    state.expression.push(state.current);
+  }
+  state.expression.push(")");
+
+  const value = evaluateTerms(body);
+  state.terms.splice(start);
+  if (value === null) {
+    setError();
+    return;
+  }
+  state.current = formatResult(value);
+  state.waitingForOperand = false;
+  state.valueIsGroup = true;
+  refreshStack();
+}
+
+// Operador pendente no fim de um grupo (ex.: "(2 +" seguido de "="): sai, e o número anterior volta a ser o visor.
+function dropDanglingOperator() {
+  const last = state.terms[state.terms.length - 1];
+  if (!state.waitingForOperand || !isOperator(last)) {
+    return;
+  }
+  state.terms.pop();
+  state.expression.pop();
+  state.current = state.terms.pop();
+  if (state.expression[state.expression.length - 1] === ")") {
+    // O número era o valor de um grupo fechado: o texto do grupo continua na expressão.
+    state.valueIsGroup = true;
+  } else {
+    state.expression.pop();
+  }
+  state.waitingForOperand = false;
+  refreshStack();
+}
+
+// "(" sem nenhum número depois dele (ex.: "(" seguido de "="): some junto, sem deixar grupo vazio.
+function dropOpenParen() {
+  state.terms.pop();
+  state.expression.pop();
+  refreshStack();
+}
+
+// "=" com grupos ainda abertos: fecha cada um, do mais interno para o mais externo.
+function closeOpenGroups() {
+  while (openDepth() > 0) {
+    dropDanglingOperator();
+    if (state.error) {
+      return;
+    }
+    if (state.waitingForOperand) {
+      dropOpenParen();
+    } else {
+      closeGroup();
+      if (state.error) {
+        return;
+      }
+    }
+  }
+}
+
+// Partes da expressão viram texto: sem espaço depois de "(" nem antes de ")", como em (2 + 3) × 4.
+function expressionText(parts) {
+  let text = "";
+  parts.forEach((part, i) => {
+    const glue = i === 0 || parts[i - 1] === "(" || part === ")" ? "" : " ";
+    text += glue + part;
+  });
+  return text;
+}
+
+// Função aplicada a um grupo fechado (ex.: (2 + 3) %): o texto do grupo sai da expressão, e o valor novo é o que entra no histórico.
+function dropGroupText() {
+  let depth = 0;
+  let start = state.expression.length - 1;
+  for (; start >= 0; start--) {
+    if (state.expression[start] === ")") {
+      depth++;
+    } else if (state.expression[start] === "(") {
+      depth--;
+      if (depth === 0) {
+        break;
+      }
+    }
+  }
+  if (start >= 0) {
+    state.expression.splice(start);
+  }
+  state.valueIsGroup = false;
+}
+
+// Número digitado logo depois de um grupo fechado (ex.: (2 + 3) 4) multiplica o grupo.
+function implicitMultiplication() {
+  if (state.valueIsGroup) {
+    inputOperator("multiply");
+  }
+}
+
+function finishCalculation() {
+  state.expression = [];
+  state.stack = [];
+  state.terms = [];
+  state.valueIsGroup = false;
+  state.waitingForOperand = true;
+}
+
 function inputEquals() {
   if (state.error) {
     reset();
     return;
   }
+  closeOpenGroups();
+  if (state.error) {
+    return;
+  }
+
   if (state.stack.length === 0) {
+    // Sem operador, só um grupo fechado (ex.: (2 + 3) =): o histórico guarda a expressão com o resultado.
+    if (state.expression.length === 0) {
+      return;
+    }
+    if (!state.valueIsGroup) {
+      state.expression.push(state.current);
+    }
+    state.expression.push("=", state.current);
+    addCalculation(expressionText(state.expression));
+    finishCalculation();
     return;
   }
 
@@ -641,22 +864,26 @@ function inputEquals() {
   }
   state.current = reduced.result ?? state.current;
 
-  state.expression.push(rightOperand, "=", state.current);
-  addCalculation(state.expression.join(" "));
-  state.expression = [];
-
-  state.stack = [];
-  state.terms = [];
-  state.waitingForOperand = true;
+  if (!state.valueIsGroup) {
+    state.expression.push(rightOperand);
+  }
+  state.expression.push("=", state.current);
+  addCalculation(expressionText(state.expression));
+  finishCalculation();
 }
+
+// Funções que trocam o número do visor. Aplicadas a um grupo fechado, o texto do grupo sai da expressão (ver dropGroupText).
+const FUNCTION_ACTIONS = ["percent", "toggle-sign", "square", "log", "sine", "tan", "pi", "inverse", "memory-recall"];
 
 function handleButton(button) {
   if (button.dataset.value !== undefined) {
     const value = button.dataset.value;
 
     if (value === ".") {
+      implicitMultiplication();
       inputDecimal();
     } else if (/^[0-9]$/.test(value)) {
+      implicitMultiplication();
       inputDigit(value);
     } else {
       return;
@@ -665,6 +892,10 @@ function handleButton(button) {
   }
 
   const action = button.dataset.action;
+
+  if (FUNCTION_ACTIONS.includes(action) && state.valueIsGroup) {
+    dropGroupText();
+  }
 
   if (action === "all-clear") {
     reset();
@@ -694,6 +925,10 @@ function handleButton(button) {
     insertPi();
   } else if (action === "inverse") {
     inverse();
+  } else if (action === "open-paren") {
+    inputOpenParen();
+  } else if (action === "close-paren") {
+    inputCloseParen();
   } else if (action in OPERATIONS) {
     inputOperator(action);
   }
@@ -713,6 +948,9 @@ const KEY_BUTTONS = {
   // M+ pelo teclado: m ou M (com ou sem Shift).
   m: { action: "memory-add" },
   M: { action: "memory-add" },
+  // Parênteses pelo teclado: ( e ) (no teclado com Shift + 9 e Shift + 0).
+  "(": { action: "open-paren" },
+  ")": { action: "close-paren" },
 };
 
 // Tecla → dataset no mesmo formato de data-value/data-action; null se a tecla não tem botão (ex.: Backspace).
@@ -845,6 +1083,20 @@ if (piButton) {
 if (inverseButton) {
   inverseButton.addEventListener("click", () => {
     handleButton(inverseButton);
+    render();
+  });
+}
+
+if (openParenButton) {
+  openParenButton.addEventListener("click", () => {
+    handleButton(openParenButton);
+    render();
+  });
+}
+
+if (closeParenButton) {
+  closeParenButton.addEventListener("click", () => {
+    handleButton(closeParenButton);
     render();
   });
 }

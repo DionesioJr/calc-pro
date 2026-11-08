@@ -15,7 +15,8 @@
 // e do botão tan (CALC-33: tangente do visor em graus, com Erro em 90° + 180°·k),
 // e do botão M- (CALC-23: subtrai o visor da memória),
 // e do botão MR (CALC-24: copia a memória para o visor como operando),
-// e do botão MC (CALC-25: zera a memória e o indicador).
+// e do botão MC (CALC-25: zera a memória e o indicador),
+// e dos botões ( e ) (CALC-30: agrupamento com aninhamento, multiplicação implícita e indicador de parênteses abertos).
 // Executa script.js real num contexto isolado, com um DOM mínimo, e aperta
 // os botões pelo mesmo caminho de clique que o navegador usa; o teclado usa o mesmo
 // caminho de keydown.
@@ -173,6 +174,16 @@ function createCalculator({ storage = {} } = {}) {
   // tan também fica fora do teclado, na linha da memória, como em index.html.
   const tangentElement = createElementMock("button");
   tangentElement.dataset = { action: "tan" };
+  // ( e ) também ficam fora do teclado, na linha da memória, como em index.html.
+  const openParenElement = createElementMock("button");
+  openParenElement.dataset = { action: "open-paren" };
+  const closeParenElement = createElementMock("button");
+  closeParenElement.dataset = { action: "close-paren" };
+  // Indicador de parênteses começa escondido, como no HTML; símbolos e texto para o leitor de tela.
+  const parenIndicatorElement = createElementMock("span");
+  parenIndicatorElement.hidden = true;
+  const parenSymbolsElement = createElementMock("span");
+  const parenTextElement = createElementMock("span");
   let onKeypadClick = null;
   let onKeyDown = null;
   let onKeyUp = null;
@@ -194,6 +205,8 @@ function createCalculator({ storage = {} } = {}) {
   buttonByKey["π"] = piElement;
   buttonByKey["1/x"] = inverseElement;
   buttonByKey["tan"] = tangentElement;
+  buttonByKey["("] = openParenElement;
+  buttonByKey[")"] = closeParenElement;
 
   const keypad = {
     addEventListener(type, listener) {
@@ -229,6 +242,11 @@ function createCalculator({ storage = {} } = {}) {
     "pi-button": piElement,
     "inverse-button": inverseElement,
     "tan-button": tangentElement,
+    "open-paren-button": openParenElement,
+    "close-paren-button": closeParenElement,
+    "paren-indicator": parenIndicatorElement,
+    "paren-symbols": parenSymbolsElement,
+    "paren-text": parenTextElement,
   };
 
   const document = {
@@ -298,6 +316,14 @@ function createCalculator({ storage = {} } = {}) {
       }
       if (key === "tan") {
         tangentElement.dispatch("click");
+        continue;
+      }
+      if (key === "(") {
+        openParenElement.dispatch("click");
+        continue;
+      }
+      if (key === ")") {
+        closeParenElement.dispatch("click");
         continue;
       }
       const button = buttonByKey[key];
@@ -462,6 +488,9 @@ function createCalculator({ storage = {} } = {}) {
     memoryAddFocused: () => memoryAddElement.focused,
     memoryRecallFocused: () => memoryRecallElement.focused,
     memoryClearFocused: () => memoryClearElement.focused,
+    parenSymbols: () => parenSymbolsElement.textContent,
+    parenText: () => parenTextElement.textContent,
+    parenIndicatorHidden: () => parenIndicatorElement.hidden,
   };
 }
 
@@ -2759,5 +2788,186 @@ describe("CALC-25: teclado, foco e estrutura do MC", () => {
   test("o MC tem o mesmo estilo de pílula cinza do MR e foco visível com contorno branco", () => {
     assert.match(CSS_SOURCE, /\.memory-clear\s*\{[^}]*border-radius:\s*999px;[^}]*color:\s*#a5a5a5;[^}]*\}/);
     assert.match(CSS_SOURCE, /\.memory-clear:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
+  });
+});
+
+describe("CALC-30: critérios de aceite dos parênteses", () => {
+  test("(2 + 3) × 4 = resulta em 20", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("(", "2", "+", "3", ")", "×", "4", "="), "20");
+  });
+
+  test("((1+1)×3) = resulta em 6", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("(", "(", "1", "+", "1", ")", "×", "3", ")", "="), "6");
+  });
+
+  test("parêntese não fechado é fechado ao calcular: ( 2 + 3 = resulta em 5 e grava (2 + 3) = 5", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("(", "2", "+", "3", "="), "5");
+    assert.deepEqual(calc.historyItems(), ["(2 + 3) = 5"]);
+  });
+
+  test("parêntese sobrando é ignorado: 2, ), +, 3, = resulta em 5", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("2", ")", "+", "3", "="), "5");
+  });
+});
+
+describe("CALC-30: casos de borda dos parênteses", () => {
+  test("precedência dentro do grupo: 2 × (3 + 4) = resulta em 14", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("2", "×", "(", "3", "+", "4", ")", "="), "14");
+  });
+
+  test("precedência com grupo à direita: 2 + (3 × 4) = resulta em 14", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("2", "+", "(", "3", "×", "4", ")", "="), "14");
+  });
+
+  test("aninhamento com dois grupos internos: ((2 + 3) × (4 − 1)) = resulta em 15", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("(", "(", "2", "+", "3", ")", "×", "(", "4", "−", "1", ")", ")", "="), "15");
+    assert.deepEqual(calc.historyItems(), ["((2 + 3) × (4 − 1)) = 15"]);
+  });
+
+  test("multiplicação implícita depois de número: 2 ( 3 + 1 ) = resulta em 8", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("2", "(", "3", "+", "1", ")", "="), "8");
+    assert.deepEqual(calc.historyItems(), ["2 × (3 + 1) = 8"]);
+  });
+
+  test("multiplicação implícita depois de grupo: (2 + 3) (4) = resulta em 20", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("(", "2", "+", "3", ")", "(", "4", ")", "="), "20");
+  });
+
+  test("dígito logo depois de grupo multiplica o grupo: (2 + 3) 4 = resulta em 20", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("(", "2", "+", "3", ")", "4", "="), "20");
+  });
+
+  test("operador depois do grupo continua a conta: (2 + 3) + 1 = resulta em 6", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("(", "2", "+", "3", ")", "+", "1", "="), "6");
+  });
+
+  test("( no início não gera multiplicação por zero: ( 2 ) = resulta em 2 e grava (2) = 2", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("(", "2", ")", "="), "2");
+    assert.deepEqual(calc.historyItems(), ["(2) = 2"]);
+  });
+
+  test("grupo vazio é ignorado: 2, +, (, ), 3, = resulta em 5", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("2", "+", "(", ")", "3", "="), "5");
+  });
+
+  test("operador logo depois de ( é ignorado: ( × 2 = resulta em 2", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("(", "×", "2", "="), "2");
+  });
+
+  test("só parênteses e igual não quebram a tela: ( ( ) ) = resulta em 0", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("(", "(", ")", ")", "="), "0");
+  });
+
+  test("divisão por zero dentro do grupo mostra Erro: ( 1 ÷ 0 ) resulta em Erro, e o próximo dígito reinicia", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("(", "1", "÷", "0", ")"), "Erro");
+    assert.equal(calc.press("7"), "7");
+  });
+
+  test("AC fecha todos os grupos: ( 2 AC 3 = resulta em 3", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("(", "2", "AC", "3", "="), "3");
+  });
+
+  test("depois do igual, ( começa uma conta nova: 2 + 3 =, ( 4 × 2 ) = resulta em 8", () => {
+    const calc = createCalculator({ storage: {} });
+    calc.press("2", "+", "3", "=");
+    assert.equal(calc.press("(", "4", "×", "2", ")", "="), "8");
+    assert.deepEqual(calc.historyItems(), ["(4 × 2) = 8", "2 + 3 = 5"]);
+  });
+
+  test("função aplicada ao grupo age sobre o resultado: (2 + 3) % resulta em 0.05", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("(", "2", "+", "3", ")", "%"), "0.05");
+  });
+
+  test("o histórico mostra o valor usado depois de uma função no grupo: 2 + (3 + 1) x² = grava 2 + 16 = 18", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("2", "+", "(", "3", "+", "1", ")", "x²", "="), "18");
+    assert.deepEqual(calc.historyItems(), ["2 + 16 = 18"]);
+  });
+});
+
+describe("CALC-30: teclado e indicador de parênteses abertos", () => {
+  test("( e ) pelo teclado: ( 2 + 3 ) * 4 Enter resulta em 20", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.type("(", "2", "+", "3", ")", "*", "4", "Enter"), "20");
+  });
+
+  test("( e ) pelo teclado são tratados como tecla da calculadora (defaultPrevented)", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.keyDown("(").defaultPrevented, true);
+    assert.equal(calc.keyDown(")").defaultPrevented, true);
+  });
+
+  test(") sobrando pelo teclado é ignorado: ) não muda o visor", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.type(")"), "0");
+  });
+
+  test("o indicador aparece com grupo aberto e mostra um ( por nível", () => {
+    const calc = createCalculator({ storage: {} });
+    calc.press("(");
+    assert.equal(calc.parenIndicatorHidden(), false);
+    assert.equal(calc.parenSymbols(), "(");
+    assert.equal(calc.parenText(), "1 parêntese aberto");
+    calc.press("(");
+    assert.equal(calc.parenSymbols(), "((");
+    assert.equal(calc.parenText(), "2 parênteses abertos");
+  });
+
+  test("o indicador diminui ao fechar e some quando não há grupo aberto", () => {
+    const calc = createCalculator({ storage: {} });
+    calc.press("(", "(", "1", ")");
+    assert.equal(calc.parenSymbols(), "(");
+    assert.equal(calc.parenText(), "1 parêntese aberto");
+    calc.press(")");
+    assert.equal(calc.parenIndicatorHidden(), true);
+  });
+
+  test("o indicador some depois do igual, que fecha os grupos: ( 2 + 3 = deixa o indicador escondido", () => {
+    const calc = createCalculator({ storage: {} });
+    calc.press("(", "2", "+", "3", "=");
+    assert.equal(calc.parenIndicatorHidden(), true);
+  });
+});
+
+describe("CALC-30: estrutura e foco dos botões ( e )", () => {
+  test("index.html tem os botões ( e ) na linha da memória, fora do teclado, com rótulo que traz o símbolo", () => {
+    assert.match(
+      HTML_SOURCE,
+      /<button type="button" id="open-paren-button" class="paren-add" data-action="open-paren" aria-label="Abrir parêntese \(">\(<\/button>/,
+    );
+    assert.match(
+      HTML_SOURCE,
+      /<button type="button" id="close-paren-button" class="paren-add" data-action="close-paren" aria-label="Fechar parêntese \)">\)<\/button>/,
+    );
+  });
+
+  test("os botões ( e ) têm o mesmo estilo de pílula cinza e foco visível com contorno branco", () => {
+    assert.match(CSS_SOURCE, /\.paren-add\s*\{[^}]*border-radius:\s*999px;[^}]*color:\s*#a5a5a5;[^}]*\}/);
+    assert.match(CSS_SOURCE, /\.paren-add:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
+  });
+
+  test("o indicador de parênteses tem os símbolos escondidos do leitor de tela e o texto só para ele", () => {
+    assert.match(
+      HTML_SOURCE,
+      /<span id="paren-indicator" class="paren-indicator" hidden><span id="paren-symbols" aria-hidden="true"><\/span><span id="paren-text" class="sr-only"><\/span><\/span>/,
+    );
   });
 });
