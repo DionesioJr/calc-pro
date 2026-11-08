@@ -33,7 +33,7 @@ const state = {
   error: false,
   // Partes da expressão em curso (ex.: ["12", "×", "3", "="]); viram uma linha do histórico no igual.
   expression: [],
-  // Registrador da memória (M+): soma dos valores do visor. Começa em 0; AC não o apaga.
+  // Registrador da memória (M+): soma dos valores do visor. Começa em 0; AC não o apaga, só MC.
   memory: 0,
 };
 
@@ -79,6 +79,8 @@ const memoryIndicator = document.getElementById("memory-indicator");
 const memorySubtractButton = document.getElementById("memory-subtract");
 // Botão MR fica na linha da memória, antes do M+, também sem tecla própria no teclado físico.
 const memoryRecallButton = document.getElementById("memory-recall");
+// Botão MC fica na linha da memória, antes do MR, também sem tecla própria no teclado físico.
+const memoryClearButton = document.getElementById("memory-clear");
 
 // Botão x² fica na mesma linha do M+, fora do teclado numérico (que segue com 5 linhas).
 const squareButton = document.getElementById("square-button");
@@ -370,6 +372,11 @@ function memoryAdd() {
   changeMemory(1);
 }
 
+// MC: zera a memória, e o indicador some (render). Não mexe no visor, então vale também com Erro, como o AC não apaga a memória.
+function memoryClear() {
+  state.memory = 0;
+}
+
 // M-: subtrai o número exibido da memória (ex.: memória 8, visor 3 → memória 5).
 function memorySubtract() {
   changeMemory(-1);
@@ -564,6 +571,8 @@ function handleButton(button) {
     memoryAdd();
   } else if (action === "memory-subtract") {
     memorySubtract();
+  } else if (action === "memory-clear") {
+    memoryClear();
   } else if (action === "memory-recall") {
     memoryRecall();
   } else if (action === "square") {
@@ -669,6 +678,13 @@ if (memoryAddButton) {
 if (memorySubtractButton) {
   memorySubtractButton.addEventListener("click", () => {
     handleButton(memorySubtractButton);
+    render();
+  });
+}
+
+if (memoryClearButton) {
+  memoryClearButton.addEventListener("click", () => {
+    handleButton(memoryClearButton);
     render();
   });
 }
