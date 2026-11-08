@@ -257,6 +257,32 @@ body {
   outline-offset: 2px;
 }
 
+/* Botão tan: mesmo estilo do M+, do x² e do sen (pílula com contorno cinza), na linha da memória. */
+.tan-add {
+  padding: 0.4rem 0.9rem;
+  border: 1px solid #a5a5a5;
+  border-radius: 999px;
+  background: transparent;
+  color: #a5a5a5;
+  font: inherit;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.tan-add:hover {
+  border-color: #ffffff;
+  color: #ffffff;
+}
+
+.tan-add:active {
+  filter: brightness(0.8);
+}
+
+.tan-add:focus-visible {
+  outline: 3px solid #ffffff;
+  outline-offset: 2px;
+}
+
 /* Botão π: mesmo estilo do M+, do x² e do sen (pílula com contorno cinza), na linha da memória. */
 .pi-add {
   padding: 0.4rem 0.9rem;
