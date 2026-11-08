@@ -88,6 +88,8 @@ const sineButton = document.getElementById("sine-button");
 const piButton = document.getElementById("pi-button");
 // Botão 1/x também fica nessa linha, pelo mesmo motivo.
 const inverseButton = document.getElementById("inverse-button");
+// Botão √x também fica nessa linha, pelo mesmo motivo.
+const squareRootButton = document.getElementById("sqrt-button");
 const pressableButtons = memoryAddButton ? [...buttons, memoryAddButton] : buttons;
 
 function displaySizeClass(text) {
@@ -452,6 +454,22 @@ function inverse() {
   state.waitingForOperand = false;
 }
 
+// √x: troca o número exibido pela raiz quadrada dele, com a mesma regra de segundo operando do %, do x², do sen, do π e do 1/x.
+// Negativo não tem raiz real: mostra Erro. Com Erro no visor não calcula e mantém o Erro.
+// A raiz de um número até 2^53 fica até ~9.5e7, então não há limite de 2^53 a checar.
+function squareRoot() {
+  if (state.error) {
+    return;
+  }
+  const value = Number(state.current);
+  if (value < 0) {
+    setError();
+    return;
+  }
+  state.current = formatResult(Math.sqrt(value));
+  state.waitingForOperand = false;
+}
+
 // Backspace (teclado): apaga o último caractere do número em edição.
 // Sem número em edição (após operador ou igual) não faz nada. Após erro, reinicia a calculadora.
 // Se sobrar algo que não é um número válido (ex.: "-" ou notação científica), volta para 0.
@@ -574,6 +592,8 @@ function handleButton(button) {
     insertPi();
   } else if (action === "inverse") {
     inverse();
+  } else if (action === "sqrt") {
+    squareRoot();
   } else if (action in OPERATIONS) {
     inputOperator(action);
   }
@@ -704,6 +724,13 @@ if (piButton) {
 if (inverseButton) {
   inverseButton.addEventListener("click", () => {
     handleButton(inverseButton);
+    render();
+  });
+}
+
+if (squareRootButton) {
+  squareRootButton.addEventListener("click", () => {
+    handleButton(squareRootButton);
     render();
   });
 }
