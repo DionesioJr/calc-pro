@@ -76,8 +76,9 @@ const operatorButtons = buttons.filter((button) => Object.hasOwn(OPERATIONS, but
 const memoryAddButton = document.getElementById("memory-add");
 const memoryIndicator = document.getElementById("memory-indicator");
 
-// Botão x² fica na mesma linha do M+, fora do teclado numérico (que segue com 5 linhas).
+// Botões x² e log ficam na mesma linha do M+, fora do teclado numérico (que segue com 5 linhas).
 const squareButton = document.getElementById("square-button");
+const logButton = document.getElementById("log-button");
 const pressableButtons = memoryAddButton ? [...buttons, memoryAddButton] : buttons;
 
 function displaySizeClass(text) {
@@ -371,6 +372,22 @@ function square() {
   state.waitingForOperand = false;
 }
 
+// log: logaritmo decimal (base 10) do número exibido, com a mesma regra de segundo operando do % e do x²
+// (o visor mostra o resultado). Valor menor ou igual a zero não tem logaritmo real: mostra Erro.
+// Com Erro no visor não calcula e mantém o Erro.
+function logarithm() {
+  if (state.error) {
+    return;
+  }
+  const value = Number(state.current);
+  if (value <= 0) {
+    setError();
+    return;
+  }
+  state.current = formatResult(Math.log10(value));
+  state.waitingForOperand = false;
+}
+
 // Backspace (teclado): apaga o último caractere do número em edição.
 // Sem número em edição (após operador ou igual) não faz nada. Após erro, reinicia a calculadora.
 // Se sobrar algo que não é um número válido (ex.: "-" ou notação científica), volta para 0.
@@ -483,6 +500,8 @@ function handleButton(button) {
     memoryAdd();
   } else if (action === "square") {
     square();
+  } else if (action === "log") {
+    logarithm();
   } else if (action in OPERATIONS) {
     inputOperator(action);
   }
@@ -578,6 +597,13 @@ if (memoryAddButton) {
 if (squareButton) {
   squareButton.addEventListener("click", () => {
     handleButton(squareButton);
+    render();
+  });
+}
+
+if (logButton) {
+  logButton.addEventListener("click", () => {
+    handleButton(logButton);
     render();
   });
 }
