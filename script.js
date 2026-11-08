@@ -82,6 +82,8 @@ const squareButton = document.getElementById("square-button");
 const sineButton = document.getElementById("sine-button");
 // Botão π também fica nessa linha, pelo mesmo motivo.
 const piButton = document.getElementById("pi-button");
+// Botão 1/x também fica nessa linha, pelo mesmo motivo.
+const inverseButton = document.getElementById("inverse-button");
 const pressableButtons = memoryAddButton ? [...buttons, memoryAddButton] : buttons;
 
 function displaySizeClass(text) {
@@ -408,6 +410,25 @@ function insertPi() {
   state.waitingForOperand = false;
 }
 
+// 1/x: troca o número exibido pelo seu inverso, com a mesma regra de segundo operando do %, do x², do sen e do π.
+// Zero não tem inverso: mostra Erro. Com Erro no visor não calcula e mantém o Erro.
+function inverse() {
+  if (state.error) {
+    return;
+  }
+  if (Number(state.current) === 0) {
+    setError();
+    return;
+  }
+  const result = 1 / Number(state.current);
+  if (!Number.isFinite(result) || Math.abs(result) > MAX_RESULT) {
+    setError();
+    return;
+  }
+  state.current = formatResult(result);
+  state.waitingForOperand = false;
+}
+
 // Backspace (teclado): apaga o último caractere do número em edição.
 // Sem número em edição (após operador ou igual) não faz nada. Após erro, reinicia a calculadora.
 // Se sobrar algo que não é um número válido (ex.: "-" ou notação científica), volta para 0.
@@ -524,6 +545,8 @@ function handleButton(button) {
     sine();
   } else if (action === "pi") {
     insertPi();
+  } else if (action === "inverse") {
+    inverse();
   } else if (action in OPERATIONS) {
     inputOperator(action);
   }
@@ -633,6 +656,13 @@ if (sineButton) {
 if (piButton) {
   piButton.addEventListener("click", () => {
     handleButton(piButton);
+    render();
+  });
+}
+
+if (inverseButton) {
+  inverseButton.addEventListener("click", () => {
+    handleButton(inverseButton);
     render();
   });
 }

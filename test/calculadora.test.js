@@ -9,7 +9,8 @@
 // e do botão M+ com o indicador de memória (CALC-22),
 // e do botão x² (CALC-26: eleva o visor ao quadrado, com erro e formatação do visor),
 // e do botão sen (CALC-31: seno do visor em graus, com a unidade DEG visível),
-// e do botão π (CALC-36: insere pi como operando).
+// e do botão π (CALC-36: insere pi como operando),
+// e do botão 1/x (CALC-38: inverso do visor, com Erro para zero).
 // Executa script.js real num contexto isolado, com um DOM mínimo, e aperta
 // os botões pelo mesmo caminho de clique que o navegador usa; o teclado usa o mesmo
 // caminho de keydown.
@@ -149,6 +150,9 @@ function createCalculator({ storage = {} } = {}) {
   // π também fica fora do teclado, na linha da memória, como em index.html.
   const piElement = createElementMock("button");
   piElement.dataset = { action: "pi" };
+  // 1/x também fica fora do teclado, na linha da memória, como em index.html.
+  const inverseElement = createElementMock("button");
+  inverseElement.dataset = { action: "inverse" };
   let onKeypadClick = null;
   let onKeyDown = null;
   let onKeyUp = null;
@@ -164,6 +168,7 @@ function createCalculator({ storage = {} } = {}) {
   buttonByKey["x²"] = squareElement;
   buttonByKey["sen"] = sineElement;
   buttonByKey["π"] = piElement;
+  buttonByKey["1/x"] = inverseElement;
 
   const keypad = {
     addEventListener(type, listener) {
@@ -193,6 +198,7 @@ function createCalculator({ storage = {} } = {}) {
     "square-button": squareElement,
     "sine-button": sineElement,
     "pi-button": piElement,
+    "inverse-button": inverseElement,
   };
 
   const document = {
@@ -221,7 +227,7 @@ function createCalculator({ storage = {} } = {}) {
   const context = vm.createContext({ document, window, localStorage });
   vm.runInContext(SCRIPT_SOURCE, context, { filename: "script.js" });
 
-  // Aperta as teclas em sequência e devolve o texto final do display. M+, x², sen e π são clicados pelo próprio botão, fora do teclado.
+  // Aperta as teclas em sequência e devolve o texto final do display. M+, x², sen, π e 1/x são clicados pelo próprio botão, fora do teclado.
   function press(...keys) {
     for (const key of keys) {
       if (key === "M+") {
@@ -238,6 +244,10 @@ function createCalculator({ storage = {} } = {}) {
       }
       if (key === "π") {
         piElement.dispatch("click");
+        continue;
+      }
+      if (key === "1/x") {
+        inverseElement.dispatch("click");
         continue;
       }
       const button = buttonByKey[key];
@@ -1941,5 +1951,107 @@ describe("CALC-36: teclado, foco e estrutura do π", () => {
 
   test("o π tem foco visível com contorno branco, sem remover o outline", () => {
     assert.match(CSS_SOURCE, /\.pi-add:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
+  });
+});
+
+describe("CALC-38: critérios de aceite do 1/x", () => {
+  test("1/x de 4 = 0.25 (ponto decimal, como nos demais resultados): 4, 1/x resulta em 0.25", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("4", "1/x"), "0.25");
+  });
+
+  test("1/x de 0 mostra Erro: 0, 1/x resulta em Erro", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("0", "1/x"), "Erro");
+  });
+});
+
+describe("CALC-38: casos de borda do 1/x", () => {
+  test("1/x de número negativo segue a fórmula: 2, +/-, 1/x resulta em -0.5", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("2", "+/-", "1/x"), "-0.5");
+  });
+
+  test("1/x de 3 arredonda a 8 casas: 3, 1/x resulta em 0.33333333", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("3", "1/x"), "0.33333333");
+  });
+
+  test("1/x de 0.5 resulta em 2: 0, ., 5, 1/x resulta em 2", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("0", ".", "5", "1/x"), "2");
+  });
+
+  test("1/x de 0. também é zero e mostra Erro: 0, ., 1/x resulta em Erro", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("0", ".", "1/x"), "Erro");
+  });
+
+  test("+/- no zero não cria -0, então 0, +/-, 1/x ainda é zero e mostra Erro", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("0", "+/-", "1/x"), "Erro");
+  });
+
+  test("1/x de 0.00000001 resulta em 100000000 (sem notação científica)", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("0", ".", "0", "0", "0", "0", "0", "0", "0", "1", "1/x"), "100000000");
+  });
+
+  test("resultado que some no arredondamento mostra 0: 999999999, 1/x resulta em 0", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("9", "9", "9", "9", "9", "9", "9", "9", "9", "1/x"), "0");
+  });
+
+  test("1/x duas vezes volta ao número original: 4, 1/x, 1/x resulta em 4", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("4", "1/x", "1/x"), "4");
+  });
+
+  test("1/x depois do operador vira o segundo operando, como o % e o sen: 2, +, 4, 1/x, = resulta em 2.25", () => {
+    const storage = {};
+    const calc = createCalculator({ storage });
+    assert.equal(calc.press("2", "+", "4", "1/x", "="), "2.25");
+    assert.deepEqual(calc.historyItems(), ["2 + 0.25 = 2.25"]);
+  });
+
+  test("1/x depois do igual calcula o resultado: 2 + 2 =, 1/x mostra 0.25", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("2", "+", "2", "=", "1/x"), "0.25");
+  });
+
+  test("com Erro no visor, 1/x mantém o Erro e a próxima tecla reinicia: 5 ÷ 0 =, 1/x mostra Erro, 7 resulta em 7", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("5", "÷", "0", "=", "1/x"), "Erro");
+    assert.equal(calc.press("7"), "7");
+  });
+
+  test("1/x não grava no histórico sozinho e não mexe na memória: 5 M+, AC, 4 1/x mantém a memória em 5", () => {
+    const storage = {};
+    const calc = createCalculator({ storage });
+    calc.press("5", "M+", "AC", "4", "1/x");
+    assert.deepEqual(calc.historyItems(), []);
+    assert.equal(HISTORY_KEY in storage, false);
+    assert.equal(calc.memoryValue(), 5);
+  });
+});
+
+describe("CALC-38: teclado, foco e estrutura do 1/x", () => {
+  test("1/x não tem tecla própria: Enter com o foco no botão 1/x não vira igual, o cálculo em curso fica", () => {
+    const calc = createCalculator({ storage: {} });
+    calc.press("2", "+", "3");
+    const event = calc.keyDown("Enter", { target: { tagName: "BUTTON" } });
+    assert.equal(event.defaultPrevented, false);
+    assert.equal(calc.display(), "3");
+  });
+
+  test("index.html tem o botão 1/x na linha da memória (fora do teclado), com rótulo que anuncia a operação", () => {
+    assert.match(
+      HTML_SOURCE,
+      /<div class="memory">[\s\S]*?<button type="button" id="inverse-button" class="inverse-add" data-action="inverse" aria-label="Inverso \(1\/x\)">1\/x<\/button>[\s\S]*?<\/div>\s*<div class="keypad">/,
+    );
+  });
+
+  test("o 1/x tem foco visível com contorno branco, sem remover o outline", () => {
+    assert.match(CSS_SOURCE, /\.inverse-add:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
   });
 });

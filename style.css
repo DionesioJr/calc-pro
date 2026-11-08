@@ -177,6 +177,32 @@ body {
   outline-offset: 2px;
 }
 
+/* Botão 1/x: mesmo estilo do M+, do x², do sen e do π (pílula com contorno cinza), na linha da memória. */
+.inverse-add {
+  padding: 0.4rem 0.9rem;
+  border: 1px solid #a5a5a5;
+  border-radius: 999px;
+  background: transparent;
+  color: #a5a5a5;
+  font: inherit;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.inverse-add:hover {
+  border-color: #ffffff;
+  color: #ffffff;
+}
+
+.inverse-add:active {
+  filter: brightness(0.8);
+}
+
+.inverse-add:focus-visible {
+  outline: 3px solid #ffffff;
+  outline-offset: 2px;
+}
+
 /* Indicador de memória: aparece enquanto o registrador for diferente de 0 (o atributo hidden esconde). */
 .memory-indicator {
   font-size: 0.875rem;
