@@ -127,6 +127,12 @@ body {
   display: none;
 }
 
+/* Botão Histórico e × do painel: só existem no mobile (ver o bloco no fim do arquivo). */
+.history-open,
+.history-close {
+  display: none;
+}
+
 /* Desktop: cantos arredondados na calculadora preta, sobre a página cinza. */
 @media (min-width: 768px) {
   .calculator {
@@ -158,6 +164,13 @@ body {
     border-radius: 1.5rem;
     background: #000000;
   }
+}
+
+.history-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
 }
 
 .history-title {
@@ -311,4 +324,141 @@ body {
 .history-cancel:active,
 .history-clear:active {
   filter: brightness(0.8);
+}
+
+/*
+ * Mobile (até 767px). Fica no fim do arquivo para vencer as regras base de mesma especificidade.
+ * A calculadora ocupa a viewport inteira. Cada botão é um quadrado de lado --cell, que é o menor entre:
+ * a largura (4 colunas) e a altura (5 linhas, com o display com pelo menos --display-min).
+ * Assim os botões não distorcem e o display recebe o que sobra.
+ */
+@media (max-width: 767px) {
+  body {
+    display: block;
+    min-height: 100dvh;
+    background: #000000;
+  }
+
+  .layout {
+    height: 100dvh;
+  }
+
+  .calculator {
+    --pad: 1rem;
+    --gap: 0.75rem;
+    --display-min: 4.5rem;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+    padding: var(--pad);
+    border-radius: 0;
+  }
+
+  .display {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+  }
+
+  .keypad {
+    --cell: min(
+      calc((100vw - 2 * var(--pad) - 3 * var(--gap)) / 4),
+      calc((100dvh - 2 * var(--pad) - 4 * var(--gap) - var(--display-min)) / 5)
+    );
+    flex: none;
+    grid-template-columns: repeat(4, var(--cell));
+    grid-auto-rows: var(--cell);
+    gap: var(--gap);
+    justify-content: center;
+    margin-top: 0;
+  }
+
+  /* O 0 continua com grid-column: span 2 (regra base), então ocupa dois quadrados e o espaço entre eles. */
+  .btn {
+    width: 100%;
+    height: 100%;
+    aspect-ratio: auto;
+    font-size: min(2rem, calc(var(--cell) * 0.42));
+  }
+
+  .history-open {
+    display: inline-flex;
+    position: absolute;
+    top: var(--pad);
+    left: var(--pad);
+    align-items: center;
+    padding: 0.4rem 0.9rem;
+    border: 1px solid #a5a5a5;
+    border-radius: 999px;
+    background: transparent;
+    color: #a5a5a5;
+    font: inherit;
+    font-size: 0.875rem;
+    cursor: pointer;
+  }
+
+  .history-open:hover {
+    border-color: #ffffff;
+    color: #ffffff;
+  }
+
+  .history-open:active {
+    filter: brightness(0.8);
+  }
+
+  .history-open:focus-visible,
+  .history-close:focus-visible {
+    outline: 3px solid #ffffff;
+    outline-offset: 2px;
+  }
+
+  /* Painel em tela cheia, por cima da calculadora (que fica inerte enquanto ele está aberto). */
+  .history.is-open {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    position: fixed;
+    inset: 0;
+    z-index: 1;
+    width: auto;
+    min-width: 0;
+    height: 100dvh;
+    margin: 0;
+    padding: 1rem;
+    border-radius: 0;
+    background: #000000;
+    overflow-y: auto;
+  }
+
+  .history.is-open .history-list {
+    flex: 1 1 auto;
+    min-height: 0;
+    max-height: none;
+  }
+
+  .history.is-open .history-close {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: #333333;
+    color: #ffffff;
+    font: inherit;
+    font-size: 1.5rem;
+    line-height: 1;
+    cursor: pointer;
+  }
+
+  .history.is-open .history-close:active {
+    filter: brightness(0.8);
+  }
 }

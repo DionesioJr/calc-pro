@@ -49,7 +49,7 @@ const OPERATOR_SYMBOLS = {
   divide: "÷",
 };
 
-// Histórico de cálculos (versão desktop), no localStorage; do mais antigo para o mais recente.
+// Histórico de cálculos, no localStorage; do mais antigo para o mais recente.
 const HISTORY_KEY = "calc-pro:historico";
 const calculationHistory = loadHistory();
 const historyList = document.getElementById("history-list");
@@ -59,6 +59,12 @@ const historyClear = document.getElementById("history-clear");
 const historyConfirm = document.getElementById("history-confirm");
 const historyCancel = document.getElementById("history-cancel");
 const historyConfirmYes = document.getElementById("history-confirm-yes");
+
+// Mobile: o histórico vira painel em tela cheia, aberto pelo botão Histórico e fechado pelo × ou por Escape.
+const calculator = document.getElementById("calculator");
+const historyOpen = document.getElementById("history-open");
+const historyPanel = document.getElementById("history-panel");
+const historyClose = document.getElementById("history-close");
 
 // Botões do teclado numérico: o destaque do operador e o efeito de tecla pressionada usam esta lista.
 const buttons = keypad ? Array.from(keypad.querySelectorAll("button")) : [];
@@ -140,6 +146,42 @@ function recallResult(result) {
   render();
 }
 
+// Painel do histórico (mobile). Enquanto aberto, a calculadora fica inerte: foco e toque não chegam aos botões.
+function isHistoryPanelShown() {
+  return historyPanel !== null && historyPanel.classList.contains("is-open");
+}
+
+function showHistoryPanel() {
+  if (!historyPanel) {
+    return;
+  }
+  historyPanel.classList.add("is-open");
+  if (calculator) {
+    calculator.inert = true;
+  }
+  if (historyOpen) {
+    historyOpen.setAttribute("aria-expanded", "true");
+  }
+  if (historyClose) {
+    historyClose.focus();
+  }
+}
+
+// Fecha o painel e devolve o foco ao botão Histórico, de onde o usuário veio.
+function hideHistoryPanel() {
+  if (!historyPanel || !isHistoryPanelShown()) {
+    return;
+  }
+  historyPanel.classList.remove("is-open");
+  if (calculator) {
+    calculator.inert = false;
+  }
+  if (historyOpen) {
+    historyOpen.setAttribute("aria-expanded", "false");
+    historyOpen.focus();
+  }
+}
+
 // Mais recente primeiro. Cada item é um botão (alcançável pelo teclado); texto vai por textContent, nunca como HTML.
 function renderHistory() {
   if (!historyList || !historyEmpty) {
@@ -161,7 +203,11 @@ function renderHistory() {
     button.className = "history-item";
     button.setAttribute("aria-label", `${expression} igual a ${result}, usar no visor`);
     button.replaceChildren(expressionText, resultText);
-    button.addEventListener("click", () => recallResult(result));
+    // No mobile, o painel cobre o visor: ao usar um item, o painel fecha para o resultado aparecer.
+    button.addEventListener("click", () => {
+      recallResult(result);
+      hideHistoryPanel();
+    });
 
     const item = document.createElement("li");
     item.replaceChildren(button);
@@ -488,9 +534,25 @@ if (historyConfirmYes) {
   historyConfirmYes.addEventListener("click", clearHistory);
 }
 
+if (historyOpen) {
+  historyOpen.addEventListener("click", showHistoryPanel);
+}
+
+if (historyClose) {
+  historyClose.addEventListener("click", hideHistoryPanel);
+}
+
 document.addEventListener("keydown", (event) => {
   // Atalhos do navegador (Ctrl+C, Cmd+R etc.) continuam funcionando.
   if (event.ctrlKey || event.metaKey || event.altKey) {
+    return;
+  }
+  // Painel aberto (mobile): Escape fecha o painel sem limpar o visor; as outras teclas não chegam à calculadora.
+  if (isHistoryPanelShown()) {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      hideHistoryPanel();
+    }
     return;
   }
   // Enter com o foco num botão fora do teclado (ex.: Limpar histórico) aciona esse botão, não o igual.
@@ -524,6 +586,19 @@ document.addEventListener("keyup", (event) => {
 // Sem essa liberação, uma tecla solta com a janela fora de foco deixaria o botão escurecido.
 if (typeof window !== "undefined") {
   window.addEventListener("blur", releaseAllKeys);
+}
+
+// Ao passar para o desktop, o histórico volta a ser coluna ao lado: se o painel estava aberto, fecha para
+// não deixar a calculadora inerte.
+if (typeof window !== "undefined" && typeof window.matchMedia === "function") {
+  const desktopQuery = window.matchMedia("(min-width: 768px)");
+  if (desktopQuery && typeof desktopQuery.addEventListener === "function") {
+    desktopQuery.addEventListener("change", (event) => {
+      if (event.matches) {
+        hideHistoryPanel();
+      }
+    });
+  }
 }
 
 render();

@@ -4,7 +4,8 @@
 // de AC/+/-/% (CALC-6), do teclado físico (CALC-8), de erro, limite de dígitos,
 // arredondamento e tamanho da fonte (CALC-7), do feedback visual dos botões (CALC-9),
 // do limite de 2^53 para resultados (CALC-16), do histórico de cálculos no localStorage (CALC-19),
-// e do painel de histórico reformulado (CALC-20: itens tocáveis, confirmação ao limpar).
+// do painel de histórico reformulado (CALC-20: itens tocáveis, confirmação ao limpar),
+// e do layout mobile com o painel do histórico em tela cheia (CALC-21).
 // Executa script.js real num contexto isolado, com um DOM mínimo, e aperta
 // os botões pelo mesmo caminho de clique que o navegador usa; o teclado usa o mesmo
 // caminho de keydown.
@@ -77,8 +78,10 @@ function createElementMock(tagName) {
     tagName: tagName.toUpperCase(),
     textContent: "",
     className: "",
+    classList: createClassList(),
     hidden: false,
     focused: false,
+    inert: false,
     children: [],
     replaceChildren(...nodes) {
       this.children = nodes;
@@ -124,6 +127,10 @@ function createCalculator({ storage = {} } = {}) {
   const historyConfirm = createElementMock("div");
   const historyCancel = createElementMock("button");
   const historyConfirmYes = createElementMock("button");
+  const historyPanel = createElementMock("section");
+  const historyOpenButton = createElementMock("button");
+  const historyCloseButton = createElementMock("button");
+  const calculatorMain = createElementMock("main");
   let onKeypadClick = null;
   let onKeyDown = null;
   let onKeyUp = null;
@@ -155,6 +162,10 @@ function createCalculator({ storage = {} } = {}) {
     "history-confirm": historyConfirm,
     "history-cancel": historyCancel,
     "history-confirm-yes": historyConfirmYes,
+    "history-panel": historyPanel,
+    "history-open": historyOpenButton,
+    "history-close": historyCloseButton,
+    calculator: calculatorMain,
   };
 
   const document = {
@@ -294,6 +305,15 @@ function createCalculator({ storage = {} } = {}) {
     clickConfirmYes();
   }
 
+  // Botão Histórico (mobile) e × do painel, como um toque.
+  function tapHistoryOpen() {
+    historyOpenButton.dispatch("click");
+  }
+
+  function tapHistoryClose() {
+    historyCloseButton.dispatch("click");
+  }
+
   return {
     press,
     keyDown,
@@ -311,7 +331,14 @@ function createCalculator({ storage = {} } = {}) {
     clickCancel,
     clickConfirmYes,
     clickClear,
+    tapHistoryOpen,
+    tapHistoryClose,
     historyClear,
+    panelShown: () => historyPanel.classList.contains("is-open"),
+    openButtonExpanded: () => historyOpenButton.getAttribute("aria-expanded"),
+    calculatorInert: () => calculatorMain.inert,
+    closeButtonFocused: () => historyCloseButton.focused,
+    openButtonFocused: () => historyOpenButton.focused,
     historyEmptyHidden: () => historyEmpty.hidden,
     historyListHidden: () => historyList.hidden,
     historyActionsHidden: () => historyActions.hidden,
@@ -1311,5 +1338,117 @@ describe("CALC-20: estilo e estrutura do histórico reformulado", () => {
 
   test("a regra [hidden] vence o display flex do painel de ações e da confirmação", () => {
     assert.match(CSS_SOURCE, /\.history-actions\[hidden\],\s*\.history-confirm\[hidden\]\s*\{\s*display:\s*none;\s*\}/);
+  });
+});
+
+// Regras do mobile: o bloco @media (max-width: 767px) fica no fim do style.css.
+const MOBILE_CSS = (CSS_SOURCE.match(/@media \(max-width: 767px\) \{[\s\S]*$/) || [""])[0];
+
+// Lado do botão no mobile, como o style.css calcula em --cell: o menor entre a largura (4 colunas) e a altura
+// (5 linhas, com o visor com pelo menos --display-min). Em px, com 1rem = 16px: --pad 16, --gap 12, --display-min 72.
+function mobileButtonSide(width, height) {
+  const pad = 16;
+  const gap = 12;
+  const displayMin = 72;
+  const byWidth = (width - 2 * pad - 3 * gap) / 4;
+  const byHeight = (height - 2 * pad - 4 * gap - displayMin) / 5;
+  return Math.min(byWidth, byHeight);
+}
+
+describe("CALC-21: critérios de aceite do layout mobile", () => {
+  test("no mobile a calculadora ocupa a viewport inteira: fundo preto na página, 100% de largura e altura, sem cantos", () => {
+    assert.ok(MOBILE_CSS.length > 0, "precisa existir um bloco @media (max-width: 767px)");
+    assert.match(MOBILE_CSS, /body\s*\{[^}]*background:\s*#000000;[^}]*\}/);
+    assert.match(MOBILE_CSS, /\.layout\s*\{[^}]*height:\s*100dvh;[^}]*\}/);
+    assert.match(MOBILE_CSS, /\.calculator\s*\{[^}]*width:\s*100%;[^}]*height:\s*100%;[^}]*border-radius:\s*0;[^}]*\}/);
+  });
+
+  test("botões são quadrados do mesmo lado (--cell) e o 0 ocupa duas colunas", () => {
+    assert.match(MOBILE_CSS, /\.keypad\s*\{[^}]*--cell:\s*min\(/);
+    assert.match(MOBILE_CSS, /\.keypad\s*\{[^}]*grid-template-columns:\s*repeat\(4,\s*var\(--cell\)\);[^}]*\}/);
+    assert.match(MOBILE_CSS, /\.keypad\s*\{[^}]*grid-auto-rows:\s*var\(--cell\);[^}]*\}/);
+    assert.match(CSS_SOURCE, /\.btn-zero\s*\{[^}]*grid-column:\s*span 2;[^}]*\}/);
+  });
+
+  test("em 360x640, 390x844, 414x896 e na paisagem 844x390, o teclado cabe na tela e os botões têm pelo menos 44px", () => {
+    for (const [width, height] of [
+      [360, 640],
+      [390, 844],
+      [414, 896],
+      [844, 390],
+    ]) {
+      const side = mobileButtonSide(width, height);
+      const keypadHeight = 5 * side + 4 * 12;
+      assert.ok(side >= 44, `${width}x${height}: botão de ${side}px`);
+      assert.ok(2 * 16 + keypadHeight + 72 <= height, `${width}x${height}: teclado não cabe na altura`);
+    }
+  });
+
+  test("o botão Histórico aparece só no mobile: escondido na base e visível no bloco mobile", () => {
+    assert.match(CSS_SOURCE, /\.history-open,\s*\.history-close\s*\{\s*display:\s*none;\s*\}/);
+    assert.match(MOBILE_CSS, /\.history-open\s*\{[^}]*display:\s*inline-flex;[^}]*\}/);
+  });
+
+  test("index.html tem o botão Histórico ligado ao painel e o × com rótulo para leitor de tela", () => {
+    assert.match(
+      HTML_SOURCE,
+      /id="history-open"[^>]*aria-controls="history-panel"[^>]*aria-expanded="false"[^>]*>Histórico<\/button>/,
+    );
+    assert.match(HTML_SOURCE, /<section class="history" id="history-panel"/);
+    assert.match(HTML_SOURCE, /id="history-close"[^>]*aria-label="Fechar histórico"[^>]*>×<\/button>/);
+  });
+});
+
+describe("CALC-21: critérios de aceite do histórico em tela cheia no mobile", () => {
+  test("o botão Histórico abre o painel e marca aria-expanded: antes de abrir o painel está fechado", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.panelShown(), false);
+    calc.tapHistoryOpen();
+    assert.equal(calc.panelShown(), true);
+    assert.equal(calc.openButtonExpanded(), "true");
+  });
+
+  test("o painel mostra os cálculos feitos: 2 + 3 =, abrir mostra o item 2 + 3 = 5", () => {
+    const calc = createCalculator({ storage: {} });
+    calc.press("2", "+", "3", "=");
+    calc.tapHistoryOpen();
+    assert.deepEqual(calc.historyItems(), ["2 + 3 = 5"]);
+  });
+
+  test("o × fecha o painel e devolve o foco ao botão Histórico; abrir já deixa o foco no ×", () => {
+    const calc = createCalculator({ storage: {} });
+    calc.tapHistoryOpen();
+    assert.equal(calc.closeButtonFocused(), true);
+    calc.tapHistoryClose();
+    assert.equal(calc.panelShown(), false);
+    assert.equal(calc.openButtonExpanded(), "false");
+    assert.equal(calc.openButtonFocused(), true);
+  });
+
+  test("com o painel aberto a calculadora fica inerte, e volta a funcionar ao fechar", () => {
+    const calc = createCalculator({ storage: {} });
+    calc.tapHistoryOpen();
+    assert.equal(calc.calculatorInert(), true);
+    calc.tapHistoryClose();
+    assert.equal(calc.calculatorInert(), false);
+  });
+
+  test("com o painel aberto, as teclas não mexem no visor; Escape fecha o painel sem limpar o visor", () => {
+    const calc = createCalculator({ storage: {} });
+    calc.press("5");
+    calc.tapHistoryOpen();
+    assert.equal(calc.type("7", "+"), "5");
+    assert.equal(calc.panelShown(), true);
+    calc.type("Escape");
+    assert.equal(calc.panelShown(), false);
+    assert.equal(calc.display(), "5");
+  });
+
+  test("tocar num item do histórico no mobile leva o resultado ao visor e fecha o painel", () => {
+    const calc = createCalculator({ storage: {} });
+    calc.press("2", "+", "3", "=");
+    calc.tapHistoryOpen();
+    assert.equal(calc.tapHistoryItem(0), "5");
+    assert.equal(calc.panelShown(), false);
   });
 });

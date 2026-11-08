@@ -8,8 +8,9 @@
   </head>
   <body>
     <div class="layout">
-      <main class="calculator">
+      <main class="calculator" id="calculator">
         <h1>Calculadora Pro</h1>
+        <button type="button" id="history-open" class="history-open" aria-controls="history-panel" aria-expanded="false">Histórico</button>
         <output id="display" class="display" aria-live="polite">0</output>
         <div class="keypad">
           <button type="button" class="btn btn-function" data-action="all-clear" aria-label="Limpar">AC</button>
@@ -37,8 +38,11 @@
           <button type="button" class="btn btn-operator" data-action="equals" aria-label="Igual">=</button>
         </div>
       </main>
-      <section class="history" aria-labelledby="history-title">
-        <h2 id="history-title" class="history-title">Histórico</h2>
+      <section class="history" id="history-panel" aria-labelledby="history-title">
+        <div class="history-header">
+          <h2 id="history-title" class="history-title">Histórico</h2>
+          <button type="button" id="history-close" class="history-close" aria-label="Fechar histórico">×</button>
+        </div>
         <p id="history-empty" class="history-empty" tabindex="-1">Ainda não há cálculos.</p>
         <ol id="history-list" class="history-list" aria-labelledby="history-title" tabindex="0"></ol>
         <div id="history-actions" class="history-actions" hidden>
