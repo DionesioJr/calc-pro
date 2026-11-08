@@ -86,6 +86,8 @@ const squareButton = document.getElementById("square-button");
 const sineButton = document.getElementById("sine-button");
 // Botão π também fica nessa linha, pelo mesmo motivo.
 const piButton = document.getElementById("pi-button");
+// Botão cos também fica nessa linha, pelo mesmo motivo.
+const cosineButton = document.getElementById("cos-button");
 // Botão 1/x também fica nessa linha, pelo mesmo motivo.
 const inverseButton = document.getElementById("inverse-button");
 const pressableButtons = memoryAddButton ? [...buttons, memoryAddButton] : buttons;
@@ -422,6 +424,28 @@ function sine() {
   state.waitingForOperand = false;
 }
 
+// Cosseno em graus, com a mesma regra do seno: múltiplos de 90° saem exatos (cos 0° = 1, cos 90° = 0, cos 180° = -1, cos 270° = 0),
+// sem o ruído de ponto flutuante do Math.cos (ex.: 6.12e-17 em 90°). Os demais usam radianos.
+const EXACT_COSINES = [1, 0, -1, 0];
+
+function cosineDegrees(degrees) {
+  const angle = ((degrees % 360) + 360) % 360;
+  if (angle % 90 === 0) {
+    return EXACT_COSINES[angle / 90];
+  }
+  return Math.cos((angle * Math.PI) / 180);
+}
+
+// cos: troca o número exibido pelo cosseno dele, com a mesma regra de segundo operando do sen.
+// Com Erro no visor não calcula e mantém o Erro. O cosseno fica entre -1 e 1, então não há limite de 2^53 a checar.
+function cosine() {
+  if (state.error) {
+    return;
+  }
+  state.current = formatResult(cosineDegrees(Number(state.current)));
+  state.waitingForOperand = false;
+}
+
 // π: insere pi (3.14159265, com as 8 casas de qualquer resultado) como operando, substituindo o número em curso,
 // como o sen. Após Erro, começa uma calculadora nova, como um dígito.
 // O cálculo usa o valor completo; o visor mostra o que couber.
@@ -570,6 +594,8 @@ function handleButton(button) {
     square();
   } else if (action === "sine") {
     sine();
+  } else if (action === "cos") {
+    cosine();
   } else if (action === "pi") {
     insertPi();
   } else if (action === "inverse") {
@@ -690,6 +716,13 @@ if (squareButton) {
 if (sineButton) {
   sineButton.addEventListener("click", () => {
     handleButton(sineButton);
+    render();
+  });
+}
+
+if (cosineButton) {
+  cosineButton.addEventListener("click", () => {
+    handleButton(cosineButton);
     render();
   });
 }
