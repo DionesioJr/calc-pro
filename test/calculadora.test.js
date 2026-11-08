@@ -17,6 +17,7 @@
 // e do botão xʸ (CALC-29: potência binária com precedência sobre × e ÷, associação à direita e Erro para resultado não real),
 // e do botão M- (CALC-23: subtrai o visor da memória),
 // e do botão MR (CALC-24: copia a memória para o visor como operando),
+// e do botão √x (CALC-27: raiz quadrada do visor, com Erro para negativos).
 // e do botão MC (CALC-25: zera a memória e o indicador).
 // Executa script.js real num contexto isolado, com um DOM mínimo, e aperta
 // os botões pelo mesmo caminho de clique que o navegador usa; o teclado usa o mesmo
@@ -175,6 +176,9 @@ function createCalculator({ storage = {} } = {}) {
   // 1/x também fica fora do teclado, na linha da memória, como em index.html.
   const inverseElement = createElementMock("button");
   inverseElement.dataset = { action: "inverse" };
+  // √x também fica fora do teclado, na linha da memória, como em index.html.
+  const squareRootElement = createElementMock("button");
+  squareRootElement.dataset = { action: "sqrt" };
   // tan também fica fora do teclado, na linha da memória, como em index.html.
   const tangentElement = createElementMock("button");
   tangentElement.dataset = { action: "tan" };
@@ -202,6 +206,7 @@ function createCalculator({ storage = {} } = {}) {
   buttonByKey["π"] = piElement;
   buttonByKey["e"] = eElement;
   buttonByKey["1/x"] = inverseElement;
+  buttonByKey["√x"] = squareRootElement;
   buttonByKey["tan"] = tangentElement;
   buttonByKey["xʸ"] = powerElement;
 
@@ -239,6 +244,7 @@ function createCalculator({ storage = {} } = {}) {
     "pi-button": piElement,
     "e-button": eElement,
     "inverse-button": inverseElement,
+    "sqrt-button": squareRootElement,
     "tan-button": tangentElement,
     "power-button": powerElement,
   };
@@ -310,6 +316,10 @@ function createCalculator({ storage = {} } = {}) {
       }
       if (key === "1/x") {
         inverseElement.dispatch("click");
+        continue;
+      }
+      if (key === "√x") {
+        squareRootElement.dispatch("click");
         continue;
       }
       if (key === "tan") {
@@ -2464,6 +2474,113 @@ describe("CALC-38: teclado, foco e estrutura do 1/x", () => {
 
   test("o 1/x tem foco visível com contorno branco, sem remover o outline", () => {
     assert.match(CSS_SOURCE, /\.inverse-add:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
+  });
+});
+
+describe("CALC-27: critérios de aceite do √x", () => {
+  test("√16 = 4: 1, 6, √x resulta em 4", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("1", "6", "√x"), "4");
+  });
+
+  test("√2 mostra 1.41421356 (8 casas, 9 algarismos, dentro do limite) e usa a fonte de 40px", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("2", "√x"), "1.41421356");
+    assert.equal(calc.fontSizeClass(), "display-40");
+  });
+
+  test("√(-1) mostra Erro: 1, +/-, √x resulta em Erro", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("1", "+/-", "√x"), "Erro");
+  });
+});
+
+describe("CALC-27: casos de borda do √x", () => {
+  test("√0 = 0: 0, √x resulta em 0", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("0", "√x"), "0");
+  });
+
+  test("√0.25 = 0.5: 0, ., 2, 5, √x resulta em 0.5", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("0", ".", "2", "5", "√x"), "0.5");
+  });
+
+  test("√0.00000001 = 0.0001 (sem notação científica): 0, ., 0 ×7, 1, √x resulta em 0.0001", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("0", ".", "0", "0", "0", "0", "0", "0", "0", "1", "√x"), "0.0001");
+  });
+
+  test("√3 arredonda a 8 casas: 3, √x resulta em 1.73205081", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("3", "√x"), "1.73205081");
+  });
+
+  test("raiz de número negativo com decimal também mostra Erro: 0, ., 5, +/-, √x resulta em Erro", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("0", ".", "5", "+/-", "√x"), "Erro");
+  });
+
+  test("raiz exata de número grande: 99980001, √x resulta em 9999", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("9", "9", "9", "8", "0", "0", "0", "1", "√x"), "9999");
+  });
+
+  test("√x duas vezes: 16, √x, √x resulta em 2", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("1", "6", "√x", "√x"), "2");
+  });
+
+  test("√x depois do operador vira o segundo operando, como o 1/x: 2, +, 9, √x, = resulta em 5", () => {
+    const storage = {};
+    const calc = createCalculator({ storage });
+    assert.equal(calc.press("2", "+", "9", "√x", "="), "5");
+    assert.deepEqual(calc.historyItems(), ["2 + 3 = 5"]);
+  });
+
+  test("√x depois do igual calcula o resultado: 2 + 2 =, √x mostra 2", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("2", "+", "2", "=", "√x"), "2");
+  });
+
+  test("com Erro no visor, √x mantém o Erro: 1, +/-, √x, √x mostra Erro", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("1", "+/-", "√x", "√x"), "Erro");
+  });
+
+  test("a próxima tecla após o Erro do √x reinicia a calculadora: 1, +/-, √x, 7 resulta em 7", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("1", "+/-", "√x", "7"), "7");
+  });
+
+  test("√x não grava no histórico sozinho e não mexe na memória: 5 M+, AC, 4 √x mantém a memória em 5", () => {
+    const storage = {};
+    const calc = createCalculator({ storage });
+    calc.press("5", "M+", "AC", "4", "√x");
+    assert.deepEqual(calc.historyItems(), []);
+    assert.equal(HISTORY_KEY in storage, false);
+    assert.equal(calc.memoryValue(), 5);
+  });
+});
+
+describe("CALC-27: teclado, foco e estrutura do √x", () => {
+  test("√x não tem tecla própria: Enter com o foco no botão √x não vira igual, o cálculo em curso fica", () => {
+    const calc = createCalculator({ storage: {} });
+    calc.press("2", "+", "3");
+    const event = calc.keyDown("Enter", { target: { tagName: "BUTTON" } });
+    assert.equal(event.defaultPrevented, false);
+    assert.equal(calc.display(), "3");
+  });
+
+  test("index.html tem o botão √x na linha da memória (fora do teclado), com rótulo que anuncia a operação", () => {
+    assert.match(
+      HTML_SOURCE,
+      /<div class="memory">[\s\S]*?<button type="button" id="sqrt-button" class="sqrt-add" data-action="sqrt" aria-label="Raiz quadrada \(√x\)">√x<\/button>[\s\S]*?<\/div>\s*<div class="keypad">/,
+    );
+  });
+
+  test("o √x tem foco visível com contorno branco, sem remover o outline", () => {
+    assert.match(CSS_SOURCE, /\.sqrt-add:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
   });
 });
 

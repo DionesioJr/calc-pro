@@ -115,6 +115,8 @@ const piButton = document.getElementById("pi-button");
 const eButton = document.getElementById("e-button");
 // Botão 1/x também fica nessa linha, pelo mesmo motivo.
 const inverseButton = document.getElementById("inverse-button");
+// Botão √x também fica nessa linha, pelo mesmo motivo.
+const squareRootButton = document.getElementById("sqrt-button");
 // Botão tan também fica nessa linha, pelo mesmo motivo.
 const tangentButton = document.getElementById("tan-button");
 // Botão xʸ também fica nessa linha, pelo mesmo motivo. É um operador binário: entra em operatorButtons para mostrar o destaque pendente.
@@ -549,6 +551,22 @@ function inverse() {
   state.waitingForOperand = false;
 }
 
+// √x: troca o número exibido pela raiz quadrada dele, com a mesma regra de segundo operando do %, do x², do sen, do π e do 1/x.
+// Negativo não tem raiz real: mostra Erro. Com Erro no visor não calcula e mantém o Erro.
+// A raiz de um número até 2^53 fica até ~9.5e7, então não há limite de 2^53 a checar.
+function squareRoot() {
+  if (state.error) {
+    return;
+  }
+  const value = Number(state.current);
+  if (value < 0) {
+    setError();
+    return;
+  }
+  state.current = formatResult(Math.sqrt(value));
+  state.waitingForOperand = false;
+}
+
 // Tangente em graus (o visor mostra DEG). A tangente tem período de 180°, então o ângulo é reduzido módulo 180 antes.
 // Múltiplos de 45° saem exatos (tan 0° = 0, tan 45° = 1, tan 135° = -1); 90° (e 90° + 180°·k) é indefinida: null.
 const EXACT_TANGENTS = [0, 1, null, -1];
@@ -755,6 +773,8 @@ function handleButton(button) {
     insertEuler();
   } else if (action === "inverse") {
     inverse();
+  } else if (action === "sqrt") {
+    squareRoot();
   } else if (action in OPERATIONS) {
     inputOperator(action);
   }
@@ -920,6 +940,13 @@ if (eButton) {
 if (inverseButton) {
   inverseButton.addEventListener("click", () => {
     handleButton(inverseButton);
+    render();
+  });
+}
+
+if (squareRootButton) {
+  squareRootButton.addEventListener("click", () => {
+    handleButton(squareRootButton);
     render();
   });
 }
