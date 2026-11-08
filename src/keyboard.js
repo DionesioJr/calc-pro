@@ -1,6 +1,6 @@
 // Teclado físico: cada tecla executa a mesma ação do botão correspondente (mesmo caminho do clique).
-import { deleteDigit, handleButton } from "./calculator.js";
-import { hideHistoryPanel, isHistoryPanelShown, render } from "./ui.js";
+// Não guarda estado: as ações (press e backspace) vêm de main.js, que atualiza o estado e redesenha.
+import { hideHistoryPanel, isHistoryPanelShown } from "./ui.js";
 
 // Teclas do teclado físico que a calculadora usa, com o mesmo formato de data-value / data-action do HTML.
 const KEY_BUTTONS = {
@@ -40,7 +40,8 @@ let pressableButtons = [];
 const heldKeys = new Map();
 
 // Liga o teclado físico ao documento e à janela. Os botões que recebem tecla são os do teclado numérico, mais M+, MR, MC, M-, π, x!, xʸ, ( e ).
-export function bindKeyboard(doc, win) {
+// actions: press(dataset) para cada tecla de botão e backspace() para Backspace (main.js atualiza o estado e redesenha).
+export function bindKeyboard(doc, win, actions) {
   heldKeys.clear();
   const keypad = doc.querySelector(".keypad");
   const buttons = keypad ? Array.from(keypad.querySelectorAll("button")) : [];
@@ -80,7 +81,7 @@ export function bindKeyboard(doc, win) {
     ) {
       return;
     }
-    if (!handleKey(event.key)) {
+    if (!handleKey(event.key, actions)) {
       return;
     }
 
@@ -91,7 +92,6 @@ export function bindKeyboard(doc, win) {
 
     // Impede que Enter, com um botão da calculadora focado, dispare também o clique desse botão.
     event.preventDefault();
-    render();
   });
 
   doc.addEventListener("keyup", (event) => {
@@ -139,15 +139,15 @@ function releaseAllKeys() {
 }
 
 // Devolve true se a tecla é uma das usadas pela calculadora.
-function handleKey(key) {
+function handleKey(key, actions) {
   if (key === "Backspace") {
-    deleteDigit();
+    actions.backspace();
     return true;
   }
   const dataset = datasetForKey(key);
   if (dataset === null) {
     return false;
   }
-  handleButton({ dataset });
+  actions.press(dataset);
   return true;
 }

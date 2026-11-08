@@ -1,7 +1,8 @@
 // Ponto de entrada da Calculadora Pro (index.html carrega este arquivo como módulo).
 // Liga os módulos ao documento: teclado numérico, botões de função, histórico, teclado físico e painel do mobile.
-import { handleButton, reset, resetState, setCurrent, state } from "./calculator.js";
-import { bindHistory } from "./history.js";
+// Guarda o estado da calculadora: cada ação passa pelo motor (calculator.js), grava as linhas do histórico e redesenha o visor.
+import { deleteDigit, handleButton, initialState, showResult } from "./calculator.js";
+import { addCalculation, bindHistory } from "./history.js";
 import { bindKeyboard } from "./keyboard.js";
 import { bindUi, hideHistoryPanel, render } from "./ui.js";
 
@@ -27,6 +28,25 @@ const FUNCTION_BUTTON_IDS = [
   "close-paren-button",
 ];
 
+// Estado da calculadora na tela. Só este módulo o troca; os demais recebem o estado como parâmetro.
+let state = initialState();
+
+// Uma ação de botão (data-value ou data-action): o motor devolve o estado novo e as linhas do histórico, que são gravadas antes de desenhar.
+function press(dataset) {
+  const result = handleButton(state, dataset);
+  state = result.state;
+  for (const entry of result.history) {
+    addCalculation(entry);
+  }
+  render(state);
+}
+
+// Backspace do teclado: apaga o último caractere do número em edição.
+function backspace() {
+  state = deleteDigit(state);
+  render(state);
+}
+
 // Usar um item do histórico: o resultado vai para o visor, como um dígito novo, e o painel do mobile fecha.
 function recallFromHistory(result) {
   recallResult(result);
@@ -35,18 +55,17 @@ function recallFromHistory(result) {
 
 // Clique ou toque num item: o resultado vai para o visor, e o próximo dígito começa um número novo.
 function recallResult(result) {
-  reset();
-  setCurrent(result);
-  state.waitingForOperand = true;
-  render();
+  state = showResult(state, result);
+  render(state);
 }
 
 // Monta a calculadora sobre o documento dado. Chamado uma vez no navegador; os testes chamam de novo para começar do zero.
+// Devolve um acesso de leitura ao estado atual (os testes usam para conferir a memória).
 export function start(doc, win, storage) {
-  resetState();
+  state = initialState();
   bindHistory(doc, storage, recallFromHistory);
   bindUi(doc, win);
-  bindKeyboard(doc, win);
+  bindKeyboard(doc, win, { press, backspace });
 
   const keypad = doc.querySelector(".keypad");
   if (keypad) {
@@ -56,8 +75,7 @@ export function start(doc, win, storage) {
         return;
       }
 
-      handleButton(button);
-      render();
+      press(button.dataset);
     });
   }
 
@@ -65,13 +83,13 @@ export function start(doc, win, storage) {
     const button = doc.getElementById(id);
     if (button) {
       button.addEventListener("click", () => {
-        handleButton(button);
-        render();
+        press(button.dataset);
       });
     }
   }
 
-  render();
+  render(state);
+  return { getState: () => state };
 }
 
 // No navegador, o localStorage pode estar bloqueado (ex.: cookies desligados): o histórico então vale só nesta página.

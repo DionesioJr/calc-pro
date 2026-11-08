@@ -36,7 +36,6 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { state } from "../src/calculator.js";
 import { start } from "../src/main.js";
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -312,7 +311,7 @@ function createCalculator({ storage = {} } = {}) {
 
   const localStorage = createLocalStorage(storage);
   // Monta a calculadora sobre o DOM mínimo: zera o estado, liga o histórico ao storage e registra os listeners nos mocks.
-  start(document, window, localStorage);
+  const app = start(document, window, localStorage);
 
   // Aperta as teclas em sequência e devolve o texto final do display. MC, MR, M+, M-, x², log, sen, cos, π, e, 1/x e √x são clicados pelo próprio botão, fora do teclado.
   function press(...keys) {
@@ -397,7 +396,7 @@ function createCalculator({ storage = {} } = {}) {
 
   // Valor guardado na memória (registrador de src/calculator.js).
   function memoryValue() {
-    return state.memory;
+    return app.getState().memory;
   }
 
   // Botão do teclado pela tecla (ex.: "7", "+", "AC").
