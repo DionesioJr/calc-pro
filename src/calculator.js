@@ -1,3 +1,5 @@
+"use strict";
+
 // Lógica da calculadora: estado, entrada de números e operadores, funções, parênteses e igual.
 // Funções puras, sem DOM, sem armazenamento e sem imports: recebem o estado e devolvem um estado novo (o recebido não muda).
 // Quem desenha o visor e lê os botões é ui.js, keyboard.js e main.js; quem grava o histórico também é main.js, a partir das linhas devolvidas.
@@ -14,10 +16,10 @@ const DECIMAL_PLACES = 8;
 const MAX_RESULT = 2 ** 53;
 
 // Marcador de grupo aberto dentro de terms e da pilha. Um ")" nunca fica guardado: ao fechar, o grupo vira número.
-export const OPEN_PAREN = "(";
+const OPEN_PAREN = "(";
 
 // Base negativa com expoente fracionário, ou 0 elevado a negativo, dão NaN ou Infinity: a conta falha como as outras (Erro).
-export const OPERATIONS = {
+const OPERATIONS = {
   add: (a, b) => a + b,
   subtract: (a, b) => a - b,
   multiply: (a, b) => a * b,
@@ -48,7 +50,7 @@ const OPERATOR_SYMBOLS = {
 };
 
 // Estado inicial da calculadora (visor 0, sem conta, memória vazia).
-export function initialState() {
+function initialState() {
   return {
     current: "0",
     // Conta pendente, em ordem: números e operadores alternados (ex.: [2, "add", 3, "multiply"]).
@@ -162,7 +164,7 @@ function setError(s) {
 }
 
 // Operador pendente (está no fim da pilha), ou null se a pilha termina em número. "(" não é operador.
-export function trailingOperator(state) {
+function trailingOperator(state) {
   const last = state.stack[state.stack.length - 1];
   return isOperator(last) ? last : null;
 }
@@ -517,7 +519,7 @@ function tangent(s) {
 }
 
 // Apaga o último caractere do número em edição (Backspace do teclado). Devolve o estado novo.
-export function deleteDigit(state) {
+function deleteDigit(state) {
   const s = cloneState(state);
   if (s.error) {
     reset(s);
@@ -584,7 +586,7 @@ function foldTerms(terms) {
 }
 
 // Quantos grupos estão abertos: cada "(" em terms é um grupo que ainda não foi fechado.
-export function openDepth(state) {
+function openDepth(state) {
   return state.terms.filter((term) => term === OPEN_PAREN).length;
 }
 
@@ -912,7 +914,7 @@ function applyButton(s, dataset) {
 }
 
 // Ação de um botão. Devolve { state, history }: o estado novo e as linhas do histórico que a ação gerou (quem chama grava e redesenha).
-export function handleButton(state, dataset) {
+function handleButton(state, dataset) {
   const s = cloneState(state);
   applyButton(s, dataset);
   const history = s.pendingHistory;
@@ -921,7 +923,7 @@ export function handleButton(state, dataset) {
 }
 
 // Usa um resultado do histórico (ou de outra fonte) como número do visor: começa um cálculo novo, e o próximo dígito começa um número novo.
-export function showResult(state, text) {
+function showResult(state, text) {
   const s = cloneState(state);
   reset(s);
   setCurrent(s, text);

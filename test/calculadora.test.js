@@ -36,9 +36,15 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { start } from "../src/main.js";
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
+// src/ são scripts clássicos (o navegador os carrega sem import/export): aqui eles entram no mesmo escopo, na ordem de index.html.
+// Devolve as funções pedidas em `nomes`.
+function carregarScripts(arquivos, nomes) {
+  const codigo = arquivos.map((arquivo) => fs.readFileSync(path.join(ROOT, "src", arquivo), "utf8")).join("\n;\n");
+  return new Function(`${codigo}\nreturn { ${nomes.join(", ")} };`)();
+}
+const { start } = carregarScripts(["calculator.js", "history.js", "ui.js", "keyboard.js", "main.js"], ["start"]);
 const HTML_SOURCE = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
 // Os arquivos de css/ na ordem em que index.html os carrega: essa ordem é a cascata.
 const CSS_FILES = ["tema.css", "display.css", "teclado.css", "historico.css"].map((name) =>

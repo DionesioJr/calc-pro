@@ -1,6 +1,6 @@
-// Interface: desenha o visor e os indicadores a partir do estado, e controla o painel do histórico no mobile.
-import { OPEN_PAREN, OPERATIONS, openDepth, trailingOperator } from "./calculator.js";
+"use strict";
 
+// Interface: desenha o visor e os indicadores a partir do estado, e controla o painel do histórico no mobile.
 // Tamanho do display pelo número de caracteres exibidos (sinal e ponto contam).
 const DISPLAY_SIZES = [
   { maxLength: 6, className: "display-64" },
@@ -21,7 +21,7 @@ let parenText = null;
 let operatorButtons = [];
 
 // Liga a interface ao documento: visor, indicadores, botões de operador e o painel do histórico (abrir, fechar, desktop).
-export function bindUi(doc, win) {
+function bindUi(doc, win) {
   display = doc.getElementById("display");
   calculatorElement = doc.getElementById("calculator");
   historyOpen = doc.getElementById("history-open");
@@ -69,7 +69,7 @@ function displaySizeClass(text) {
 }
 
 // Desenha o visor e os indicadores a partir do estado recebido (quem chama guarda o estado).
-export function render(state) {
+function render(state) {
   if (display) {
     display.textContent = state.current;
     for (const size of DISPLAY_SIZES) {
@@ -103,11 +103,11 @@ export function render(state) {
 }
 
 // Painel do histórico (mobile). Enquanto aberto, a calculadora fica inerte: foco e toque não chegam aos botões.
-export function isHistoryPanelShown() {
+function isHistoryPanelShown() {
   return historyPanel !== null && historyPanel.classList.contains("is-open");
 }
 
-export function showHistoryPanel() {
+function showHistoryPanel() {
   if (!historyPanel) {
     return;
   }
@@ -124,7 +124,7 @@ export function showHistoryPanel() {
 }
 
 // Fecha o painel e devolve o foco ao botão Histórico, de onde o usuário veio.
-export function hideHistoryPanel() {
+function hideHistoryPanel() {
   if (!historyPanel || !isHistoryPanelShown()) {
     return;
   }

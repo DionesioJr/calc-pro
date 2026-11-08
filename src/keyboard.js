@@ -1,7 +1,7 @@
+"use strict";
+
 // Teclado físico: cada tecla executa a mesma ação do botão correspondente (mesmo caminho do clique).
 // Não guarda estado: as ações (press e backspace) vêm de main.js, que atualiza o estado e redesenha.
-import { hideHistoryPanel, isHistoryPanelShown } from "./ui.js";
-
 // Teclas do teclado físico que a calculadora usa, com o mesmo formato de data-value / data-action do HTML.
 const KEY_BUTTONS = {
   "+": { action: "add" },
@@ -41,7 +41,7 @@ const heldKeys = new Map();
 
 // Liga o teclado físico ao documento e à janela. Os botões que recebem tecla são os do teclado numérico, mais M+, MR, MC, M-, π, x!, xʸ, ( e ).
 // actions: press(dataset) para cada tecla de botão e backspace() para Backspace (main.js atualiza o estado e redesenha).
-export function bindKeyboard(doc, win, actions) {
+function bindKeyboard(doc, win, actions) {
   heldKeys.clear();
   const keypad = doc.querySelector(".keypad");
   const buttons = keypad ? Array.from(keypad.querySelectorAll("button")) : [];
