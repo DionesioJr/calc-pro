@@ -7,18 +7,18 @@ export default [
   },
   js.configs.recommended,
   {
-    // Roda no navegador como script clássico (não é módulo).
-    files: ["script.js"],
+    // Roda no navegador como módulo ES (index.html carrega src/main.js com type="module").
+    files: ["src/**/*.js"],
     languageOptions: {
-      sourceType: "script",
+      sourceType: "module",
       globals: globals.browser,
     },
   },
   {
-    // Testes em CommonJS (require) no Node.
+    // Testes em módulo ES no Node (import), com o mesmo package.json "type": "module".
     files: ["test/**/*.js"],
     languageOptions: {
-      sourceType: "commonjs",
+      sourceType: "module",
       globals: globals.node,
     },
   },

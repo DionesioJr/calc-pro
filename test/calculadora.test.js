@@ -19,25 +19,37 @@
 // e do botão M- (CALC-23: subtrai o visor da memória),
 // e do botão MR (CALC-24: copia a memória para o visor como operando),
 // e do botão MC (CALC-25: zera a memória e o indicador),
+// e do botão ln (CALC-35: logaritmo natural do visor, com Erro para valor menor ou igual a zero),
 // e do botão x! (CALC-39: fatorial do visor, com notação científica acima de 2^53 e Erro para negativo, decimal e overflow),
 // e do botão cos (CALC-32: cosseno do visor em graus, sem ruído de ponto flutuante).
-// e do botão √x (CALC-27: raiz quadrada do visor, com Erro para negativos).
-// e do histórico das funções avançadas (CALC-43: cada função aplicada ao visor vira uma linha, como √16 = 4 ou sen(30) = 0.5).
-// Executa script.js real num contexto isolado, com um DOM mínimo, e aperta
+// e do botão √x (CALC-27: raiz quadrada do visor, com Erro para negativos),
+// e do valor completo de e em √x e cos (CALC-49),
+// e dos botões ( e ) (CALC-30: agrupamento com aninhamento, multiplicação implícita e indicador de parênteses abertos),
+// e do histórico das funções avançadas (CALC-43: cada função aplicada ao visor vira uma linha, como √16 = 4 ou sen(30) = 0.5),
+// e dos atalhos de teclado das funções avançadas (CALC-42: ^ xʸ, p π, ! x!, r MR, c MC, _ M-, e a lista de atalhos na tela).
+// Monta os módulos reais de src/ (start de src/main.js) sobre um DOM mínimo, e aperta
 // os botões pelo mesmo caminho de clique que o navegador usa; o teclado usa o mesmo
 // caminho de keydown.
 // Sem dependências: rodar com `npm test` (node --test, Node 18+).
 
-const { describe, test } = require("node:test");
-const assert = require("node:assert/strict");
-const fs = require("node:fs");
-const path = require("node:path");
-const vm = require("node:vm");
+import { describe, test } from "node:test";
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { start } from "../src/main.js";
 
-const ROOT = path.join(__dirname, "..");
-const SCRIPT_SOURCE = fs.readFileSync(path.join(ROOT, "script.js"), "utf8");
+const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 const HTML_SOURCE = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
-const CSS_SOURCE = fs.readFileSync(path.join(ROOT, "style.css"), "utf8");
+// Os arquivos de css/ na ordem em que index.html os carrega: essa ordem é a cascata.
+const CSS_FILES = ["tema.css", "display.css", "teclado.css", "historico.css"].map((name) =>
+  fs.readFileSync(path.join(ROOT, "css", name), "utf8"),
+);
+const CSS_SOURCE = CSS_FILES.join("\n");
+// Partes antes e depois do corte de 768px, de cada arquivo (cada um tem o seu bloco desktop).
+const DESKTOP_MEDIA = "@media (min-width: 768px)";
+const CSS_BASE = CSS_FILES.map((css) => css.split(DESKTOP_MEDIA)[0]).join("\n");
+const CSS_DESKTOP = CSS_FILES.map((css) => css.split(DESKTOP_MEDIA)[1] ?? "").join("\n");
 
 // Teclas usadas nos testes, com os mesmos data-* que index.html define para cada botão.
 const KEY_DATASET = {
@@ -62,7 +74,7 @@ const KEY_DATASET = {
   "=": { action: "equals" },
 };
 
-// classList mínimo, com o que o script.js usa (add, remove, contains).
+// classList mínimo, com o que os módulos de src/ usam (add, remove, contains).
 function createClassList() {
   const names = new Set();
   return {
@@ -195,6 +207,19 @@ function createCalculator({ storage = {} } = {}) {
   // tan também fica fora do teclado, na linha da memória, como em index.html.
   const tangentElement = createElementMock("button");
   tangentElement.dataset = { action: "tan" };
+  // ln também fica fora do teclado, na linha da memória, logo depois do log, como em index.html.
+  const lnElement = createElementMock("button");
+  lnElement.dataset = { action: "ln" };
+  // ( e ) também ficam fora do teclado, na linha da memória, como em index.html.
+  const openParenElement = createElementMock("button");
+  openParenElement.dataset = { action: "open-paren" };
+  const closeParenElement = createElementMock("button");
+  closeParenElement.dataset = { action: "close-paren" };
+  // Indicador de parênteses começa escondido, como no HTML; símbolos e texto para o leitor de tela.
+  const parenIndicatorElement = createElementMock("span");
+  parenIndicatorElement.hidden = true;
+  const parenSymbolsElement = createElementMock("span");
+  const parenTextElement = createElementMock("span");
   // xʸ também fica fora do teclado, na linha da memória, como em index.html.
   const powerElement = createElementMock("button");
   powerElement.dataset = { action: "power" };
@@ -215,6 +240,7 @@ function createCalculator({ storage = {} } = {}) {
   buttonByKey["M-"] = memorySubtractElement;
   buttonByKey["x²"] = squareElement;
   buttonByKey["log"] = logElement;
+  buttonByKey["ln"] = lnElement;
   buttonByKey["sen"] = sineElement;
   buttonByKey["π"] = piElement;
   buttonByKey["e"] = eElement;
@@ -223,6 +249,8 @@ function createCalculator({ storage = {} } = {}) {
   buttonByKey["cos"] = cosineElement;
   buttonByKey["√x"] = squareRootElement;
   buttonByKey["tan"] = tangentElement;
+  buttonByKey["("] = openParenElement;
+  buttonByKey[")"] = closeParenElement;
   buttonByKey["xʸ"] = powerElement;
 
   const keypad = {
@@ -255,6 +283,7 @@ function createCalculator({ storage = {} } = {}) {
     "memory-indicator": memoryIndicatorElement,
     "square-button": squareElement,
     "log-button": logElement,
+    "ln-button": lnElement,
     "sine-button": sineElement,
     "pi-button": piElement,
     "e-button": eElement,
@@ -264,6 +293,11 @@ function createCalculator({ storage = {} } = {}) {
     "cos-button": cosineElement,
     "sqrt-button": squareRootElement,
     "tan-button": tangentElement,
+    "open-paren-button": openParenElement,
+    "close-paren-button": closeParenElement,
+    "paren-indicator": parenIndicatorElement,
+    "paren-symbols": parenSymbolsElement,
+    "paren-text": parenTextElement,
     "power-button": powerElement,
   };
 
@@ -289,9 +323,8 @@ function createCalculator({ storage = {} } = {}) {
   };
 
   const localStorage = createLocalStorage(storage);
-  // Contexto com o script carregado: depois de rodar, o estado do script (const state) fica lido por runInContext.
-  const context = vm.createContext({ document, window, localStorage });
-  vm.runInContext(SCRIPT_SOURCE, context, { filename: "script.js" });
+  // Monta a calculadora sobre o DOM mínimo: zera o estado, liga o histórico ao storage e registra os listeners nos mocks.
+  const app = start(document, window, localStorage);
 
   // Aperta as teclas em sequência e devolve o texto final do display. MC, MR, M+, M-, x², log, sen, cos, π, e, 1/x, √x, tan, xʸ e "unidade" (DEG/RAD) são clicados pelo próprio botão, fora do teclado.
   function press(...keys) {
@@ -328,6 +361,10 @@ function createCalculator({ storage = {} } = {}) {
         logElement.dispatch("click");
         continue;
       }
+      if (key === "ln") {
+        lnElement.dispatch("click");
+        continue;
+      }
       if (key === "sen") {
         sineElement.dispatch("click");
         continue;
@@ -356,6 +393,14 @@ function createCalculator({ storage = {} } = {}) {
         tangentElement.dispatch("click");
         continue;
       }
+      if (key === "(") {
+        openParenElement.dispatch("click");
+        continue;
+      }
+      if (key === ")") {
+        closeParenElement.dispatch("click");
+        continue;
+      }
       if (key === "xʸ") {
         powerElement.dispatch("click");
         continue;
@@ -366,9 +411,9 @@ function createCalculator({ storage = {} } = {}) {
     return display.textContent;
   }
 
-  // Valor guardado na memória (registrador do script), lido do mesmo contexto.
+  // Valor guardado na memória (registrador de src/calculator.js).
   function memoryValue() {
-    return vm.runInContext("state.memory", context);
+    return app.getState().memory;
   }
 
   // Botão do teclado pela tecla (ex.: "7", "+", "AC").
@@ -525,6 +570,9 @@ function createCalculator({ storage = {} } = {}) {
     // Texto visível do botão DEG/RAD e o rótulo acessível dele.
     angleUnitLabel: () => angleUnitElement.textContent,
     angleUnitName: () => angleUnitElement.getAttribute("aria-label"),
+    parenSymbols: () => parenSymbolsElement.textContent,
+    parenText: () => parenTextElement.textContent,
+    parenIndicatorHidden: () => parenIndicatorElement.hidden,
   };
 }
 
@@ -1293,7 +1341,7 @@ describe("CALC-16: casos de borda do limite de resultado (2^53)", () => {
   });
 });
 
-// Chave do localStorage do histórico (ver HISTORY_KEY em script.js).
+// Chave do localStorage do histórico (ver HISTORY_KEY em src/history.js).
 const HISTORY_KEY = "calc-pro:historico";
 
 describe("CALC-19: critérios de aceite do histórico de cálculos", () => {
@@ -1464,7 +1512,8 @@ describe("CALC-19: estrutura e estilo do histórico", () => {
   });
 
   test("o histórico fica escondido no mobile e aparece a partir de 768px, no mesmo corte do projeto", () => {
-    const [base, desktop] = CSS_SOURCE.split("@media (min-width: 768px)");
+    const base = CSS_BASE;
+    const desktop = CSS_DESKTOP;
     assert.match(base, /\.history\s*\{\s*display:\s*none;\s*\}/);
     assert.match(desktop, /\.history\s*\{[^}]*display:\s*flex;/);
   });
@@ -1620,7 +1669,7 @@ describe("CALC-20: estilo e estrutura do histórico reformulado", () => {
   });
 
   test("no desktop o painel tem a mesma largura da calculadora (360px) e fica alinhado ao topo dela", () => {
-    const desktop = CSS_SOURCE.split("@media (min-width: 768px)")[1];
+    const desktop = CSS_DESKTOP;
     assert.match(desktop, /\.calculator\s*\{[^}]*width:\s*360px;[^}]*\}/);
     assert.match(desktop, /\.history\s*\{[^}]*width:\s*min\(360px,\s*100%\);[^}]*\}/);
     assert.match(desktop, /\.layout\s*\{[^}]*align-items:\s*start;[^}]*\}/);
@@ -1650,10 +1699,10 @@ describe("CALC-20: estilo e estrutura do histórico reformulado", () => {
   });
 });
 
-// Regras do mobile: o bloco @media (max-width: 767px) fica no fim do style.css.
-const MOBILE_CSS = (CSS_SOURCE.match(/@media \(max-width: 767px\) \{[\s\S]*$/) || [""])[0];
+// Regras do mobile: o bloco @media (max-width: 767px) fica no fim de cada arquivo de css/, somados aqui.
+const MOBILE_CSS = CSS_FILES.map((css) => (css.match(/@media \(max-width: 767px\) \{[\s\S]*$/) || [""])[0]).join("\n");
 
-// Lado do botão no mobile, como o style.css calcula em --cell: o menor entre a largura (7 colunas, com 6 espaços)
+// Lado do botão no mobile, como o tema.css calcula em --cell: o menor entre a largura (7 colunas, com 6 espaços)
 // e a altura (5 linhas, com o visor com pelo menos --display-min e a linha de status). Em px, com 1rem = 16px:
 // --pad 14, --gap 4, --display-min 72, --status-height 24.
 function mobileButtonSide(width, height) {
@@ -2530,7 +2579,7 @@ describe("CALC-36: casos de borda do π", () => {
 });
 
 describe("CALC-36: teclado, foco e estrutura do π", () => {
-  test("π não tem tecla própria: Enter com o foco no botão π não vira igual, o cálculo em curso fica", () => {
+  test("Enter com o foco no botão π não vira igual, o cálculo em curso fica (a tecla própria é p, CALC-42)", () => {
     const calc = createCalculator({ storage: {} });
     calc.press("2", "+", "3");
     const event = calc.keyDown("Enter", { target: { tagName: "BUTTON" } });
@@ -2556,7 +2605,7 @@ describe("CALC-37: critérios de aceite do e (número de Euler)", () => {
     assert.equal(calc.press("e"), "2.71828183");
   });
 
-  // xʸ (CALC-29) ainda não existe nesta calculadora; e² sai de e seguido de x², que é o mesmo cálculo.
+  // e² sai de e seguido de x² (o botão x² eleva o valor completo de e ao quadrado).
   test("e elevado a 2 usa o valor correto: e, x² resulta em 7.3890561 (e² = 7.38905610, sem zero à direita)", () => {
     const calc = createCalculator({ storage: {} });
     assert.equal(calc.press("e", "x²"), "7.3890561");
@@ -2635,7 +2684,8 @@ describe("CALC-37: casos de borda do e", () => {
 });
 
 describe("CALC-37: teclado, foco e estrutura do e", () => {
-  test("e não tem tecla própria: Enter com o foco no botão e não vira igual, o cálculo em curso fica", () => {
+  // O botão e existe na linha da memória (é clicado pelo press("e")); só não tem tecla no teclado físico.
+  test("o botão e não tem tecla no teclado físico: Enter com o foco no botão e não vira igual, o cálculo em curso fica", () => {
     const calc = createCalculator({ storage: {} });
     calc.press("2", "+", "3");
     const event = calc.keyDown("Enter", { target: { tagName: "BUTTON" } });
@@ -2843,6 +2893,32 @@ describe("CALC-27: casos de borda do √x", () => {
   });
 });
 
+// CALC-49: √x e cos usam o valor completo de e (Math.E), como as demais contas, e trocam o visor pelo resultado.
+describe("CALC-49: √x e cos com e usam o valor completo", () => {
+  // Mesmo formato do visor: 8 casas, sem zeros à direita.
+  const formatted = (value) => value.toFixed(8).replace(/\.?0+$/, "");
+
+  test("√e usa o valor completo: e, √x resulta em 1.64872127 (√ de Math.E)", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("e", "√x"), formatted(Math.sqrt(Math.E)));
+  });
+
+  test("depois de e, √x, o visor é o operando: e, √x, x² resulta em 2.71828183 (não 7.3890561 de e²)", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("e", "√x", "x²"), "2.71828183");
+  });
+
+  test("cos usa o valor completo de e: e, cos resulta no cosseno de Math.E graus", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("e", "cos"), formatted(Math.cos((Math.E * Math.PI) / 180)));
+  });
+
+  test("depois de e, cos, o visor é o operando: e, cos, x² não usa e² (não mostra 7.3890561)", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.notEqual(calc.press("e", "cos", "x²"), "7.3890561");
+  });
+});
+
 describe("CALC-27: teclado, foco e estrutura do √x", () => {
   test("√x não tem tecla própria: Enter com o foco no botão √x não vira igual, o cálculo em curso fica", () => {
     const calc = createCalculator({ storage: {} });
@@ -2950,7 +3026,7 @@ describe("CALC-23: casos de borda do M-", () => {
 });
 
 describe("CALC-23: teclado, foco e estrutura do M-", () => {
-  test("não há tecla de M- no teclado físico: a tecla - segue como subtração, e a memória não muda: 5, M+, AC, 8, -, 3, = resulta em 5", () => {
+  test("a tecla - segue como subtração e não mexe na memória: 5, M+, AC, 8, -, 3, = resulta em 5 (M- é _, CALC-42)", () => {
     const calc = createCalculator({ storage: {} });
     calc.press("5", "M+", "AC", "8");
     assert.equal(calc.type("-", "3", "="), "5");
@@ -3066,7 +3142,7 @@ describe("CALC-24: casos de borda do MR", () => {
 });
 
 describe("CALC-24: teclado, foco e estrutura do MR", () => {
-  test("MR não tem tecla própria: Enter com o foco no MR não vira igual, o cálculo em curso fica", () => {
+  test("Enter com o foco no MR não vira igual, o cálculo em curso fica (a tecla própria é r, CALC-42)", () => {
     const calc = createCalculator({ storage: {} });
     calc.press("2", "+", "3");
     const event = calc.keyDown("Enter", { target: { tagName: "BUTTON" } });
@@ -3292,12 +3368,12 @@ describe("CALC-25: casos de borda do MC", () => {
 });
 
 describe("CALC-25: teclado, foco e estrutura do MC", () => {
-  test("MC não tem tecla própria: a tecla c não zera a memória", () => {
+  test("MC tem tecla c (CALC-42): a tecla c zera a memória e o indicador some", () => {
     const calc = createCalculator({ storage: {} });
     calc.press("5", "M+", "AC");
     calc.type("c");
-    assert.equal(calc.memoryValue(), 5);
-    assert.equal(calc.memoryIndicatorHidden(), false);
+    assert.equal(calc.memoryValue(), 0);
+    assert.equal(calc.memoryIndicatorHidden(), true);
   });
 
   test("index.html tem o botão MC antes do MR, na linha da memória, fora do teclado, com rótulo que anuncia a operação", () => {
@@ -3310,6 +3386,345 @@ describe("CALC-25: teclado, foco e estrutura do MC", () => {
   test("o MC usa o estilo da grade científica (cinza escuro, formato redondo) e foco visível com contorno branco", () => {
     assert.match(CSS_SOURCE, /\.scientific > button\s*\{[^}]*border-radius:\s*999px;[^}]*background:\s*#333333;[^}]*\}/);
     assert.match(CSS_SOURCE, /\.scientific > button:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
+  });
+});
+
+// CALC-42: teclas das funções avançadas (^ xʸ, p π, ! x!, r MR, c MC, _ M-) e a lista de atalhos na tela.
+describe("CALC-42: critérios de aceite dos atalhos das funções avançadas", () => {
+  test("^ é potência: 2 ^ 3 = resulta em 8", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.type("2", "^", "3", "="), "8");
+  });
+
+  test("p insere π: p mostra 3.14159265", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.type("p"), "3.14159265");
+  });
+
+  test("! é fatorial: 5 ! resulta em 120", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.type("5", "!"), "120");
+  });
+
+  test("r recupera a memória: 5, M+, AC, r mostra 5", () => {
+    const calc = createCalculator({ storage: {} });
+    calc.press("5", "M+", "AC");
+    assert.equal(calc.type("r"), "5");
+  });
+
+  test("_ subtrai o visor da memória: 5, M+, AC, 8, _ deixa a memória em -3", () => {
+    const calc = createCalculator({ storage: {} });
+    calc.press("5", "M+", "AC");
+    calc.type("8", "_");
+    assert.equal(calc.memoryValue(), -3);
+    assert.equal(calc.memoryIndicatorHidden(), false);
+  });
+
+  test("as teclas em maiúscula valem como as minúsculas: P insere π, R recupera e C limpa a memória", () => {
+    assert.equal(createCalculator({ storage: {} }).type("P"), "3.14159265");
+    const calc = createCalculator({ storage: {} });
+    calc.press("5", "M+", "AC");
+    assert.equal(calc.type("R"), "5");
+    assert.equal(calc.type("C"), "5");
+    assert.equal(calc.memoryValue(), 0);
+  });
+
+  test("parênteses e potência juntos: ( 2 + 3 ) ^ 2 = resulta em 25", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.type("(", "2", "+", "3", ")", "^", "2", "="), "25");
+  });
+
+  test("a potência associa à direita pelo teclado: 2 ^ 3 ^ 2 = resulta em 512", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.type("2", "^", "3", "^", "2", "="), "512");
+  });
+
+  test("^ seguido de outro ^ só troca o operador: 2 ^ ^ 3 = resulta em 8", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.type("2", "^", "^", "3", "="), "8");
+  });
+
+  test("! depois de um número no meio da conta: 3 + 4 ! = resulta em 27", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.type("3", "+", "4", "!", "="), "27");
+  });
+
+  test("! com negativo mostra Erro, como o botão x!: 1, +/-, ! resulta em Erro", () => {
+    const calc = createCalculator({ storage: {} });
+    calc.press("1", "+/-");
+    assert.equal(calc.type("!"), "Erro");
+  });
+
+  test("atalhos atuais continuam: ( ) * e Enter funcionam como antes", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.type("(", "2", "+", "3", ")", "*", "4", "="), "20");
+    assert.equal(createCalculator().type("7", "-", "2", "Enter"), "5");
+    assert.equal(createCalculator().type("8", "/", "2", "="), "4");
+  });
+
+  test("Escape continua limpando e m continua somando à memória: 5, m, Escape deixa a memória em 5", () => {
+    const calc = createCalculator({ storage: {} });
+    calc.type("5", "m", "Escape");
+    assert.equal(calc.memoryValue(), 5);
+    assert.equal(calc.display(), "0");
+  });
+
+  test("tecla pressionada marca o botão correspondente: p marca π, r marca MR e ^ marca xʸ", () => {
+    const calc = createCalculator({ storage: {} });
+    calc.keyDown("p", { code: "KeyP" });
+    assert.equal(calc.buttonFor("π").classList.contains("is-pressed"), true);
+    calc.keyUp("p", "KeyP");
+    assert.equal(calc.buttonFor("π").classList.contains("is-pressed"), false);
+    calc.keyDown("r", { code: "KeyR" });
+    assert.equal(calc.buttonFor("MR").classList.contains("is-pressed"), true);
+    calc.keyUp("r", "KeyR");
+    calc.keyDown("^", { code: "Digit6" });
+    assert.equal(calc.buttonFor("xʸ").classList.contains("is-pressed"), true);
+    calc.keyUp("^", "Digit6");
+    assert.equal(calc.buttonFor("xʸ").classList.contains("is-pressed"), false);
+  });
+
+  test("lista de atalhos na tela: section com título e uma tecla (kbd) para cada atalho", () => {
+    assert.match(HTML_SOURCE, /<section class="shortcuts" aria-labelledby="shortcuts-title">/);
+    assert.match(HTML_SOURCE, /<h2 id="shortcuts-title" class="shortcuts-title">Atalhos de teclado<\/h2>/);
+    assert.ok(HTML_SOURCE.includes("<kbd>(</kbd> <kbd>)</kbd>"));
+    for (const key of ["^", "p", "!", "m", "_", "r", "c"]) {
+      assert.ok(HTML_SOURCE.includes(`<kbd>${key}</kbd>`), `atalho ${key} na lista`);
+    }
+  });
+
+  test("a lista fica dentro da calculadora, depois do teclado, e some no mobile", () => {
+    assert.match(HTML_SOURCE, /<\/div>\s*<section class="shortcuts"[\s\S]*<\/section>\s*<\/main>/);
+    assert.match(CSS_SOURCE, /\.shortcuts\s*\{[^}]*color:\s*#a5a5a5;[^}]*\}/);
+    assert.match(MOBILE_CSS, /\.shortcuts\s*\{\s*display:\s*none;\s*\}/);
+  });
+});
+
+describe("CALC-30: critérios de aceite dos parênteses", () => {
+  test("(2 + 3) × 4 = resulta em 20", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("(", "2", "+", "3", ")", "×", "4", "="), "20");
+  });
+
+  test("((1+1)×3) = resulta em 6", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("(", "(", "1", "+", "1", ")", "×", "3", ")", "="), "6");
+  });
+
+  test("parêntese não fechado é fechado ao calcular: ( 2 + 3 = resulta em 5 e grava (2 + 3) = 5", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("(", "2", "+", "3", "="), "5");
+    assert.deepEqual(calc.historyItems(), ["(2 + 3) = 5"]);
+  });
+
+  test("parêntese sobrando é ignorado: 2, ), +, 3, = resulta em 5", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("2", ")", "+", "3", "="), "5");
+  });
+});
+
+describe("CALC-30: casos de borda dos parênteses", () => {
+  test("precedência dentro do grupo: 2 × (3 + 4) = resulta em 14", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("2", "×", "(", "3", "+", "4", ")", "="), "14");
+  });
+
+  test("precedência com grupo à direita: 2 + (3 × 4) = resulta em 14", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("2", "+", "(", "3", "×", "4", ")", "="), "14");
+  });
+
+  test("aninhamento com dois grupos internos: ((2 + 3) × (4 − 1)) = resulta em 15", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("(", "(", "2", "+", "3", ")", "×", "(", "4", "−", "1", ")", ")", "="), "15");
+    assert.deepEqual(calc.historyItems(), ["((2 + 3) × (4 − 1)) = 15"]);
+  });
+
+  test("multiplicação implícita depois de número: 2 ( 3 + 1 ) = resulta em 8", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("2", "(", "3", "+", "1", ")", "="), "8");
+    assert.deepEqual(calc.historyItems(), ["2 × (3 + 1) = 8"]);
+  });
+
+  test("multiplicação implícita depois de grupo: (2 + 3) (4) = resulta em 20", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("(", "2", "+", "3", ")", "(", "4", ")", "="), "20");
+  });
+
+  test("dígito logo depois de grupo multiplica o grupo: (2 + 3) 4 = resulta em 20", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("(", "2", "+", "3", ")", "4", "="), "20");
+  });
+
+  test("operador depois do grupo continua a conta: (2 + 3) + 1 = resulta em 6", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("(", "2", "+", "3", ")", "+", "1", "="), "6");
+  });
+
+  test("( no início não gera multiplicação por zero: ( 2 ) = resulta em 2 e grava (2) = 2", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("(", "2", ")", "="), "2");
+    assert.deepEqual(calc.historyItems(), ["(2) = 2"]);
+  });
+
+  test("grupo vazio é ignorado: 2, +, (, ), 3, = resulta em 5", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("2", "+", "(", ")", "3", "="), "5");
+  });
+
+  test("operador logo depois de ( é ignorado: ( × 2 = resulta em 2", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("(", "×", "2", "="), "2");
+  });
+
+  test("só parênteses e igual não quebram a tela: ( ( ) ) = resulta em 0", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("(", "(", ")", ")", "="), "0");
+  });
+
+  test("divisão por zero dentro do grupo mostra Erro: ( 1 ÷ 0 ) resulta em Erro, e o próximo dígito reinicia", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("(", "1", "÷", "0", ")"), "Erro");
+    assert.equal(calc.press("7"), "7");
+  });
+
+  test("AC fecha todos os grupos: ( 2 AC 3 = resulta em 3", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("(", "2", "AC", "3", "="), "3");
+  });
+
+  test("depois do igual, ( começa uma conta nova: 2 + 3 =, ( 4 × 2 ) = resulta em 8", () => {
+    const calc = createCalculator({ storage: {} });
+    calc.press("2", "+", "3", "=");
+    assert.equal(calc.press("(", "4", "×", "2", ")", "="), "8");
+    assert.deepEqual(calc.historyItems(), ["(4 × 2) = 8", "2 + 3 = 5"]);
+  });
+
+  test("função aplicada ao grupo age sobre o resultado: (2 + 3) % resulta em 0.05", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("(", "2", "+", "3", ")", "%"), "0.05");
+  });
+
+  test("o histórico mostra o valor usado depois de uma função no grupo: 2 + (3 + 1) x² = grava 2 + 16 = 18", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("2", "+", "(", "3", "+", "1", ")", "x²", "="), "18");
+    assert.deepEqual(calc.historyItems(), ["2 + 16 = 18"]);
+  });
+
+  test("√x aplicada ao grupo não grava o grupo no histórico: (2 + 3) √x = não cria item", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("(", "2", "+", "3", ")", "√x", "="), "2.23606798");
+    assert.deepEqual(calc.historyItems(), []);
+  });
+
+  test("√x no meio da conta usa o valor da raiz: 2 + (3 + 1) √x = grava 2 + 2 = 4", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("2", "+", "(", "3", "+", "1", ")", "√x", "="), "4");
+    assert.deepEqual(calc.historyItems(), ["2 + 2 = 4"]);
+  });
+
+  test("√x seguida de operador grava a raiz, não o grupo: (2 + 3) √x + 1 = grava 2.23606798 + 1 = 3.23606798", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("(", "2", "+", "3", ")", "√x", "+", "1", "="), "3.23606798");
+    assert.deepEqual(calc.historyItems(), ["2.23606798 + 1 = 3.23606798"]);
+  });
+
+  test("cos aplicado ao grupo usa o cosseno do grupo: (90 + 90) cos + 1 = resulta em 0 e grava -1 + 1 = 0", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("(", "9", "0", "+", "9", "0", ")", "cos", "+", "1", "="), "0");
+    assert.deepEqual(calc.historyItems(), ["-1 + 1 = 0"]);
+  });
+
+  test("e substitui o grupo, como o π, sem multiplicação implícita: (2 + 3) e mostra 2.71828183", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("(", "2", "+", "3", ")", "e"), "2.71828183");
+  });
+
+  test("e depois do grupo entra na conta com o valor completo: (2 + 3) e + 1 = resulta em 3.71828183 e grava 2.71828183 + 1 = 3.71828183", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("(", "2", "+", "3", ")", "e", "+", "1", "="), "3.71828183");
+    assert.deepEqual(calc.historyItems(), ["2.71828183 + 1 = 3.71828183"]);
+  });
+
+  test("x! aplicado ao grupo não grava o grupo no histórico: (2 + 3) x! + 1 = grava 120 + 1 = 121", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("(", "2", "+", "3", ")", "x!", "+", "1", "="), "121");
+    assert.deepEqual(calc.historyItems(), ["120 + 1 = 121"]);
+  });
+
+  test("ln aplicado ao grupo não grava o grupo no histórico: (2 + 3) ln + 1 = grava 1.60943791 + 1 = 2.60943791", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("(", "2", "+", "3", ")", "ln", "+", "1", "="), "2.60943791");
+    assert.deepEqual(calc.historyItems(), ["1.60943791 + 1 = 2.60943791"]);
+  });
+});
+
+describe("CALC-30: teclado e indicador de parênteses abertos", () => {
+  test("( e ) pelo teclado: ( 2 + 3 ) * 4 Enter resulta em 20", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.type("(", "2", "+", "3", ")", "*", "4", "Enter"), "20");
+  });
+
+  test("( e ) pelo teclado são tratados como tecla da calculadora (defaultPrevented)", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.keyDown("(").defaultPrevented, true);
+    assert.equal(calc.keyDown(")").defaultPrevented, true);
+  });
+
+  test(") sobrando pelo teclado é ignorado: ) não muda o visor", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.type(")"), "0");
+  });
+
+  test("o indicador aparece com grupo aberto e mostra um ( por nível", () => {
+    const calc = createCalculator({ storage: {} });
+    calc.press("(");
+    assert.equal(calc.parenIndicatorHidden(), false);
+    assert.equal(calc.parenSymbols(), "(");
+    assert.equal(calc.parenText(), "1 parêntese aberto");
+    calc.press("(");
+    assert.equal(calc.parenSymbols(), "((");
+    assert.equal(calc.parenText(), "2 parênteses abertos");
+  });
+
+  test("o indicador diminui ao fechar e some quando não há grupo aberto", () => {
+    const calc = createCalculator({ storage: {} });
+    calc.press("(", "(", "1", ")");
+    assert.equal(calc.parenSymbols(), "(");
+    assert.equal(calc.parenText(), "1 parêntese aberto");
+    calc.press(")");
+    assert.equal(calc.parenIndicatorHidden(), true);
+  });
+
+  test("o indicador some depois do igual, que fecha os grupos: ( 2 + 3 = deixa o indicador escondido", () => {
+    const calc = createCalculator({ storage: {} });
+    calc.press("(", "2", "+", "3", "=");
+    assert.equal(calc.parenIndicatorHidden(), true);
+  });
+});
+
+describe("CALC-30: estrutura e foco dos botões ( e )", () => {
+  test("index.html tem os botões ( e ) na linha da memória, fora do teclado, com rótulo que traz o símbolo", () => {
+    assert.match(
+      HTML_SOURCE,
+      /<button type="button" id="open-paren-button" class="paren-add" data-action="open-paren" aria-label="Abrir parêntese \(">\(<\/button>/,
+    );
+    assert.match(
+      HTML_SOURCE,
+      /<button type="button" id="close-paren-button" class="paren-add" data-action="close-paren" aria-label="Fechar parêntese \)">\)<\/button>/,
+    );
+  });
+
+  test("os botões ( e ) têm o mesmo estilo de pílula cinza e foco visível com contorno branco", () => {
+    assert.match(CSS_SOURCE, /\.paren-add\s*\{[^}]*border-radius:\s*999px;[^}]*color:\s*#a5a5a5;[^}]*\}/);
+    assert.match(CSS_SOURCE, /\.paren-add:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
+  });
+
+  test("o indicador de parênteses tem os símbolos escondidos do leitor de tela e o texto só para ele", () => {
+    assert.match(
+      HTML_SOURCE,
+      /<span id="paren-indicator" class="paren-indicator" hidden><span id="paren-symbols" aria-hidden="true"><\/span><span id="paren-text" class="sr-only"><\/span><\/span>/,
+    );
   });
 });
 
@@ -3455,7 +3870,7 @@ describe("CALC-39: casos de borda do x!", () => {
 });
 
 describe("CALC-39: teclado, foco e estrutura do x!", () => {
-  test("x! não tem tecla própria: Enter com o foco no botão x! não vira igual, o cálculo em curso fica", () => {
+  test("Enter com o foco no botão x! não vira igual, o cálculo em curso fica (a tecla própria é !, CALC-42)", () => {
     const calc = createCalculator({ storage: {} });
     calc.press("2", "+", "3");
     const event = calc.keyDown("Enter", { target: { tagName: "BUTTON" } });
@@ -3613,7 +4028,7 @@ describe("CALC-29: casos de borda do xʸ (potência)", () => {
 });
 
 describe("CALC-29: teclado, foco e estrutura do xʸ", () => {
-  test("xʸ não tem tecla própria: Enter com o foco no botão xʸ não vira igual, o cálculo em curso fica", () => {
+  test("Enter com o foco no botão xʸ não vira igual, o cálculo em curso fica (a tecla própria é ^, CALC-42)", () => {
     const calc = createCalculator({ storage: {} });
     calc.press("2", "+", "3");
     const event = calc.keyDown("Enter", { target: { tagName: "BUTTON" } });
@@ -3634,6 +4049,98 @@ describe("CALC-29: teclado, foco e estrutura do xʸ", () => {
 
   test("o xʸ pendente tem o destaque de operador do teclado (texto laranja sobre branco)", () => {
     assert.match(CSS_SOURCE, /\.power-add\[aria-pressed="true"\]\s*\{[^}]*background:\s*#ffffff;[^}]*color:\s*#b35c00;/);
+  });
+});
+
+// CALC-35: ln (logaritmo natural). ln(e) é conferido tanto com o número digitado 2,71828182 (arredonda para 1 nas 8 casas)
+// quanto com a tecla e, que usa o valor completo da constante (CALC-37).
+describe("CALC-35: critérios de aceite do ln (logaritmo natural)", () => {
+  test("ln(e) = 1: 2,71828182, ln resulta em 1", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("2", ".", "7", "1", "8", "2", "8", "1", "8", "2", "ln"), "1");
+  });
+
+  test("ln(e) = 1 pela tecla e: e, ln resulta em 1", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("e", "ln"), "1");
+  });
+
+  // Regressão: ln com a constante e não pode deixar o valor completo de e ativo para a próxima conta.
+  test("ln de e não deixa o valor completo de e para trás: e, ln, x² resulta em 1 (e não 7.3890561)", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("e", "ln", "x²"), "1");
+  });
+
+  test("ln de e não deixa o valor completo de e para trás: e, ln, log resulta em 0 (e não 0.43429448)", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("e", "ln", "log"), "0");
+  });
+
+  test("ln(0) mostra Erro: 0, ln resulta em Erro", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("0", "ln"), "Erro");
+  });
+
+  test("ln(-1) mostra Erro: 1, +/-, ln resulta em Erro", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("1", "+/-", "ln"), "Erro");
+  });
+});
+
+describe("CALC-35: casos de borda do ln (logaritmo natural)", () => {
+  test("ln(1) = 0: 1, ln resulta em 0", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("1", "ln"), "0");
+  });
+
+  test("ln(10) não exato segue a precisão do visor: 10, ln resulta em 2.30258509", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("1", "0", "ln"), "2.30258509");
+  });
+
+  test("ln(2) não exato arredondado a 8 casas: 2, ln resulta em 0.69314718", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("2", "ln"), "0.69314718");
+  });
+
+  test("valor entre 0 e 1 tem ln negativo: 0,5 ln resulta em -0.69314718", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("0", ".", "5", "ln"), "-0.69314718");
+  });
+
+  test("ln de valor logo acima de 1 fica sem notação científica: 1,00000001 ln resulta em 0.00000001", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("1", ".", "0", "0", "0", "0", "0", "0", "0", "1", "ln"), "0.00000001");
+  });
+
+  test("ln de valor abaixo de 1 perto do limite não mostra -0: 0,999999999 ln resulta em 0", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("0", ".", "9", "9", "9", "9", "9", "9", "9", "9", "9", "ln"), "0");
+  });
+
+  test("Erro reinicia com o próximo dígito: 0, ln, 7 resulta em 7", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("0", "ln", "7"), "7");
+  });
+
+  test("ln com Erro no visor mantém o Erro: 0, ln, ln resulta em Erro", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("0", "ln", "ln"), "Erro");
+  });
+
+  test("ln depois do igual usa o resultado: 2 + 3 =, ln resulta em 1.60943791", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("2", "+", "3", "=", "ln"), "1.60943791");
+  });
+
+  test("ln no segundo operando entra na conta, como o log: 2 + ln =, resulta em 2.69314718", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("2", "+", "ln", "="), "2.69314718");
+  });
+
+  test("ln de zero dentro de uma conta mostra Erro: 2 + 0 ln resulta em Erro", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("2", "+", "0", "ln"), "Erro");
   });
 });
 
@@ -3780,5 +4287,49 @@ describe("CALC-43: casos de borda do histórico das funções avançadas", () =>
     const calc = createCalculator({ storage: {} });
     calc.press("1", "6", "√x", "AC", "5", "÷", "0", "=");
     assert.deepEqual(calc.historyItems(), ["√16 = 4"]);
+  });
+});
+
+describe("CALC-35: histórico, teclado, foco e estrutura do ln", () => {
+  // ln é função aplicada ao visor: grava linha no histórico, como log (regra do CALC-43).
+  test("ln grava no histórico: 1 ln grava ln(1) = 0", () => {
+    const storage = {};
+    const calc = createCalculator({ storage });
+    calc.press("1", "ln");
+    assert.deepEqual(calc.historyItems(), ["ln(1) = 0"]);
+    assert.deepEqual(JSON.parse(storage[HISTORY_KEY]), ["ln(1) = 0"]);
+  });
+
+  test("ln de e grava o número mostrado e o resultado: e, ln grava ln(2.71828183) = 1", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("e", "ln"), "1");
+    assert.deepEqual(calc.historyItems(), ["ln(2.71828183) = 1"]);
+  });
+
+  test("ln que dá Erro não grava: 0 ln não cria linha no histórico nem chave no localStorage", () => {
+    const storage = {};
+    const calc = createCalculator({ storage });
+    assert.equal(calc.press("0", "ln"), "Erro");
+    assert.deepEqual(calc.historyItems(), []);
+    assert.equal(HISTORY_KEY in storage, false);
+  });
+
+  test("Enter com o foco no ln não vira igual: o botão é que age (clique nativo), o cálculo em curso fica", () => {
+    const calc = createCalculator({ storage: {} });
+    calc.press("2", "+", "3");
+    const event = calc.keyDown("Enter", { target: { tagName: "BUTTON" } });
+    assert.equal(event.defaultPrevented, false);
+    assert.equal(calc.display(), "3");
+  });
+
+  test("index.html tem o botão ln na linha da memória (fora do teclado), logo depois do log, com rótulo que anuncia a operação", () => {
+    assert.match(
+      HTML_SOURCE,
+      /<div class="scientific">[\s\S]*?<button type="button" id="log-button"[^>]*>log<\/button>\s*<button type="button" id="ln-button" class="ln-add" data-action="ln" aria-label="Logaritmo natural \(ln\)">ln<\/button>[\s\S]*?<\/div>\s*<div class="keypad">/,
+    );
+  });
+
+  test("o ln tem foco visível com contorno branco, sem remover o outline", () => {
+    assert.match(CSS_SOURCE, /\.ln-add:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
   });
 });
