@@ -657,15 +657,26 @@ function tangentDegrees(degrees) {
   return Math.tan((angle * Math.PI) / 180);
 }
 
+// Tangente em radianos: nos múltiplos ímpares de π/2 (π/2, 3π/2, ...) não há valor, então devolve null.
+// A tolerância é uma unidade da 8ª casa, que é a precisão do visor: π ÷ 2 (com π = 3.14159265) também cai ali e mostra Erro.
+// Fora disso, Math.tan direto sobre o número (1.5707963 digitado dá um valor grande, mas real).
+function tangentRadians(radians) {
+  const nearest = Math.round(radians / (Math.PI / 2));
+  if (nearest % 2 !== 0 && Math.abs(radians - nearest * (Math.PI / 2)) <= 10 ** -DECIMAL_PLACES) {
+    return null;
+  }
+  return Math.tan(radians);
+}
+
 // tan: troca o número exibido pela tangente dele, com a mesma regra de segundo operando do sen e do 1/x.
-// A unidade vem de s.angleUnit: em graus usa tangentDegrees; em radianos, Math.tan direto sobre o número exibido.
-// Indefinida (90° + 180°·k, ou o π/2 em radianos) ou com resultado acima de 2^53 em valor absoluto: mostra Erro. Com Erro no visor não calcula e mantém o Erro.
+// A unidade vem de s.angleUnit: em graus usa tangentDegrees; em radianos, tangentRadians sobre o número exibido.
+// Indefinida (90° + 180°·k, ou π/2 + π·k em radianos) ou com resultado acima de 2^53 em valor absoluto: mostra Erro. Com Erro no visor não calcula e mantém o Erro.
 function tangent(s) {
   if (s.error) {
     return;
   }
   const value = operandValue(s);
-  const result = s.angleUnit === "rad" ? Math.tan(value) : tangentDegrees(value);
+  const result = s.angleUnit === "rad" ? tangentRadians(value) : tangentDegrees(value);
   if (result === null || !Number.isFinite(result) || Math.abs(result) > MAX_RESULT) {
     setError(s);
     return;

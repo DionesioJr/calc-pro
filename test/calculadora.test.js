@@ -3390,6 +3390,30 @@ describe("CALC-33: casos de borda da tangente", () => {
     assert.equal(calc.press("unidade"), "0.01745506");
   });
 
+  test("tan em radianos de π/4 com o π de 8 casas: unidade, π, ÷, 4, =, tan resulta em 0.99999999 (π ÷ 4 vira 0.78539816 no visor, e a tangente dele fica abaixo de 1 nas 8 casas)", () => {
+    const calc = createCalculator({ storage: {} });
+    calc.press("unidade", "π", "÷", "4", "=");
+    assert.equal(calc.press("tan"), "0.99999999");
+  });
+
+  test("tan em radianos de π/2 mostra Erro: unidade, π, ÷, 2, =, tan resulta em Erro (π/2 não tem tangente)", () => {
+    const calc = createCalculator({ storage: {} });
+    calc.press("unidade", "π", "÷", "2", "=");
+    assert.equal(calc.press("tan"), "Erro");
+    assert.equal(calc.angleUnitLabel(), "RAD");
+  });
+
+  test("tan em radianos de π/2 com 8 casas mostra Erro, e -π/2 também: unidade, 1.57079633, tan resulta em Erro; AC, unidade, 1.57079633, +/-, tan resulta em Erro", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("unidade", "1", ".", "5", "7", "0", "7", "9", "6", "3", "3", "tan"), "Erro");
+    assert.equal(calc.press("AC", "1", ".", "5", "7", "0", "7", "9", "6", "3", "3", "+/-", "tan"), "Erro");
+  });
+
+  test("tan em radianos perto de π/2 mas não dentro da 8ª casa segue a conta: unidade, 1.5707963, tan não mostra Erro", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.notEqual(calc.press("unidade", "1", ".", "5", "7", "0", "7", "9", "6", "3", "tan"), "Erro");
+  });
+
   test("tan grava a própria linha no histórico e não mexe na memória (CALC-43): 5 M+, AC, 4 5 tan grava tan(45) = 1 e mantém a memória em 5", () => {
     const storage = {};
     const calc = createCalculator({ storage });
