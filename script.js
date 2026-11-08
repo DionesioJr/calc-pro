@@ -35,6 +35,9 @@ const state = {
   expression: [],
   // Registrador da memória (M+): soma dos valores do visor. Começa em 0; AC não o apaga, só MC.
   memory: 0,
+  // Valor completo do visor quando ele é uma constante (e): o visor mostra 8 casas, o cálculo usa o número inteiro.
+  // Qualquer outra mudança no visor passa por setCurrent, que zera este campo.
+  exact: null,
 };
 
 const OPERATIONS = {
@@ -88,6 +91,8 @@ const squareButton = document.getElementById("square-button");
 const sineButton = document.getElementById("sine-button");
 // Botão π também fica nessa linha, pelo mesmo motivo.
 const piButton = document.getElementById("pi-button");
+// Botão e também fica nessa linha, pelo mesmo motivo.
+const eButton = document.getElementById("e-button");
 // Botão 1/x também fica nessa linha, pelo mesmo motivo.
 const inverseButton = document.getElementById("inverse-button");
 const pressableButtons = memoryAddButton ? [...buttons, memoryAddButton] : buttons;
@@ -119,7 +124,7 @@ function render() {
 
 // Reinicia o cálculo em curso. O histórico não é apagado aqui (só pelo botão Limpar histórico).
 function reset() {
-  state.current = "0";
+  setCurrent("0");
   state.previous = null;
   state.operator = null;
   state.waitingForOperand = false;
@@ -127,8 +132,19 @@ function reset() {
   state.expression = [];
 }
 
+// Troca o texto do visor e descarta o valor completo de uma constante (e), se havia um.
+function setCurrent(text) {
+  state.current = text;
+  state.exact = null;
+}
+
+// Número usado nas contas: o valor completo da constante, se o visor mostra uma; senão, o número do visor.
+function operandValue() {
+  return state.exact !== null ? state.exact : Number(state.current);
+}
+
 function setError() {
-  state.current = ERROR_TEXT;
+  setCurrent(ERROR_TEXT);
   state.previous = null;
   state.operator = null;
   state.waitingForOperand = true;
@@ -168,7 +184,7 @@ function splitCalculation(text) {
 // Clique ou toque num item: o resultado vai para o visor, e o próximo dígito começa um número novo.
 function recallResult(result) {
   reset();
-  state.current = result;
+  setCurrent(result);
   state.waitingForOperand = true;
   render();
 }
@@ -301,7 +317,7 @@ function inputDigit(digit) {
     reset();
   }
   if (state.waitingForOperand) {
-    state.current = digit;
+    setCurrent(digit);
     state.waitingForOperand = false;
     return;
   }
@@ -310,7 +326,7 @@ function inputDigit(digit) {
     return;
   }
   // O "0" inicial é substituído pelo primeiro dígito digitado.
-  state.current = state.current === "0" ? digit : state.current + digit;
+  setCurrent(state.current === "0" ? digit : state.current + digit);
 }
 
 function inputDecimal() {
@@ -318,7 +334,7 @@ function inputDecimal() {
     reset();
   }
   if (state.waitingForOperand) {
-    state.current = "0.";
+    setCurrent("0.");
     state.waitingForOperand = false;
     return;
   }
@@ -326,7 +342,7 @@ function inputDecimal() {
   if (state.current.includes(".")) {
     return;
   }
-  state.current += ".";
+  setCurrent(state.current + ".");
 }
 
 // +/-: inverte o sinal do número exibido. Com o zero não há sinal a inverter.
@@ -340,7 +356,10 @@ function toggleSign() {
   if (state.current === "0") {
     return;
   }
-  state.current = state.current.startsWith("-") ? state.current.slice(1) : "-" + state.current;
+  // Com a constante, o sinal inverte também o valor completo (−e continua exato).
+  const exact = state.exact;
+  setCurrent(state.current.startsWith("-") ? state.current.slice(1) : "-" + state.current);
+  state.exact = exact === null ? null : -exact;
   state.waitingForOperand = false;
 }
 
@@ -350,7 +369,7 @@ function percent() {
     reset();
     return;
   }
-  state.current = formatResult(Number(state.current) / 100);
+  setCurrent(formatResult(operandValue() / 100));
   state.waitingForOperand = false;
 }
 
@@ -360,7 +379,7 @@ function changeMemory(sign) {
   if (state.error) {
     return;
   }
-  const total = state.memory + sign * Number(state.current);
+  const total = state.memory + sign * operandValue();
   if (!Number.isFinite(total) || Math.abs(total) > MAX_RESULT) {
     setError();
     return;
@@ -388,7 +407,7 @@ function memoryRecall() {
   if (state.error) {
     reset();
   }
-  state.current = formatResult(state.memory);
+  setCurrent(formatResult(state.memory));
   state.waitingForOperand = false;
 }
 
@@ -398,12 +417,12 @@ function square() {
   if (state.error) {
     return;
   }
-  const result = Number(state.current) ** 2;
+  const result = operandValue() ** 2;
   if (!Number.isFinite(result) || Math.abs(result) > MAX_RESULT) {
     setError();
     return;
   }
-  state.current = formatResult(result);
+  setCurrent(formatResult(result));
   state.waitingForOperand = false;
 }
 
@@ -425,7 +444,7 @@ function sine() {
   if (state.error) {
     return;
   }
-  state.current = formatResult(sineDegrees(Number(state.current)));
+  setCurrent(formatResult(sineDegrees(operandValue())));
   state.waitingForOperand = false;
 }
 
@@ -436,7 +455,19 @@ function insertPi() {
   if (state.error) {
     reset();
   }
-  state.current = formatResult(Math.PI);
+  setCurrent(formatResult(Math.PI));
+  state.waitingForOperand = false;
+}
+
+// e: insere o número de Euler como operando, substituindo o número em curso, como o π. O visor mostra 2.71828183
+// (8 casas, como os resultados), mas as contas usam o valor completo (e² = 7.38905610, não 7.38905611).
+// Após Erro, começa uma calculadora nova, como um dígito.
+function insertEuler() {
+  if (state.error) {
+    reset();
+  }
+  setCurrent(formatResult(Math.E));
+  state.exact = Math.E;
   state.waitingForOperand = false;
 }
 
@@ -446,16 +477,16 @@ function inverse() {
   if (state.error) {
     return;
   }
-  if (Number(state.current) === 0) {
+  if (operandValue() === 0) {
     setError();
     return;
   }
-  const result = 1 / Number(state.current);
+  const result = 1 / operandValue();
   if (!Number.isFinite(result) || Math.abs(result) > MAX_RESULT) {
     setError();
     return;
   }
-  state.current = formatResult(result);
+  setCurrent(formatResult(result));
   state.waitingForOperand = false;
 }
 
@@ -473,7 +504,7 @@ function deleteDigit() {
     return;
   }
   const remaining = state.current.slice(0, -1);
-  state.current = VALID_ENTRY.test(remaining) ? remaining : "0";
+  setCurrent(VALID_ENTRY.test(remaining) ? remaining : "0");
 }
 
 // Aplica o operador pendente: left (operando à esquerda) op right.
@@ -484,7 +515,7 @@ function evaluatePending(right) {
     setError();
     return false;
   }
-  state.current = formatResult(result);
+  setCurrent(formatResult(result));
   state.previous = Number(state.current);
   return true;
 }
@@ -506,11 +537,11 @@ function inputOperator(operator) {
 
   if (state.operator !== null) {
     // Encadeamento da esquerda para a direita: resolve a operação pendente primeiro.
-    if (!evaluatePending(Number(state.current))) {
+    if (!evaluatePending(operandValue())) {
       return;
     }
   } else {
-    state.previous = Number(state.current);
+    state.previous = operandValue();
   }
 
   state.expression.push(operand, OPERATOR_SYMBOLS[operator]);
@@ -528,7 +559,7 @@ function inputEquals() {
   }
 
   // Igual sem segundo número usa o próprio primeiro número (2 + = → 4, como no iOS).
-  const right = state.waitingForOperand ? state.previous : Number(state.current);
+  const right = state.waitingForOperand ? state.previous : operandValue();
   const rightOperand = state.waitingForOperand ? formatResult(state.previous) : state.current;
   if (!evaluatePending(right)) {
     return;
@@ -581,6 +612,8 @@ function handleButton(button) {
     sine();
   } else if (action === "pi") {
     insertPi();
+  } else if (action === "euler") {
+    insertEuler();
   } else if (action === "inverse") {
     inverse();
   } else if (action in OPERATIONS) {
@@ -713,6 +746,13 @@ if (sineButton) {
 if (piButton) {
   piButton.addEventListener("click", () => {
     handleButton(piButton);
+    render();
+  });
+}
+
+if (eButton) {
+  eButton.addEventListener("click", () => {
+    handleButton(eButton);
     render();
   });
 }
