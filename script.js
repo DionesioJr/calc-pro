@@ -38,6 +38,8 @@ const state = {
   expression: [],
   // true logo depois de fechar um grupo ")": o número do visor é o valor do grupo, e o texto do grupo já está em expression.
   valueIsGroup: false,
+  // true enquanto uma função é aplicada a um grupo fechado: ela não grava linha própria no histórico (a conta que usa o resultado grava).
+  functionOnGroup: false,
   // Registrador da memória (M+): soma dos valores do visor. Começa em 0; AC não o apaga, só MC.
   memory: 0,
   // Valor completo do visor quando ele é uma constante (e): o visor mostra 8 casas, o cálculo usa o número inteiro.
@@ -347,6 +349,20 @@ function addCalculation(text) {
   renderHistory();
 }
 
+// Função aplicada ao visor (ex.: √16, sen(30)) vira uma linha do histórico, com o resultado que ficou no visor.
+// Só é chamada quando a função deu certo: Erro não grava.
+function recordFunction(expression) {
+  if (state.functionOnGroup) {
+    return;
+  }
+  addCalculation(`${expression} = ${state.current}`);
+}
+
+// Negativo entre parênteses nas funções que escrevem o número antes ou depois do símbolo (ex.: (-3)²), para não ler como -(3²).
+function operandText(text) {
+  return text.startsWith("-") ? `(${text})` : text;
+}
+
 // Limpar pede confirmação: o botão dá lugar a "Apagar todo o histórico?" com Cancelar (foco inicial) e Apagar.
 function showClearConfirm() {
   if (!historyClear || !historyConfirm || !historyCancel) {
@@ -498,8 +514,10 @@ function square() {
     setError();
     return;
   }
+  const expression = `${operandText(state.current)}²`;
   setCurrent(formatResult(result));
   state.waitingForOperand = false;
+  recordFunction(expression);
 }
 
 // log: logaritmo decimal (base 10) do número exibido, com a mesma regra de segundo operando do % e do x²
@@ -514,8 +532,10 @@ function logarithm() {
     setError();
     return;
   }
+  const expression = `log(${state.current})`;
   setCurrent(formatResult(Math.log10(value)));
   state.waitingForOperand = false;
+  recordFunction(expression);
 }
 
 // Seno em graus (o visor mostra DEG). Múltiplos de 90° saem exatos (sen 0° = 0, sen 90° = 1); os demais usam radianos.
@@ -536,8 +556,10 @@ function sine() {
   if (state.error) {
     return;
   }
+  const expression = `sen(${state.current})`;
   setCurrent(formatResult(sineDegrees(operandValue())));
   state.waitingForOperand = false;
+  recordFunction(expression);
 }
 
 // Cosseno em graus, com a mesma regra do seno: múltiplos de 90° saem exatos (cos 0° = 1, cos 90° = 0, cos 180° = -1, cos 270° = 0),
@@ -558,8 +580,10 @@ function cosine() {
   if (state.error) {
     return;
   }
+  const expression = `cos(${state.current})`;
   state.current = formatResult(cosineDegrees(Number(state.current)));
   state.waitingForOperand = false;
+  recordFunction(expression);
 }
 
 // π: insere pi (3.14159265, com as 8 casas de qualquer resultado) como operando, substituindo o número em curso,
@@ -600,8 +624,10 @@ function inverse() {
     setError();
     return;
   }
+  const expression = `1/${operandText(state.current)}`;
   setCurrent(formatResult(result));
   state.waitingForOperand = false;
+  recordFunction(expression);
 }
 
 // √x: troca o número exibido pela raiz quadrada dele, com a mesma regra de segundo operando do %, do x², do sen, do π e do 1/x.
@@ -616,8 +642,10 @@ function squareRoot() {
     setError();
     return;
   }
+  const expression = `√${state.current}`;
   state.current = formatResult(Math.sqrt(value));
   state.waitingForOperand = false;
+  recordFunction(expression);
 }
 
 // x!: fatorial do número exibido, só para inteiros não negativos (0! = 1). Negativo e decimal mostram Erro.
@@ -641,8 +669,10 @@ function factorial() {
     setError();
     return;
   }
+  const expression = `${state.current}!`;
   state.current = Math.abs(result) > MAX_RESULT ? toScientific(result) : formatResult(result);
   state.waitingForOperand = false;
+  recordFunction(expression);
 }
 
 // Notação científica com 14 algarismos significativos, sem zeros à direita na mantissa (2432902008176640000 → 2.4329020081766E+18).
@@ -679,8 +709,10 @@ function tangent() {
     setError();
     return;
   }
+  const expression = `tan(${state.current})`;
   setCurrent(formatResult(result));
   state.waitingForOperand = false;
+  recordFunction(expression);
 }
 
 // Backspace (teclado): apaga o último caractere do número em edição.
@@ -1045,7 +1077,8 @@ function handleButton(button) {
 
   const action = button.dataset.action;
 
-  if (FUNCTION_ACTIONS.includes(action) && state.valueIsGroup) {
+  state.functionOnGroup = FUNCTION_ACTIONS.includes(action) && state.valueIsGroup;
+  if (state.functionOnGroup) {
     dropGroupText();
   }
 
@@ -1092,6 +1125,7 @@ function handleButton(button) {
   } else if (action in OPERATIONS) {
     inputOperator(action);
   }
+  state.functionOnGroup = false;
 }
 
 // Teclado físico: cada tecla executa a mesma ação do botão correspondente (mesmo caminho do clique).

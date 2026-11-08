@@ -4,6 +4,14 @@
   box-sizing: border-box;
 }
 
+/* Medidas do teclado: todos os botões são quadrados de lado --cell, separados por --gap.
+ * Desktop: 7 colunas (3 científicas + 4 básicas) em 332px, dentro dos 360px da calculadora. */
+:root {
+  --pad: 0.875rem;
+  --gap: 0.25rem;
+  --cell: 2.75rem;
+}
+
 body {
   margin: 0;
   min-height: 100vh;
@@ -17,7 +25,7 @@ body {
 
 .calculator {
   width: min(360px, 100% - 2rem);
-  padding: 1rem;
+  padding: var(--pad);
   background: #000000;
 }
 
@@ -32,6 +40,29 @@ body {
   clip: rect(0 0 0 0);
   white-space: nowrap;
   border: 0;
+}
+
+/* Linha de status acima do visor: indicador M e unidade DEG, alinhados à direita. */
+.status {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 1.5rem;
+}
+
+/* Indicador de memória: aparece enquanto o registrador for diferente de 0 (o atributo hidden esconde). */
+.memory-indicator {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #ff9f0a;
+}
+
+/* Unidade angular do sen, sempre visível. Cinza sobre preto: contraste alto. */
+.angle-unit {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #a5a5a5;
 }
 
 .display {
@@ -57,337 +88,49 @@ body {
   font-size: 2.5rem; /* 40px: 9 ou mais caracteres */
 }
 
-.keypad {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 0.75rem;
-  margin-top: 1rem;
-}
-
-/* Linha da memória, entre o visor e o teclado (fora da grade, que segue com 5 linhas).
- * Com as pílulas compactas (ver .memory > button), as seis cabem em uma linha em 360px; o wrap é só fallback em telas bem estreitas. */
-.memory {
+/* Lado a lado: grade científica à esquerda e teclado básico à direita, com a mesma linha de botões. */
+.panel {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.375rem;
-  min-height: 2.25rem;
+  justify-content: center;
+  gap: var(--gap);
   margin-top: 0.5rem;
 }
 
-/* Botão MC: mesmo estilo do M+ (pílula com contorno cinza), no início da linha da memória, antes do MR. */
-.memory-clear {
-  padding: 0.4rem 0.9rem;
-  border: 1px solid #a5a5a5;
+/* Grade científica: 3 colunas, na ordem do DOM (MC, MR, M+, M-, x², log, sen, cos, tan, xʸ, π, e, 1/x, x!, √x). */
+.scientific {
+  display: grid;
+  grid-template-columns: repeat(3, var(--cell));
+  grid-auto-rows: var(--cell);
+  gap: var(--gap);
+}
+
+/* Teclado básico: 4 colunas. O 0 ocupa duas (ver .btn-zero). */
+.keypad {
+  display: grid;
+  grid-template-columns: repeat(4, var(--cell));
+  grid-auto-rows: var(--cell);
+  gap: var(--gap);
+}
+
+/* Botões científicos: cinza escuro, como os dígitos do teclado. Mesmo formato e tamanho dos botões básicos. */
+.scientific > button {
+  width: 100%;
+  height: 100%;
+  border: 0;
   border-radius: 999px;
-  background: transparent;
-  color: #a5a5a5;
+  background: #333333;
+  color: #ffffff;
   font: inherit;
-  font-size: 0.875rem;
+  font-size: min(1.125rem, calc(var(--cell) * 0.4));
+  line-height: 1;
   cursor: pointer;
 }
 
-.memory-clear:hover {
-  border-color: #ffffff;
-  color: #ffffff;
-}
-
-.memory-clear:active {
+.scientific > button:active {
   filter: brightness(0.8);
 }
 
-.memory-clear:focus-visible {
-  outline: 3px solid #ffffff;
-  outline-offset: 2px;
-}
-
-/* Botão MR: mesmo estilo do M+ (pílula com contorno cinza), antes dele na linha da memória. */
-.memory-recall {
-  padding: 0.4rem 0.9rem;
-  border: 1px solid #a5a5a5;
-  border-radius: 999px;
-  background: transparent;
-  color: #a5a5a5;
-  font: inherit;
-  font-size: 0.875rem;
-  cursor: pointer;
-}
-
-.memory-recall:hover {
-  border-color: #ffffff;
-  color: #ffffff;
-}
-
-.memory-recall:active {
-  filter: brightness(0.8);
-}
-
-.memory-recall:focus-visible {
-  outline: 3px solid #ffffff;
-  outline-offset: 2px;
-}
-
-/* Botão M+: contorno cinza, como o botão Histórico do mobile. */
-.memory-add {
-  padding: 0.4rem 0.9rem;
-  border: 1px solid #a5a5a5;
-  border-radius: 999px;
-  background: transparent;
-  color: #a5a5a5;
-  font: inherit;
-  font-size: 0.875rem;
-  cursor: pointer;
-}
-
-.memory-add:hover {
-  border-color: #ffffff;
-  color: #ffffff;
-}
-
-.memory-add:active {
-  filter: brightness(0.8);
-}
-
-.memory-add:focus-visible {
-  outline: 3px solid #ffffff;
-  outline-offset: 2px;
-}
-
-/* Botão M-: mesmo estilo do M+ (pílula com contorno cinza), ao lado dele na linha da memória. */
-.memory-subtract {
-  padding: 0.4rem 0.9rem;
-  border: 1px solid #a5a5a5;
-  border-radius: 999px;
-  background: transparent;
-  color: #a5a5a5;
-  font: inherit;
-  font-size: 0.875rem;
-  cursor: pointer;
-}
-
-.memory-subtract:hover {
-  border-color: #ffffff;
-  color: #ffffff;
-}
-
-.memory-subtract:active {
-  filter: brightness(0.8);
-}
-
-.memory-subtract:focus-visible {
-  outline: 3px solid #ffffff;
-  outline-offset: 2px;
-}
-
-/* Botão x²: mesmo estilo do M+ (pílula com contorno cinza), na linha da memória. */
-.square-add {
-  padding: 0.4rem 0.9rem;
-  border: 1px solid #a5a5a5;
-  border-radius: 999px;
-  background: transparent;
-  color: #a5a5a5;
-  font: inherit;
-  font-size: 0.875rem;
-  cursor: pointer;
-}
-
-.square-add:hover {
-  border-color: #ffffff;
-  color: #ffffff;
-}
-
-.square-add:active {
-  filter: brightness(0.8);
-}
-
-.square-add:focus-visible {
-  outline: 3px solid #ffffff;
-  outline-offset: 2px;
-}
-
-/* Botão log: mesmo estilo do x² (pílula com contorno cinza), na linha da memória. */
-.log-button {
-  padding: 0.4rem 0.9rem;
-  border: 1px solid #a5a5a5;
-  border-radius: 999px;
-  background: transparent;
-  color: #a5a5a5;
-  font: inherit;
-  font-size: 0.875rem;
-  cursor: pointer;
-}
-
-.log-button:hover {
-  border-color: #ffffff;
-  color: #ffffff;
-}
-
-.log-button:active {
-  filter: brightness(0.8);
-}
-
-.log-button:focus-visible {
-  outline: 3px solid #ffffff;
-  outline-offset: 2px;
-}
-
-/* Botão sen: mesmo estilo do M+ e do x² (pílula com contorno cinza), na linha da memória. */
-.sine-add {
-  padding: 0.4rem 0.9rem;
-  border: 1px solid #a5a5a5;
-  border-radius: 999px;
-  background: transparent;
-  color: #a5a5a5;
-  font: inherit;
-  font-size: 0.875rem;
-  cursor: pointer;
-}
-
-.sine-add:hover {
-  border-color: #ffffff;
-  color: #ffffff;
-}
-
-.sine-add:active {
-  filter: brightness(0.8);
-}
-
-.sine-add:focus-visible {
-  outline: 3px solid #ffffff;
-  outline-offset: 2px;
-}
-
-/* Botão cos: mesmo estilo do M+, do x² e do sen (pílula com contorno cinza), na linha da memória. */
-.cos-add {
-  padding: 0.4rem 0.9rem;
-  border: 1px solid #a5a5a5;
-  border-radius: 999px;
-  background: transparent;
-  color: #a5a5a5;
-  font: inherit;
-  font-size: 0.875rem;
-  cursor: pointer;
-}
-
-.cos-add:hover {
-  border-color: #ffffff;
-  color: #ffffff;
-}
-
-.cos-add:active {
-  filter: brightness(0.8);
-}
-
-.cos-add:focus-visible {
-  outline: 3px solid #ffffff;
-  outline-offset: 2px;
-}
-
-/* Botão tan: mesmo estilo do M+, do x² e do sen (pílula com contorno cinza), na linha da memória. */
-.tan-add {
-  padding: 0.4rem 0.9rem;
-  border: 1px solid #a5a5a5;
-  border-radius: 999px;
-  background: transparent;
-  color: #a5a5a5;
-  font: inherit;
-  font-size: 0.875rem;
-  cursor: pointer;
-}
-
-.tan-add:hover {
-  border-color: #ffffff;
-  color: #ffffff;
-}
-
-.tan-add:active {
-  filter: brightness(0.8);
-}
-
-.tan-add:focus-visible {
-  outline: 3px solid #ffffff;
-  outline-offset: 2px;
-}
-
-/* Botão π: mesmo estilo do M+, do x² e do sen (pílula com contorno cinza), na linha da memória. */
-.pi-add {
-  padding: 0.4rem 0.9rem;
-  border: 1px solid #a5a5a5;
-  border-radius: 999px;
-  background: transparent;
-  color: #a5a5a5;
-  font: inherit;
-  font-size: 0.875rem;
-  cursor: pointer;
-}
-
-.pi-add:hover {
-  border-color: #ffffff;
-  color: #ffffff;
-}
-
-.pi-add:active {
-  filter: brightness(0.8);
-}
-
-.pi-add:focus-visible {
-  outline: 3px solid #ffffff;
-  outline-offset: 2px;
-}
-
-/* Botão e: mesmo estilo do M+, do x², do sen e do π (pílula com contorno cinza), na linha da memória. */
-.e-add {
-  padding: 0.4rem 0.9rem;
-  border: 1px solid #a5a5a5;
-  border-radius: 999px;
-  background: transparent;
-  color: #a5a5a5;
-  font: inherit;
-  font-size: 0.875rem;
-  cursor: pointer;
-}
-
-.e-add:hover {
-  border-color: #ffffff;
-  color: #ffffff;
-}
-
-.e-add:active {
-  filter: brightness(0.8);
-}
-
-.e-add:focus-visible {
-  outline: 3px solid #ffffff;
-  outline-offset: 2px;
-}
-
-/* Botão 1/x: mesmo estilo do M+, do x², do sen e do π (pílula com contorno cinza), na linha da memória. */
-.inverse-add {
-  padding: 0.4rem 0.9rem;
-  border: 1px solid #a5a5a5;
-  border-radius: 999px;
-  background: transparent;
-  color: #a5a5a5;
-  font: inherit;
-  font-size: 0.875rem;
-  cursor: pointer;
-}
-
-.inverse-add:hover {
-  border-color: #ffffff;
-  color: #ffffff;
-}
-
-.inverse-add:active {
-  filter: brightness(0.8);
-}
-
-.inverse-add:focus-visible {
-  outline: 3px solid #ffffff;
-  outline-offset: 2px;
-}
-
-/* Botões ( e ): mesmo estilo do M+ e das outras pílulas da linha da memória (contorno cinza). */
+/* Botões ( e ): pílula cinza, como as demais teclas de função. */
 .paren-add {
   padding: 0.4rem 0.9rem;
   border: 1px solid #a5a5a5;
@@ -413,87 +156,13 @@ body {
   outline-offset: 2px;
 }
 
-/* Botão x!: mesmo estilo do M+, do x², do sen, do π e do 1/x (pílula com contorno cinza), na linha da memória. */
-.factorial-add {
-  padding: 0.4rem 0.9rem;
-  border: 1px solid #a5a5a5;
-  border-radius: 999px;
-  background: transparent;
-  color: #a5a5a5;
-  font: inherit;
-  font-size: 0.875rem;
-  cursor: pointer;
-}
-
-.factorial-add:hover {
-  border-color: #ffffff;
-  color: #ffffff;
-}
-
-.factorial-add:active {
-  filter: brightness(0.8);
-}
-
-.factorial-add:focus-visible {
-  outline: 3px solid #ffffff;
-  outline-offset: 2px;
-}
-
-/* Botão √x: mesmo estilo do M+, do x², do sen, do π e do 1/x (pílula com contorno cinza), na linha da memória. */
-.sqrt-add {
-  padding: 0.4rem 0.9rem;
-  border: 1px solid #a5a5a5;
-  border-radius: 999px;
-  background: transparent;
-  color: #a5a5a5;
-  font: inherit;
-  font-size: 0.875rem;
-  cursor: pointer;
-}
-
-.sqrt-add:hover {
-  border-color: #ffffff;
-  color: #ffffff;
-}
-
-.sqrt-add:active {
-  filter: brightness(0.8);
-}
-
-.sqrt-add:focus-visible {
-  outline: 3px solid #ffffff;
-  outline-offset: 2px;
-}
-
-/* xʸ: mesmo estilo do 1/x (pílula com contorno cinza), na linha da memória. */
-.power-add {
-  padding: 0.4rem 0.9rem;
-  border: 1px solid #a5a5a5;
-  border-radius: 999px;
-  background: transparent;
-  color: #a5a5a5;
-  font: inherit;
-  font-size: 0.875rem;
-  cursor: pointer;
-}
-
-.power-add:hover {
-  border-color: #ffffff;
-  color: #ffffff;
-}
-
-.power-add:active {
-  filter: brightness(0.8);
-}
-
-.power-add:focus-visible {
+.scientific > button:focus-visible {
   outline: 3px solid #ffffff;
   outline-offset: 2px;
 }
 
 /* xʸ à espera do segundo número: fundo branco e texto laranja, como o operador pendente do teclado. */
 .power-add[aria-pressed="true"] {
-  border-color: #ffffff;
   background: #ffffff;
   color: #b35c00;
 }
@@ -503,29 +172,6 @@ body {
   font-size: 0.875rem;
   font-weight: 600;
   color: #ff9f0a;
-}
-
-/* Pílulas da linha da memória: padding horizontal menor e largura que cresce para ocupar a linha toda.
- * Assim as pílulas cabem em 320px sem rolagem horizontal, mesmo com o indicador M e a unidade DEG visíveis. */
-.memory > button {
-  flex: 1 0 auto;
-  padding: 0.4rem 0.375rem;
-  text-align: center;
-}
-
-/* Indicador de memória: aparece enquanto o registrador for diferente de 0 (o atributo hidden esconde). */
-.memory-indicator {
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: #ff9f0a;
-}
-
-/* Unidade angular do sen, sempre visível, à direita da linha da memória. Cinza sobre preto: contraste alto. */
-.angle-unit {
-  margin-left: auto;
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: #a5a5a5;
 }
 
 /* Texto só para leitor de tela. */
@@ -543,19 +189,18 @@ body {
 
 .btn {
   width: 100%;
-  aspect-ratio: 1;
+  height: 100%;
   border: 0;
   border-radius: 999px;
   font: inherit;
-  font-size: 2rem;
+  font-size: min(2rem, calc(var(--cell) * 0.5));
   line-height: 1;
   cursor: pointer;
 }
 
 .btn-zero {
   grid-column: span 2;
-  aspect-ratio: auto;
-  padding-left: 1.75rem;
+  padding-left: 1.5rem;
   text-align: left;
   border-radius: 999px;
 }
@@ -806,8 +451,9 @@ body {
 /*
  * Mobile (até 767px). Fica no fim do arquivo para vencer as regras base de mesma especificidade.
  * A calculadora ocupa a viewport inteira. Cada botão é um quadrado de lado --cell, que é o menor entre:
- * a largura (4 colunas) e a altura (5 linhas, com o display com pelo menos --display-min).
- * Assim os botões não distorcem e o display recebe o que sobra.
+ * a largura (7 colunas, com 6 espaços entre elas) e a altura (5 linhas, com o visor com pelo menos --display-min
+ * e a linha de status acima dele). Assim os botões não distorcem, ficam com pelo menos 44px em 360px de largura,
+ * e o visor recebe o que sobra.
  */
 @media (max-width: 767px) {
   body {
@@ -821,9 +467,13 @@ body {
   }
 
   .calculator {
-    --pad: 1rem;
-    --gap: 0.75rem;
     --display-min: 4.5rem;
+    --status-height: 1.5rem;
+    /* Largura: 7 colunas e 6 espaços. Altura: 5 linhas, 4 espaços, visor mínimo e status. */
+    --cell: min(
+      calc((100vw - 2 * var(--pad) - 6 * var(--gap)) / 7),
+      calc((100dvh - 2 * var(--pad) - 4 * var(--gap) - var(--display-min) - var(--status-height)) / 5)
+    );
     position: relative;
     display: flex;
     flex-direction: column;
@@ -831,6 +481,11 @@ body {
     height: 100%;
     padding: var(--pad);
     border-radius: 0;
+  }
+
+  .status {
+    flex: none;
+    min-height: var(--status-height);
   }
 
   .display {
@@ -841,30 +496,9 @@ body {
     justify-content: flex-end;
   }
 
-  .memory {
+  .panel {
     flex: none;
-  }
-
-  .keypad {
-    /* Altura descontada: 4 intervalos do teclado, o visor mínimo e a linha da memória (2.25rem + margem de 0.5rem acima). */
-    --cell: min(
-      calc((100vw - 2 * var(--pad) - 3 * var(--gap)) / 4),
-      calc((100dvh - 2 * var(--pad) - 4 * var(--gap) - var(--display-min) - 2.75rem) / 5)
-    );
-    flex: none;
-    grid-template-columns: repeat(4, var(--cell));
-    grid-auto-rows: var(--cell);
-    gap: var(--gap);
-    justify-content: center;
     margin-top: 0;
-  }
-
-  /* O 0 continua com grid-column: span 2 (regra base), então ocupa dois quadrados e o espaço entre eles. */
-  .btn {
-    width: 100%;
-    height: 100%;
-    aspect-ratio: auto;
-    font-size: min(2rem, calc(var(--cell) * 0.42));
   }
 
   .history-open {

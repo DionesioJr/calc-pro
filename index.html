@@ -11,53 +11,57 @@
       <main class="calculator" id="calculator">
         <h1>Calculadora Pro</h1>
         <button type="button" id="history-open" class="history-open" aria-controls="history-panel" aria-expanded="false">Histórico</button>
-        <output id="display" class="display" aria-live="polite">0</output>
-        <div class="memory">
-          <button type="button" id="memory-clear" class="memory-clear" data-action="memory-clear" aria-label="Limpar memória (MC)">MC</button>
-          <button type="button" id="memory-recall" class="memory-recall" data-action="memory-recall" aria-label="Recuperar memória (MR)">MR</button>
-          <button type="button" id="memory-add" class="memory-add" data-action="memory-add" aria-label="Somar à memória (M+)">M+</button>
-          <button type="button" id="memory-subtract" class="memory-subtract" data-action="memory-subtract" aria-label="Subtrair da memória (M-)">M-</button>
-          <button type="button" id="square-button" class="square-add" data-action="square" aria-label="Elevar ao quadrado (x²)">x²</button>
-          <button type="button" id="log-button" class="log-button" data-action="log" aria-label="Logaritmo na base 10 (log)">log</button>
-          <button type="button" id="sine-button" class="sine-add" data-action="sine" aria-label="Seno em graus (sen)">sen</button>
-          <button type="button" id="cos-button" class="cos-add" data-action="cos" aria-label="Cosseno em graus (cos)">cos</button>
-          <button type="button" id="pi-button" class="pi-add" data-action="pi" aria-label="Inserir pi (π)">π</button>
-          <button type="button" id="e-button" class="e-add" data-action="euler" aria-label="Inserir número de Euler (e)">e</button>
-          <button type="button" id="tan-button" class="tan-add" data-action="tan" aria-label="Tangente em graus (tan)">tan</button>
-          <button type="button" id="power-button" class="power-add" data-action="power" aria-label="Elevar à potência (xʸ)">xʸ</button>
-          <button type="button" id="inverse-button" class="inverse-add" data-action="inverse" aria-label="Inverso (1/x)">1/x</button>
-          <button type="button" id="factorial-button" class="factorial-add" data-action="factorial" aria-label="Fatorial (x!)">x!</button>
-          <button type="button" id="sqrt-button" class="sqrt-add" data-action="sqrt" aria-label="Raiz quadrada (√x)">√x</button>
-          <button type="button" id="open-paren-button" class="paren-add" data-action="open-paren" aria-label="Abrir parêntese (">(</button>
-          <button type="button" id="close-paren-button" class="paren-add" data-action="close-paren" aria-label="Fechar parêntese )">)</button>
-          <span id="paren-indicator" class="paren-indicator" hidden><span id="paren-symbols" aria-hidden="true"></span><span id="paren-text" class="sr-only"></span></span>
+        <div class="status">
           <span id="memory-indicator" class="memory-indicator" hidden><span aria-hidden="true">M</span><span class="sr-only">Memória com valor guardado</span></span>
+          <span id="paren-indicator" class="paren-indicator" hidden><span id="paren-symbols" aria-hidden="true"></span><span id="paren-text" class="sr-only"></span></span>
           <span id="angle-unit" class="angle-unit"><span aria-hidden="true">DEG</span><span class="sr-only">Unidade angular: graus</span></span>
         </div>
-        <div class="keypad">
-          <button type="button" class="btn btn-function" data-action="all-clear" aria-label="Limpar">AC</button>
-          <button type="button" class="btn btn-function" data-action="toggle-sign" aria-label="Inverter sinal">+/-</button>
-          <button type="button" class="btn btn-function" data-action="percent" aria-label="Porcentagem">%</button>
-          <button type="button" class="btn btn-operator" data-action="divide" aria-label="Dividir">÷</button>
+        <output id="display" class="display" aria-live="polite">0</output>
+        <div class="panel">
+          <div class="scientific">
+            <button type="button" id="memory-clear" class="memory-clear" data-action="memory-clear" aria-label="Limpar memória (MC)">MC</button>
+            <button type="button" id="memory-recall" class="memory-recall" data-action="memory-recall" aria-label="Recuperar memória (MR)">MR</button>
+            <button type="button" id="memory-add" class="memory-add" data-action="memory-add" aria-label="Somar à memória (M+)">M+</button>
+            <button type="button" id="memory-subtract" class="memory-subtract" data-action="memory-subtract" aria-label="Subtrair da memória (M-)">M-</button>
+            <button type="button" id="square-button" class="square-add" data-action="square" aria-label="Elevar ao quadrado (x²)">x²</button>
+            <button type="button" id="log-button" class="log-button" data-action="log" aria-label="Logaritmo na base 10 (log)">log</button>
+            <button type="button" id="sine-button" class="sine-add" data-action="sine" aria-label="Seno em graus (sen)">sen</button>
+            <button type="button" id="cos-button" class="cos-add" data-action="cos" aria-label="Cosseno em graus (cos)">cos</button>
+            <button type="button" id="tan-button" class="tan-add" data-action="tan" aria-label="Tangente em graus (tan)">tan</button>
+            <button type="button" id="power-button" class="power-add" data-action="power" aria-label="Elevar à potência (xʸ)">xʸ</button>
+            <button type="button" id="pi-button" class="pi-add" data-action="pi" aria-label="Inserir pi (π)">π</button>
+            <button type="button" id="e-button" class="e-add" data-action="euler" aria-label="Inserir número de Euler (e)">e</button>
+            <button type="button" id="inverse-button" class="inverse-add" data-action="inverse" aria-label="Inverso (1/x)">1/x</button>
+            <button type="button" id="factorial-button" class="factorial-add" data-action="factorial" aria-label="Fatorial (x!)">x!</button>
+            <button type="button" id="sqrt-button" class="sqrt-add" data-action="sqrt" aria-label="Raiz quadrada (√x)">√x</button>
+            <button type="button" id="open-paren-button" class="paren-add" data-action="open-paren" aria-label="Abrir parêntese (">(</button>
+            <button type="button" id="close-paren-button" class="paren-add" data-action="close-paren" aria-label="Fechar parêntese )">)</button>
+          </div>
+          <div class="keypad">
+            <button type="button" class="btn btn-function" data-action="all-clear" aria-label="Limpar">AC</button>
+            <button type="button" class="btn btn-function" data-action="toggle-sign" aria-label="Inverter sinal">+/-</button>
+            <button type="button" class="btn btn-function" data-action="percent" aria-label="Porcentagem">%</button>
+            <button type="button" class="btn btn-operator" data-action="divide" aria-label="Dividir">÷</button>
 
-          <button type="button" class="btn btn-digit" data-value="7">7</button>
-          <button type="button" class="btn btn-digit" data-value="8">8</button>
-          <button type="button" class="btn btn-digit" data-value="9">9</button>
-          <button type="button" class="btn btn-operator" data-action="multiply" aria-label="Multiplicar">×</button>
+            <button type="button" class="btn btn-digit" data-value="7">7</button>
+            <button type="button" class="btn btn-digit" data-value="8">8</button>
+            <button type="button" class="btn btn-digit" data-value="9">9</button>
+            <button type="button" class="btn btn-operator" data-action="multiply" aria-label="Multiplicar">×</button>
 
-          <button type="button" class="btn btn-digit" data-value="4">4</button>
-          <button type="button" class="btn btn-digit" data-value="5">5</button>
-          <button type="button" class="btn btn-digit" data-value="6">6</button>
-          <button type="button" class="btn btn-operator" data-action="subtract" aria-label="Subtrair">−</button>
+            <button type="button" class="btn btn-digit" data-value="4">4</button>
+            <button type="button" class="btn btn-digit" data-value="5">5</button>
+            <button type="button" class="btn btn-digit" data-value="6">6</button>
+            <button type="button" class="btn btn-operator" data-action="subtract" aria-label="Subtrair">−</button>
 
-          <button type="button" class="btn btn-digit" data-value="1">1</button>
-          <button type="button" class="btn btn-digit" data-value="2">2</button>
-          <button type="button" class="btn btn-digit" data-value="3">3</button>
-          <button type="button" class="btn btn-operator" data-action="add" aria-label="Somar">+</button>
+            <button type="button" class="btn btn-digit" data-value="1">1</button>
+            <button type="button" class="btn btn-digit" data-value="2">2</button>
+            <button type="button" class="btn btn-digit" data-value="3">3</button>
+            <button type="button" class="btn btn-operator" data-action="add" aria-label="Somar">+</button>
 
-          <button type="button" class="btn btn-digit btn-zero" data-value="0">0</button>
-          <button type="button" class="btn btn-digit" data-value="." aria-label="Ponto decimal">.</button>
-          <button type="button" class="btn btn-operator" data-action="equals" aria-label="Igual">=</button>
+            <button type="button" class="btn btn-digit btn-zero" data-value="0">0</button>
+            <button type="button" class="btn btn-digit" data-value="." aria-label="Ponto decimal">.</button>
+            <button type="button" class="btn btn-operator" data-action="equals" aria-label="Igual">=</button>
+          </div>
         </div>
       </main>
       <section class="history" id="history-panel" aria-labelledby="history-title">
