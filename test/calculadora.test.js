@@ -11,7 +11,8 @@
 // e do botão sen (CALC-31: seno do visor em graus, com a unidade DEG visível),
 // e do botão π (CALC-36: insere pi como operando),
 // e do botão 1/x (CALC-38: inverso do visor, com Erro para zero),
-// e do botão M- (CALC-23: subtrai o visor da memória).
+// e do botão M- (CALC-23: subtrai o visor da memória),
+// e do botão MR (CALC-24: copia a memória para o visor como operando).
 // Executa script.js real num contexto isolado, com um DOM mínimo, e aperta
 // os botões pelo mesmo caminho de clique que o navegador usa; o teclado usa o mesmo
 // caminho de keydown.
@@ -137,6 +138,9 @@ function createCalculator({ storage = {} } = {}) {
   const historyOpenButton = createElementMock("button");
   const historyCloseButton = createElementMock("button");
   const calculatorMain = createElementMock("main");
+  // MR fica fora do teclado, antes do M+ na linha da memória, como em index.html.
+  const memoryRecallElement = createElementMock("button");
+  memoryRecallElement.dataset = { action: "memory-recall" };
   // M+ fica fora do teclado, como em index.html; o indicador começa escondido, como no HTML.
   const memoryAddElement = createElementMock("button");
   memoryAddElement.dataset = { action: "memory-add" };
@@ -168,6 +172,7 @@ function createCalculator({ storage = {} } = {}) {
     buttonByKey[key] = createButton(KEY_DATASET[key]);
   }
   const buttons = Object.values(buttonByKey);
+  buttonByKey["MR"] = memoryRecallElement;
   buttonByKey["M+"] = memoryAddElement;
   buttonByKey["M-"] = memorySubtractElement;
   buttonByKey["x²"] = squareElement;
@@ -198,6 +203,7 @@ function createCalculator({ storage = {} } = {}) {
     "history-open": historyOpenButton,
     "history-close": historyCloseButton,
     calculator: calculatorMain,
+    "memory-recall": memoryRecallElement,
     "memory-add": memoryAddElement,
     "memory-subtract": memorySubtractElement,
     "memory-indicator": memoryIndicatorElement,
@@ -233,9 +239,13 @@ function createCalculator({ storage = {} } = {}) {
   const context = vm.createContext({ document, window, localStorage });
   vm.runInContext(SCRIPT_SOURCE, context, { filename: "script.js" });
 
-  // Aperta as teclas em sequência e devolve o texto final do display. M+, M-, x², sen, π e 1/x são clicados pelo próprio botão, fora do teclado.
+  // Aperta as teclas em sequência e devolve o texto final do display. MR, M+, M-, x², sen, π e 1/x são clicados pelo próprio botão, fora do teclado.
   function press(...keys) {
     for (const key of keys) {
+      if (key === "MR") {
+        memoryRecallElement.dispatch("click");
+        continue;
+      }
       if (key === "M+") {
         memoryAddElement.dispatch("click");
         continue;
@@ -420,6 +430,7 @@ function createCalculator({ storage = {} } = {}) {
     memoryValue,
     memoryIndicatorHidden: () => memoryIndicatorElement.hidden,
     memoryAddFocused: () => memoryAddElement.focused,
+    memoryRecallFocused: () => memoryRecallElement.focused,
   };
 }
 
@@ -2170,7 +2181,7 @@ describe("CALC-23: teclado, foco e estrutura do M-", () => {
   test("index.html tem o botão M- ao lado do M+, na linha da memória, fora do teclado, com rótulo que anuncia a operação", () => {
     assert.match(
       HTML_SOURCE,
-      /<div class="memory">\s*<button type="button" id="memory-add"[^>]*>M\+<\/button>\s*<button type="button" id="memory-subtract" class="memory-subtract" data-action="memory-subtract" aria-label="Subtrair da memória \(M-\)">M-<\/button>\s*<button type="button" id="square-button"[\s\S]*?<\/div>\s*<div class="keypad">/,
+      /<div class="memory">\s*<button type="button" id="memory-recall"[^>]*>MR<\/button>\s*<button type="button" id="memory-add"[^>]*>M\+<\/button>\s*<button type="button" id="memory-subtract" class="memory-subtract" data-action="memory-subtract" aria-label="Subtrair da memória \(M-\)">M-<\/button>\s*<button type="button" id="square-button"[\s\S]*?<\/div>\s*<div class="keypad">/,
     );
   });
 
@@ -2181,5 +2192,109 @@ describe("CALC-23: teclado, foco e estrutura do M-", () => {
 
   test("a linha da memória quebra linha em vez de estourar a largura com seis botões: .memory com flex-wrap: wrap", () => {
     assert.match(CSS_SOURCE, /\.memory\s*\{[^}]*flex-wrap:\s*wrap;[^}]*\}/);
+  });
+});
+
+describe("CALC-24: critérios de aceite do MR", () => {
+  test("memória 5, MR mostra 5: 5, M+, AC, MR mostra 5", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("5", "M+", "AC", "MR"), "5");
+    assert.equal(calc.memoryValue(), 5);
+  });
+
+  test("memória 5, MR + 2 = resulta em 7: 5, M+, AC, MR, +, 2, = mostra 7", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("5", "M+", "AC", "MR", "+", "2", "="), "7");
+  });
+
+  test("MR depois de operador vira o segundo operando: 5, M+, AC, 2, +, MR, = mostra 7", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("5", "M+", "AC", "2", "+", "MR", "="), "7");
+  });
+});
+
+describe("CALC-24: casos de borda do MR", () => {
+  test("memória vazia conta como 0: 7, MR mostra 0 e o indicador continua escondido", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("7", "MR"), "0");
+    assert.equal(calc.memoryValue(), 0);
+    assert.equal(calc.memoryIndicatorHidden(), true);
+  });
+
+  test("MR não muda a memória: 5, M+, AC, MR, MR mantém a memória em 5", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("5", "M+", "AC", "MR", "MR"), "5");
+    assert.equal(calc.memoryValue(), 5);
+    assert.equal(calc.memoryIndicatorHidden(), false);
+  });
+
+  test("MR substitui o número em curso: 5, M+, AC, 3, MR mostra 5", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("5", "M+", "AC", "3", "MR"), "5");
+  });
+
+  test("memória negativa aparece com sinal: 3, M-, MR mostra -3", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("3", "M-", "MR"), "-3");
+    assert.equal(calc.memoryValue(), -3);
+  });
+
+  test("memória decimal aparece sem ruído de ponto flutuante: 0.1, M+, 0.2, M+, AC, MR mostra 0.3", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("0", ".", "1", "M+", "AC", "0", ".", "2", "M+", "AC", "MR"), "0.3");
+    assert.equal(calc.memoryValue(), 0.3);
+  });
+
+  test("memória grande (até 2^53) aparece sem Erro: 94906265 × 94906265 =, M+, AC, MR mostra 9007199136250225", () => {
+    const calc = createCalculator({ storage: {} });
+    calc.press("9", "4", "9", "0", "6", "2", "6", "5", "×", "9", "4", "9", "0", "6", "2", "6", "5", "=", "M+", "AC");
+    assert.equal(calc.press("MR"), "9007199136250225");
+  });
+
+  test("com Erro no visor, MR começa uma calculadora nova com a memória: 5, M+, AC, 5, ÷, 0, =, MR mostra 5", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("5", "M+", "AC", "5", "÷", "0", "=", "MR"), "5");
+    assert.equal(calc.memoryValue(), 5);
+  });
+
+  test("com Erro no visor e memória vazia, MR mostra 0 e a conta volta ao normal: 5, ÷, 0, =, MR, 7 resulta em 7", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("5", "÷", "0", "=", "MR"), "0");
+    assert.equal(calc.press("7"), "7");
+  });
+
+  test("depois do MR o próximo dígito continua o número recuperado, como o π: 5, M+, AC, MR, 3 mostra 53", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("5", "M+", "AC", "MR", "3"), "53");
+  });
+
+  test("MR não entra no histórico de cálculos: 5, M+, AC, MR não grava nada", () => {
+    const storage = {};
+    const calc = createCalculator({ storage });
+    calc.press("5", "M+", "AC", "MR");
+    assert.deepEqual(calc.historyItems(), []);
+    assert.equal(HISTORY_KEY in storage, false);
+  });
+});
+
+describe("CALC-24: teclado, foco e estrutura do MR", () => {
+  test("MR não tem tecla própria: Enter com o foco no MR não vira igual, o cálculo em curso fica", () => {
+    const calc = createCalculator({ storage: {} });
+    calc.press("2", "+", "3");
+    const event = calc.keyDown("Enter", { target: { tagName: "BUTTON" } });
+    assert.equal(event.defaultPrevented, false);
+    assert.equal(calc.display(), "3");
+  });
+
+  test("index.html tem o botão MR antes do M+, na linha da memória, fora do teclado, com rótulo que anuncia a operação", () => {
+    assert.match(
+      HTML_SOURCE,
+      /<div class="memory">\s*<button type="button" id="memory-recall" class="memory-recall" data-action="memory-recall" aria-label="Recuperar memória \(MR\)">MR<\/button>\s*<button type="button" id="memory-add"/,
+    );
+  });
+
+  test("o MR tem o mesmo estilo de pílula cinza do M+ e foco visível com contorno branco", () => {
+    assert.match(CSS_SOURCE, /\.memory-recall\s*\{[^}]*border-radius:\s*999px;[^}]*color:\s*#a5a5a5;[^}]*\}/);
+    assert.match(CSS_SOURCE, /\.memory-recall:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
   });
 });

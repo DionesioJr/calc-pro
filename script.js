@@ -77,6 +77,8 @@ const memoryAddButton = document.getElementById("memory-add");
 const memoryIndicator = document.getElementById("memory-indicator");
 // Botão M- fica na linha da memória, ao lado do M+, sem tecla própria no teclado físico (o "-" segue como subtração).
 const memorySubtractButton = document.getElementById("memory-subtract");
+// Botão MR fica na linha da memória, antes do M+, também sem tecla própria no teclado físico.
+const memoryRecallButton = document.getElementById("memory-recall");
 
 // Botão x² fica na mesma linha do M+, fora do teclado numérico (que segue com 5 linhas).
 const squareButton = document.getElementById("square-button");
@@ -373,6 +375,16 @@ function memorySubtract() {
   changeMemory(-1);
 }
 
+// MR: copia a memória para o visor como operando atual, substituindo o número em curso, como o π.
+// Memória vazia é 0. A memória não muda. Após Erro, começa uma calculadora nova, como um dígito.
+function memoryRecall() {
+  if (state.error) {
+    reset();
+  }
+  state.current = formatResult(state.memory);
+  state.waitingForOperand = false;
+}
+
 // x²: eleva o número exibido ao quadrado, com a mesma regra de segundo operando do % (o visor mostra o resultado).
 // Com Erro no visor não calcula e mantém o Erro. Se o quadrado passar de 2^53 em valor absoluto, mostra Erro.
 function square() {
@@ -552,6 +564,8 @@ function handleButton(button) {
     memoryAdd();
   } else if (action === "memory-subtract") {
     memorySubtract();
+  } else if (action === "memory-recall") {
+    memoryRecall();
   } else if (action === "square") {
     square();
   } else if (action === "sine") {
@@ -655,6 +669,13 @@ if (memoryAddButton) {
 if (memorySubtractButton) {
   memorySubtractButton.addEventListener("click", () => {
     handleButton(memorySubtractButton);
+    render();
+  });
+}
+
+if (memoryRecallButton) {
+  memoryRecallButton.addEventListener("click", () => {
+    handleButton(memoryRecallButton);
     render();
   });
 }
