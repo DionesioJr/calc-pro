@@ -5,6 +5,9 @@ import assert from "node:assert/strict";
 import { ACTIONS } from "../src/calculator.js";
 import { fillKeypadMarkup, keypadMarkup, renderKeypad } from "../src/keypad.js";
 
+// angle-unit (DEG) fica estático na barra de status de index.html, fora dos dois contêineres gerados.
+const STATIC_IN_STATUS_BAR = ["angle-unit"];
+
 // Ids (id="...") de todos os botões de um trecho de HTML, na ordem em que aparecem.
 function buttonIds(markup) {
   return [...markup.matchAll(/<button[^>]*?\sid="([^"]+)"/g)].map((match) => match[1]);
@@ -40,7 +43,9 @@ describe("CALC-59: a linha de funções vem do registro, na ordem da tela", () =
   });
 
   test("cada botão da linha de funções tem o buttonId da própria ação do registro", () => {
-    const withButtonId = ACTIONS.filter((action) => action.buttonId !== undefined);
+    const withButtonId = ACTIONS.filter(
+      (action) => action.buttonId !== undefined && !STATIC_IN_STATUS_BAR.includes(action.id),
+    );
     assert.equal(buttonIds(keypadMarkup().scientific).length, withButtonId.length);
     for (const action of withButtonId) {
       assert.match(
@@ -52,12 +57,15 @@ describe("CALC-59: a linha de funções vem do registro, na ordem da tela", () =
 });
 
 describe("CALC-59: o teclado numérico e a linha de funções cobrem o registro sem repetição", () => {
-  test("o teclado tem 19 botões e a linha de funções 18: 37 no total, um por ação do registro", () => {
+  test("o teclado tem 19 botões e a linha de funções 18: 37 no total, um por ação do registro exceto angle-unit", () => {
     const { scientific, keypad } = keypadMarkup();
     assert.equal((keypad.match(/<button /g) ?? []).length, 19);
     assert.equal((scientific.match(/<button /g) ?? []).length, 18);
     const generated = buttonValues(scientific + keypad).sort();
-    assert.deepEqual(generated, ACTIONS.map((action) => action.id).sort());
+    const generatedActions = ACTIONS.map((action) => action.id)
+      .filter((id) => !STATIC_IN_STATUS_BAR.includes(id))
+      .sort();
+    assert.deepEqual(generated, generatedActions);
   });
 
   test("o botão de ponto usa data-value e aria-label do registro: <button ... data-value=\".\" aria-label=\"Ponto decimal\">.</button>", () => {

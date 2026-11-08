@@ -7,7 +7,7 @@ import { bindKeyboard } from "./keyboard.js";
 import { renderKeypad } from "./keypad.js";
 import { bindUi, hideHistoryPanel, render } from "./ui.js";
 
-// Botões fora do teclado numérico (linha da memória e linha de funções), tirados do registro ACTIONS: cada um executa a ação do próprio data-action.
+// Botões fora do teclado numérico (linha da memória, linha de funções e DEG/RAD), tirados do registro ACTIONS: cada um executa a ação do próprio data-action.
 const FUNCTION_BUTTON_IDS = ACTIONS.filter((action) => action.buttonId).map((action) => action.buttonId);
 
 // Estado da calculadora na tela. Só este módulo o troca; os demais recebem o estado como parâmetro.

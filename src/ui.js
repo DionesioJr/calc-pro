@@ -1,5 +1,5 @@
 // Interface: desenha o visor e os indicadores a partir do estado, e controla o painel do histórico no mobile.
-import { OPEN_PAREN, OPERATIONS, openDepth, trailingOperator } from "./calculator.js";
+import { ACTIONS, OPEN_PAREN, openDepth, trailingOperator } from "./calculator.js";
 
 // Tamanho do display pelo número de caracteres exibidos (sinal e ponto contam).
 const DISPLAY_SIZES = [
@@ -7,6 +7,9 @@ const DISPLAY_SIZES = [
   { maxLength: 8, className: "display-48" },
   { maxLength: Infinity, className: "display-40" },
 ];
+
+// Ids das ações binárias (+, −, ×, ÷, xʸ), tiradas do registro ACTIONS: dizem só quais botões são operadores, não fazem conta.
+const BINARY_ACTION_IDS = new Set(ACTIONS.filter((action) => action.type === "binary").map((action) => action.id));
 
 let display = null;
 let calculatorElement = null;
@@ -17,6 +20,12 @@ let memoryIndicator = null;
 let parenIndicator = null;
 let parenSymbols = null;
 let parenText = null;
+let angleUnitButton = null;
+// Texto visível e nome do botão DEG/RAD: o rótulo acessível diz a unidade atual e a próxima.
+const ANGLE_UNITS = {
+  deg: { label: "DEG", name: "graus", next: "radianos" },
+  rad: { label: "RAD", name: "radianos", next: "graus" },
+};
 // Botões de operador (destacados enquanto a operação espera o segundo número).
 let operatorButtons = [];
 
@@ -31,11 +40,12 @@ export function bindUi(doc, win) {
   parenIndicator = doc.getElementById("paren-indicator");
   parenSymbols = doc.getElementById("paren-symbols");
   parenText = doc.getElementById("paren-text");
+  angleUnitButton = doc.getElementById("angle-unit");
 
   // Botões do teclado numérico, mais o xʸ (que fica fora do teclado): operadores binários com destaque pendente.
   const keypad = doc.querySelector(".keypad");
   const buttons = keypad ? Array.from(keypad.querySelectorAll("button")) : [];
-  operatorButtons = buttons.filter((button) => Object.hasOwn(OPERATIONS, button.dataset.action));
+  operatorButtons = buttons.filter((button) => BINARY_ACTION_IDS.has(button.dataset.action));
   const powerButton = doc.getElementById("power-button");
   if (powerButton) {
     operatorButtons.push(powerButton);
@@ -87,6 +97,13 @@ export function render(state) {
   // Indicador de memória: visível só enquanto houver valor guardado.
   if (memoryIndicator) {
     memoryIndicator.hidden = state.memory === 0;
+  }
+
+  // Unidade angular: o botão DEG/RAD mostra a unidade atual o tempo todo, e o rótulo acessível diz a atual e a próxima.
+  if (angleUnitButton) {
+    const unit = ANGLE_UNITS[state.angleUnit];
+    angleUnitButton.textContent = unit.label;
+    angleUnitButton.setAttribute("aria-label", `${unit.label} (${unit.name}), trocar para ${unit.next}`);
   }
 
   // Indicador de parênteses: visível só com grupo aberto. Os "(" aparecem no visor da linha e o texto vai para o leitor de tela.
