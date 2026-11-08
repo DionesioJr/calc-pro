@@ -231,6 +231,32 @@ body {
   outline-offset: 2px;
 }
 
+/* Botão ln: mesmo estilo do log (pílula com contorno cinza), na linha da memória, logo depois do log. */
+.ln-add {
+  padding: 0.4rem 0.9rem;
+  border: 1px solid #a5a5a5;
+  border-radius: 999px;
+  background: transparent;
+  color: #a5a5a5;
+  font: inherit;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.ln-add:hover {
+  border-color: #ffffff;
+  color: #ffffff;
+}
+
+.ln-add:active {
+  filter: brightness(0.8);
+}
+
+.ln-add:focus-visible {
+  outline: 3px solid #ffffff;
+  outline-offset: 2px;
+}
+
 /* Botão sen: mesmo estilo do M+ e do x² (pílula com contorno cinza), na linha da memória. */
 .sine-add {
   padding: 0.4rem 0.9rem;

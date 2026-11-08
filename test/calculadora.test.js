@@ -16,7 +16,8 @@
 // e do botão xʸ (CALC-29: potência binária com precedência sobre × e ÷, associação à direita e Erro para resultado não real),
 // e do botão M- (CALC-23: subtrai o visor da memória),
 // e do botão MR (CALC-24: copia a memória para o visor como operando),
-// e do botão MC (CALC-25: zera a memória e o indicador).
+// e do botão MC (CALC-25: zera a memória e o indicador),
+// e do botão ln (CALC-35: logaritmo natural do visor, com Erro para valor menor ou igual a zero).
 // Executa script.js real num contexto isolado, com um DOM mínimo, e aperta
 // os botões pelo mesmo caminho de clique que o navegador usa; o teclado usa o mesmo
 // caminho de keydown.
@@ -174,6 +175,9 @@ function createCalculator({ storage = {} } = {}) {
   // tan também fica fora do teclado, na linha da memória, como em index.html.
   const tangentElement = createElementMock("button");
   tangentElement.dataset = { action: "tan" };
+  // ln também fica fora do teclado, na linha da memória, logo depois do log, como em index.html.
+  const lnElement = createElementMock("button");
+  lnElement.dataset = { action: "ln" };
   // xʸ também fica fora do teclado, na linha da memória, como em index.html.
   const powerElement = createElementMock("button");
   powerElement.dataset = { action: "power" };
@@ -194,6 +198,7 @@ function createCalculator({ storage = {} } = {}) {
   buttonByKey["M-"] = memorySubtractElement;
   buttonByKey["x²"] = squareElement;
   buttonByKey["log"] = logElement;
+  buttonByKey["ln"] = lnElement;
   buttonByKey["sen"] = sineElement;
   buttonByKey["π"] = piElement;
   buttonByKey["1/x"] = inverseElement;
@@ -230,6 +235,7 @@ function createCalculator({ storage = {} } = {}) {
     "memory-indicator": memoryIndicatorElement,
     "square-button": squareElement,
     "log-button": logElement,
+    "ln-button": lnElement,
     "sine-button": sineElement,
     "pi-button": piElement,
     "inverse-button": inverseElement,
@@ -288,6 +294,10 @@ function createCalculator({ storage = {} } = {}) {
       }
       if (key === "log") {
         logElement.dispatch("click");
+        continue;
+      }
+      if (key === "ln") {
+        lnElement.dispatch("click");
         continue;
       }
       if (key === "sen") {
@@ -2930,5 +2940,109 @@ describe("CALC-29: teclado, foco e estrutura do xʸ", () => {
 
   test("o xʸ pendente tem o destaque de operador do teclado (texto laranja sobre branco)", () => {
     assert.match(CSS_SOURCE, /\.power-add\[aria-pressed="true"\]\s*\{[^}]*background:\s*#ffffff;[^}]*color:\s*#b35c00;/);
+  });
+});
+
+// CALC-35: ln (logaritmo natural). Não há tecla para e exato: ln(e) é conferido com 2,71828182 (arredonda para 1 nas 8 casas).
+describe("CALC-35: critérios de aceite do ln (logaritmo natural)", () => {
+  test("ln(e) = 1: 2,71828182, ln resulta em 1", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("2", ".", "7", "1", "8", "2", "8", "1", "8", "2", "ln"), "1");
+  });
+
+  test("ln(0) mostra Erro: 0, ln resulta em Erro", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("0", "ln"), "Erro");
+  });
+
+  test("ln(-1) mostra Erro: 1, +/-, ln resulta em Erro", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("1", "+/-", "ln"), "Erro");
+  });
+});
+
+describe("CALC-35: casos de borda do ln (logaritmo natural)", () => {
+  test("ln(1) = 0: 1, ln resulta em 0", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("1", "ln"), "0");
+  });
+
+  test("ln(10) não exato segue a precisão do visor: 10, ln resulta em 2.30258509", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("1", "0", "ln"), "2.30258509");
+  });
+
+  test("ln(2) não exato arredondado a 8 casas: 2, ln resulta em 0.69314718", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("2", "ln"), "0.69314718");
+  });
+
+  test("valor entre 0 e 1 tem ln negativo: 0,5 ln resulta em -0.69314718", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("0", ".", "5", "ln"), "-0.69314718");
+  });
+
+  test("ln de valor logo acima de 1 fica sem notação científica: 1,00000001 ln resulta em 0.00000001", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("1", ".", "0", "0", "0", "0", "0", "0", "0", "1", "ln"), "0.00000001");
+  });
+
+  test("ln de valor abaixo de 1 perto do limite não mostra -0: 0,999999999 ln resulta em 0", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("0", ".", "9", "9", "9", "9", "9", "9", "9", "9", "9", "ln"), "0");
+  });
+
+  test("Erro reinicia com o próximo dígito: 0, ln, 7 resulta em 7", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("0", "ln", "7"), "7");
+  });
+
+  test("ln com Erro no visor mantém o Erro: 0, ln, ln resulta em Erro", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("0", "ln", "ln"), "Erro");
+  });
+
+  test("ln depois do igual usa o resultado: 2 + 3 =, ln resulta em 1.60943791", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("2", "+", "3", "=", "ln"), "1.60943791");
+  });
+
+  test("ln no segundo operando entra na conta, como o log: 2 + ln =, resulta em 2.69314718", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("2", "+", "ln", "="), "2.69314718");
+  });
+
+  test("ln de zero dentro de uma conta mostra Erro: 2 + 0 ln resulta em Erro", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("2", "+", "0", "ln"), "Erro");
+  });
+});
+
+describe("CALC-35: histórico, teclado, foco e estrutura do ln", () => {
+  test("ln não grava no histórico sozinho: 1 ln não cria item nem chave no localStorage", () => {
+    const storage = {};
+    const calc = createCalculator({ storage });
+    calc.press("1", "ln");
+    assert.deepEqual(calc.historyItems(), []);
+    assert.equal(HISTORY_KEY in storage, false);
+  });
+
+  test("Enter com o foco no ln não vira igual: o botão é que age (clique nativo), o cálculo em curso fica", () => {
+    const calc = createCalculator({ storage: {} });
+    calc.press("2", "+", "3");
+    const event = calc.keyDown("Enter", { target: { tagName: "BUTTON" } });
+    assert.equal(event.defaultPrevented, false);
+    assert.equal(calc.display(), "3");
+  });
+
+  test("index.html tem o botão ln na linha da memória (fora do teclado), logo depois do log, com rótulo que anuncia a operação", () => {
+    assert.match(
+      HTML_SOURCE,
+      /<div class="memory">[\s\S]*?<button type="button" id="log-button"[^>]*>log<\/button>\s*<button type="button" id="ln-button" class="ln-add" data-action="ln" aria-label="Logaritmo natural \(ln\)">ln<\/button>[\s\S]*?<\/div>\s*<div class="keypad">/,
+    );
+  });
+
+  test("o ln tem foco visível com contorno branco, sem remover o outline", () => {
+    assert.match(CSS_SOURCE, /\.ln-add:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
   });
 });
