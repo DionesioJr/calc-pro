@@ -1,5 +1,5 @@
 // Interface: desenha o visor e os indicadores a partir do estado, e controla o painel do histórico no mobile.
-import { OPEN_PAREN, OPERATIONS, openDepth, state, trailingOperator } from "./calculator.js";
+import { OPEN_PAREN, OPERATIONS, openDepth, trailingOperator } from "./calculator.js";
 
 // Tamanho do display pelo número de caracteres exibidos (sinal e ponto contam).
 const DISPLAY_SIZES = [
@@ -68,7 +68,8 @@ function displaySizeClass(text) {
   return DISPLAY_SIZES.find((size) => text.length <= size.maxLength).className;
 }
 
-export function render() {
+// Desenha o visor e os indicadores a partir do estado recebido (quem chama guarda o estado).
+export function render(state) {
   if (display) {
     display.textContent = state.current;
     for (const size of DISPLAY_SIZES) {
@@ -78,7 +79,7 @@ export function render() {
   }
 
   // Operador destacado (aria-pressed="true", estilizado no CSS): só enquanto o segundo número não começou.
-  const selectedOperator = state.waitingForOperand ? trailingOperator() : null;
+  const selectedOperator = state.waitingForOperand ? trailingOperator(state) : null;
   for (const button of operatorButtons) {
     button.setAttribute("aria-pressed", String(button.dataset.action === selectedOperator));
   }
@@ -90,7 +91,7 @@ export function render() {
 
   // Indicador de parênteses: visível só com grupo aberto. Os "(" aparecem no visor da linha e o texto vai para o leitor de tela.
   if (parenIndicator) {
-    const depth = openDepth();
+    const depth = openDepth(state);
     parenIndicator.hidden = depth === 0;
     if (parenSymbols) {
       parenSymbols.textContent = OPEN_PAREN.repeat(depth);
