@@ -123,6 +123,8 @@ const cosineButton = document.getElementById("cos-button");
 const eButton = document.getElementById("e-button");
 // Botão 1/x também fica nessa linha, pelo mesmo motivo.
 const inverseButton = document.getElementById("inverse-button");
+// Botão x! também fica nessa linha, pelo mesmo motivo.
+const factorialButton = document.getElementById("factorial-button");
 // Botão √x também fica nessa linha, pelo mesmo motivo.
 const squareRootButton = document.getElementById("sqrt-button");
 // Botão tan também fica nessa linha, pelo mesmo motivo.
@@ -390,7 +392,7 @@ function inputDigit(digit) {
   if (state.error) {
     reset();
   }
-  if (state.waitingForOperand) {
+  if (state.waitingForOperand || isScientific(state.current)) {
     setCurrent(digit);
     state.waitingForOperand = false;
     return;
@@ -407,7 +409,7 @@ function inputDecimal() {
   if (state.error) {
     reset();
   }
-  if (state.waitingForOperand) {
+  if (state.waitingForOperand || isScientific(state.current)) {
     setCurrent("0.");
     state.waitingForOperand = false;
     return;
@@ -616,6 +618,42 @@ function squareRoot() {
   }
   state.current = formatResult(Math.sqrt(value));
   state.waitingForOperand = false;
+}
+
+// x!: fatorial do número exibido, só para inteiros não negativos (0! = 1). Negativo e decimal mostram Erro.
+// Até 2^53 o resultado é inteiro exato e aparece por extenso; acima disso vai para notação científica (20! → 2.4329020081766E+18).
+// Acima de 170! o resultado passa do maior double (Infinity) e mostra Erro de overflow. Com Erro no visor não calcula.
+function factorial() {
+  if (state.error) {
+    return;
+  }
+  const n = Number(state.current);
+  if (!Number.isInteger(n) || n < 0) {
+    setError();
+    return;
+  }
+  // O laço para assim que o produto vira Infinity, então n grande (ex.: 999999999) não custa mais que ~171 multiplicações.
+  let result = 1;
+  for (let i = 2; i <= n && Number.isFinite(result); i++) {
+    result *= i;
+  }
+  if (!Number.isFinite(result)) {
+    setError();
+    return;
+  }
+  state.current = Math.abs(result) > MAX_RESULT ? toScientific(result) : formatResult(result);
+  state.waitingForOperand = false;
+}
+
+// Notação científica com 14 algarismos significativos, sem zeros à direita na mantissa (2432902008176640000 → 2.4329020081766E+18).
+function toScientific(value) {
+  const [mantissa, exponent] = value.toExponential(13).split("e");
+  return `${mantissa.replace(/\.?0+$/, "")}E${exponent}`;
+}
+
+// Resultado em notação científica não é um número em edição: o próximo dígito ou ponto começa um número novo.
+function isScientific(text) {
+  return /E\+\d+$/.test(text);
 }
 
 // Tangente em graus (o visor mostra DEG). A tangente tem período de 180°, então o ângulo é reduzido módulo 180 antes.
@@ -973,7 +1011,21 @@ function inputEquals() {
 }
 
 // Funções que trocam o número do visor. Aplicadas a um grupo fechado, o texto do grupo sai da expressão (ver dropGroupText).
-const FUNCTION_ACTIONS = ["percent", "toggle-sign", "square", "log", "sine", "tan", "pi", "inverse", "memory-recall"];
+const FUNCTION_ACTIONS = [
+  "percent",
+  "toggle-sign",
+  "square",
+  "log",
+  "sine",
+  "cos",
+  "tan",
+  "pi",
+  "euler",
+  "inverse",
+  "sqrt",
+  "factorial",
+  "memory-recall",
+];
 
 function handleButton(button) {
   if (button.dataset.value !== undefined) {
@@ -1033,6 +1085,8 @@ function handleButton(button) {
     inputOpenParen();
   } else if (action === "close-paren") {
     inputCloseParen();
+  } else if (action === "factorial") {
+    factorial();
   } else if (action === "sqrt") {
     squareRoot();
   } else if (action in OPERATIONS) {
@@ -1224,6 +1278,13 @@ if (openParenButton) {
 if (closeParenButton) {
   closeParenButton.addEventListener("click", () => {
     handleButton(closeParenButton);
+    render();
+  });
+}
+
+if (factorialButton) {
+  factorialButton.addEventListener("click", () => {
+    handleButton(factorialButton);
     render();
   });
 }
