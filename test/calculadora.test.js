@@ -8,7 +8,8 @@
 // e do layout mobile com o painel do histórico em tela cheia (CALC-21),
 // e do botão M+ com o indicador de memória (CALC-22),
 // e do botão x² (CALC-26: eleva o visor ao quadrado, com erro e formatação do visor),
-// e do botão sen (CALC-31: seno do visor em graus, com a unidade DEG visível).
+// e do botão sen (CALC-31: seno do visor em graus, com a unidade DEG visível),
+// e do botão π (CALC-36: insere pi como operando).
 // Executa script.js real num contexto isolado, com um DOM mínimo, e aperta
 // os botões pelo mesmo caminho de clique que o navegador usa; o teclado usa o mesmo
 // caminho de keydown.
@@ -145,6 +146,9 @@ function createCalculator({ storage = {} } = {}) {
   // sen também fica fora do teclado, na linha da memória, como em index.html.
   const sineElement = createElementMock("button");
   sineElement.dataset = { action: "sine" };
+  // π também fica fora do teclado, na linha da memória, como em index.html.
+  const piElement = createElementMock("button");
+  piElement.dataset = { action: "pi" };
   let onKeypadClick = null;
   let onKeyDown = null;
   let onKeyUp = null;
@@ -159,6 +163,7 @@ function createCalculator({ storage = {} } = {}) {
   buttonByKey["M+"] = memoryAddElement;
   buttonByKey["x²"] = squareElement;
   buttonByKey["sen"] = sineElement;
+  buttonByKey["π"] = piElement;
 
   const keypad = {
     addEventListener(type, listener) {
@@ -187,6 +192,7 @@ function createCalculator({ storage = {} } = {}) {
     "memory-indicator": memoryIndicatorElement,
     "square-button": squareElement,
     "sine-button": sineElement,
+    "pi-button": piElement,
   };
 
   const document = {
@@ -215,7 +221,7 @@ function createCalculator({ storage = {} } = {}) {
   const context = vm.createContext({ document, window, localStorage });
   vm.runInContext(SCRIPT_SOURCE, context, { filename: "script.js" });
 
-  // Aperta as teclas em sequência e devolve o texto final do display. M+, x² e sen são clicados pelo próprio botão, fora do teclado.
+  // Aperta as teclas em sequência e devolve o texto final do display. M+, x², sen e π são clicados pelo próprio botão, fora do teclado.
   function press(...keys) {
     for (const key of keys) {
       if (key === "M+") {
@@ -228,6 +234,10 @@ function createCalculator({ storage = {} } = {}) {
       }
       if (key === "sen") {
         sineElement.dispatch("click");
+        continue;
+      }
+      if (key === "π") {
+        piElement.dispatch("click");
         continue;
       }
       const button = buttonByKey[key];
@@ -1854,5 +1864,82 @@ describe("CALC-31: teclado, foco e estrutura do sen", () => {
 
   test("o sen tem foco visível com contorno branco, sem remover o outline", () => {
     assert.match(CSS_SOURCE, /\.sine-add:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
+  });
+});
+
+describe("CALC-36: critérios de aceite do π", () => {
+  test("π mostra 3.14159265 (8 casas, como os resultados): π resulta em 3.14159265", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("π"), "3.14159265");
+  });
+
+  test("2 × π funciona: 2, ×, π, = resulta em 6.2831853", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("2", "×", "π", "="), "6.2831853");
+  });
+});
+
+describe("CALC-36: casos de borda do π", () => {
+  test("π substitui o número em curso, como o sen: 5, π mostra 3.14159265", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("5", "π"), "3.14159265");
+  });
+
+  test("π depois do igual começa um número novo: 2 + 3 =, π mostra 3.14159265", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("2", "+", "3", "=", "π"), "3.14159265");
+  });
+
+  test("π após Erro reinicia a calculadora: 5 ÷ 0 =, π mostra 3.14159265", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("5", "÷", "0", "=", "π"), "3.14159265");
+  });
+
+  test("com 9 dígitos, o próximo dígito é ignorado: π, 5 continua 3.14159265", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("π", "5"), "3.14159265");
+  });
+
+  test("π no segundo operando usa o valor completo: 2 + π = mostra 5.14159265 e grava 2 + 3.14159265 = 5.14159265", () => {
+    const storage = {};
+    const calc = createCalculator({ storage });
+    assert.equal(calc.press("2", "+", "π", "="), "5.14159265");
+    assert.deepEqual(calc.historyItems(), ["2 + 3.14159265 = 5.14159265"]);
+  });
+
+  test("o visor de 10 caracteres usa a fonte de 40px: π usa display-40", () => {
+    const calc = createCalculator({ storage: {} });
+    calc.press("π");
+    assert.equal(calc.fontSizeClass(), "display-40");
+  });
+
+  test("π sozinho não grava no histórico nem mexe na memória: 5 M+, AC, π mantém a memória em 5", () => {
+    const storage = {};
+    const calc = createCalculator({ storage });
+    calc.press("5", "M+", "AC", "π");
+    assert.deepEqual(calc.historyItems(), []);
+    assert.equal(HISTORY_KEY in storage, false);
+    assert.equal(calc.memoryValue(), 5);
+  });
+});
+
+describe("CALC-36: teclado, foco e estrutura do π", () => {
+  test("π não tem tecla própria: Enter com o foco no botão π não vira igual, o cálculo em curso fica", () => {
+    const calc = createCalculator({ storage: {} });
+    calc.press("2", "+", "3");
+    const event = calc.keyDown("Enter", { target: { tagName: "BUTTON" } });
+    assert.equal(event.defaultPrevented, false);
+    assert.equal(calc.display(), "3");
+  });
+
+  test("index.html tem o botão π na linha da memória (fora do teclado), com rótulo que anuncia a operação", () => {
+    assert.match(
+      HTML_SOURCE,
+      /<div class="memory">[\s\S]*?<button type="button" id="pi-button" class="pi-add" data-action="pi" aria-label="Inserir pi \(π\)">π<\/button>[\s\S]*?<\/div>\s*<div class="keypad">/,
+    );
+  });
+
+  test("o π tem foco visível com contorno branco, sem remover o outline", () => {
+    assert.match(CSS_SOURCE, /\.pi-add:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
   });
 });

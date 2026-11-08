@@ -80,6 +80,8 @@ const memoryIndicator = document.getElementById("memory-indicator");
 const squareButton = document.getElementById("square-button");
 // Botão sen também fica nessa linha, pelo mesmo motivo.
 const sineButton = document.getElementById("sine-button");
+// Botão π também fica nessa linha, pelo mesmo motivo.
+const piButton = document.getElementById("pi-button");
 const pressableButtons = memoryAddButton ? [...buttons, memoryAddButton] : buttons;
 
 function displaySizeClass(text) {
@@ -395,6 +397,17 @@ function sine() {
   state.waitingForOperand = false;
 }
 
+// π: insere pi (3.14159265, com as 8 casas de qualquer resultado) como operando, substituindo o número em curso,
+// como o sen. Após Erro, começa uma calculadora nova, como um dígito.
+// O cálculo usa o valor completo; o visor mostra o que couber.
+function insertPi() {
+  if (state.error) {
+    reset();
+  }
+  state.current = formatResult(Math.PI);
+  state.waitingForOperand = false;
+}
+
 // Backspace (teclado): apaga o último caractere do número em edição.
 // Sem número em edição (após operador ou igual) não faz nada. Após erro, reinicia a calculadora.
 // Se sobrar algo que não é um número válido (ex.: "-" ou notação científica), volta para 0.
@@ -509,6 +522,8 @@ function handleButton(button) {
     square();
   } else if (action === "sine") {
     sine();
+  } else if (action === "pi") {
+    insertPi();
   } else if (action in OPERATIONS) {
     inputOperator(action);
   }
@@ -611,6 +626,13 @@ if (squareButton) {
 if (sineButton) {
   sineButton.addEventListener("click", () => {
     handleButton(sineButton);
+    render();
+  });
+}
+
+if (piButton) {
+  piButton.addEventListener("click", () => {
+    handleButton(piButton);
     render();
   });
 }
