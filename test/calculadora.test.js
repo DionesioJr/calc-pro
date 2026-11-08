@@ -7,7 +7,8 @@
 // do painel de histórico reformulado (CALC-20: itens tocáveis, confirmação ao limpar),
 // e do layout mobile com o painel do histórico em tela cheia (CALC-21),
 // e do botão M+ com o indicador de memória (CALC-22),
-// e do botão x² (CALC-26: eleva o visor ao quadrado, com erro e formatação do visor).
+// e do botão x² (CALC-26: eleva o visor ao quadrado, com erro e formatação do visor),
+// e da precedência de × e ÷ sobre + e − (CALC-28).
 // Executa script.js real num contexto isolado, com um DOM mínimo, e aperta
 // os botões pelo mesmo caminho de clique que o navegador usa; o teclado usa o mesmo
 // caminho de keydown.
@@ -468,9 +469,9 @@ describe("CALC-5: critérios mínimos da lógica de operações", () => {
     assert.equal(calc.press("9", "÷", "3", "="), "3");
   });
 
-  test("2 + 3 × 4 = resulta em 20 (avaliação da esquerda para a direita)", () => {
+  test("2 + 3 × 4 = resulta em 14 (× antes de +, CALC-28)", () => {
     const calc = createCalculator();
-    assert.equal(calc.press("2", "+", "3", "×", "4", "="), "20");
+    assert.equal(calc.press("2", "+", "3", "×", "4", "="), "14");
   });
 
   test("trocar + por − antes do segundo número aplica a subtração: 7, +, −, 2, igual resulta em 5", () => {
@@ -813,6 +814,112 @@ describe("CALC-5: formatação de resultados", () => {
   });
 });
 
+// CALC-28: × e ÷ antes de + e −. Mesma precedência segue da esquerda para a direita.
+describe("CALC-28: critérios de aceite da precedência de operações", () => {
+  test("2 + 3 × 4 = resulta em 14", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("2", "+", "3", "×", "4", "="), "14");
+  });
+
+  test("10 − 6 ÷ 2 = resulta em 7", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("1", "0", "−", "6", "÷", "2", "="), "7");
+  });
+});
+
+describe("CALC-28: casos de borda da precedência de operações", () => {
+  test("× antes de + também do lado esquerdo: 2 × 3 + 4 = resulta em 10", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("2", "×", "3", "+", "4", "="), "10");
+  });
+
+  test("× e ÷ com a mesma precedência seguem a ordem da esquerda: 10 ÷ 2 × 5 = resulta em 25", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("1", "0", "÷", "2", "×", "5", "="), "25");
+  });
+
+  test("+ e − com a mesma precedência seguem a ordem da esquerda: 2 − 3 + 4 = resulta em 3", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("2", "−", "3", "+", "4", "="), "3");
+  });
+
+  test("subtração com multiplicação: 2 − 3 × 2 = resulta em -4", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("2", "−", "3", "×", "2", "="), "-4");
+  });
+
+  test("termo em × ou ÷ com três parcelas: 2 + 3 × 4 + 1 = resulta em 15", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("2", "+", "3", "×", "4", "+", "1", "="), "15");
+  });
+
+  test("o visor mostra o parcial ao fechar um termo de mesma precedência: 2 + 3 × 4 × mostra 12", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("2", "+", "3", "×", "4", "×"), "12");
+  });
+
+  test("apertar + com um termo fechado mostra o resultado parcial: 10 − 6 ÷ 2 − mostra 7", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("1", "0", "−", "6", "÷", "2", "−"), "7");
+  });
+
+  test("× pendente não é calculado antes do segundo número: 2 + 3 × mostra 3", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("2", "+", "3", "×"), "3");
+  });
+
+  test("trocar × por + antes do segundo número refaz a conta: 2 + 3 × + 4 mostra 5 e resulta em 9", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("2", "+", "3", "×", "+"), "5");
+    assert.equal(calc.press("4", "="), "9");
+  });
+
+  test("igual logo após × repete o último número: 2 + 3 × = resulta em 11 (2 + 3 × 3)", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("2", "+", "3", "×", "="), "11");
+  });
+
+  test("decimais respeitam a precedência: 0.5 + 0.5 × 4 = resulta em 2.5", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("0", ".", "5", "+", "0", ".", "5", "×", "4", "="), "2.5");
+  });
+
+  test("depois do igual, a conta seguinte começa do resultado: 2 + 3 × 4 =, + 1 = resulta em 15", () => {
+    const calc = createCalculator({ storage: {} });
+    calc.press("2", "+", "3", "×", "4", "=");
+    assert.equal(calc.press("+", "1", "="), "15");
+  });
+
+  test("divisão por zero dentro do termo mostra Erro: 1 + 2 ÷ 0 = resulta em Erro", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("1", "+", "2", "÷", "0", "="), "Erro");
+  });
+
+  test("divisão por zero dentro do termo também aparece ao apertar operador: 1 + 2 ÷ 0 + mostra Erro", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("1", "+", "2", "÷", "0", "+"), "Erro");
+  });
+
+  test("resultado do termo acima de 2^53 mostra Erro: 2 + 999999999 × 999999999 = resulta em Erro", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(
+      calc.press("2", "+", "9", "9", "9", "9", "9", "9", "9", "9", "9", "×", "9", "9", "9", "9", "9", "9", "9", "9", "9", "="),
+      "Erro",
+    );
+  });
+
+  test("pelo teclado, * tem precedência como ×: 2 + 3 * 4 Enter resulta em 14", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.type("2", "+", "3", "*", "4", "Enter"), "14");
+  });
+
+  test("histórico grava a conta na ordem digitada: 10 − 6 ÷ 2 = grava 10 − 6 ÷ 2 = 7", () => {
+    const calc = createCalculator({ storage: {} });
+    calc.press("1", "0", "−", "6", "÷", "2", "=");
+    assert.deepEqual(calc.historyItems(), ["10 − 6 ÷ 2 = 7"]);
+  });
+});
+
 describe("CALC-9: critérios de aceite do destaque do operador", () => {
   test("operador selecionado fica destacado até o segundo número: 2, + destaca o +, 3 remove o destaque", () => {
     const calc = createCalculator();
@@ -1098,10 +1205,10 @@ describe("CALC-19: casos de borda do histórico de cálculos", () => {
     assert.deepEqual(calc.historyItems(), ["2 + 2 = 4"]);
   });
 
-  test("encadeamento grava a expressão inteira: 2 + 3 × 4 = grava 2 + 3 × 4 = 20", () => {
+  test("encadeamento grava a expressão inteira: 2 + 3 × 4 = grava 2 + 3 × 4 = 14", () => {
     const calc = createCalculator({ storage: {} });
-    assert.equal(calc.press("2", "+", "3", "×", "4", "="), "20");
-    assert.deepEqual(calc.historyItems(), ["2 + 3 × 4 = 20"]);
+    assert.equal(calc.press("2", "+", "3", "×", "4", "="), "14");
+    assert.deepEqual(calc.historyItems(), ["2 + 3 × 4 = 14"]);
   });
 
   test("trocar de operador antes do segundo número grava o operador escolhido: 2 + × 3 = grava 2 × 3 = 6", () => {
