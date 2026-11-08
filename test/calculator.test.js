@@ -1,17 +1,25 @@
-// Testes do motor de cálculo (src/calculator.js) importado direto no Node, sem DOM: as ações recebem e devolvem o estado.
+// Testes do motor de cálculo (src/calculator.js) avaliado direto no Node, sem DOM: as ações recebem e devolvem o estado.
 // Os testes de ponta a ponta com o DOM mínimo ficam em calculadora.test.js.
 import { describe, test } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { ACTIONS, deleteDigit, handleButton, initialState, showResult } from "../src/calculator.js";
-import { fillKeypadMarkup } from "../src/keypad.js";
 
-const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
-const CALCULATOR_SOURCE = fs.readFileSync(path.join(ROOT, "src", "calculator.js"), "utf8");
+const SRC_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "src");
+const CALCULATOR_SOURCE = fs.readFileSync(path.join(SRC_DIR, "calculator.js"), "utf8");
+
+// src/ são scripts clássicos (o navegador os carrega sem import/export): aqui os arquivos entram no mesmo escopo, na ordem de index.html.
+function carregarScripts(arquivos, nomes) {
+  const codigo = arquivos.map((arquivo) => fs.readFileSync(path.join(SRC_DIR, arquivo), "utf8")).join("\n;\n");
+  return new Function(`${codigo}\nreturn { ${nomes.join(", ")} };`)();
+}
+const { ACTIONS, deleteDigit, handleButton, initialState, showResult, fillKeypadMarkup } = carregarScripts(
+  ["calculator.js", "keypad.js"],
+  ["ACTIONS", "deleteDigit", "handleButton", "initialState", "showResult", "fillKeypadMarkup"],
+);
 // HTML final: index.html com os botões gerados a partir do registro (CALC-59).
-const INDEX_HTML = fillKeypadMarkup(fs.readFileSync(path.join(ROOT, "index.html"), "utf8"));
+const INDEX_HTML = fillKeypadMarkup(fs.readFileSync(path.join(SRC_DIR, "..", "index.html"), "utf8"));
 
 // Aplica uma sequência de botões (data-value ou data-action) e junta as linhas do histórico que as ações geraram.
 function run(state, datasets) {

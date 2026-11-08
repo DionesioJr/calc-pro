@@ -1,14 +1,12 @@
 // Teclado da calculadora (CALC-59): gera a linha de funções (.scientific) e o teclado numérico (.keypad) a partir do registro ACTIONS (calculator.js).
 // Este módulo decide só a ordem na tela (que é a ordem de tabulação), a classe CSS e o aria-label de cada botão.
 // Tipo, rótulo, id (buttonId) e data-value/data-action vêm do registro, então o símbolo do botão não é repetido aqui.
-import { ACTIONS, datasetOf } from "./calculator.js";
-
-const ACTION_BY_ID = new Map(ACTIONS.map((action) => [action.id, action]));
+// Script clássico, carregado depois de calculator.js (usa ACTIONS, ACTION_BY_ID e datasetOf de lá). Sem import/export.
 
 const DIGIT_CLASS = "btn btn-digit";
 
 // Linha de funções, na ordem da tela. aria-label é o nome completo para leitor de tela; sem ele, o rótulo visível serve.
-export const FUNCTION_ROW = [
+const FUNCTION_ROW = [
   { id: "memory-clear", className: "memory-clear", ariaLabel: "Limpar memória (MC)" },
   { id: "memory-recall", className: "memory-recall", ariaLabel: "Recuperar memória (MR)" },
   { id: "memory-add", className: "memory-add", ariaLabel: "Somar à memória (M+)" },
@@ -30,7 +28,7 @@ export const FUNCTION_ROW = [
 ];
 
 // Teclado numérico, linha a linha (4 colunas no CSS): 19 botões.
-export const KEYPAD = [
+const KEYPAD = [
   { id: "all-clear", className: "btn btn-function", ariaLabel: "Limpar" },
   { id: "toggle-sign", className: "btn btn-function", ariaLabel: "Inverter sinal" },
   { id: "percent", className: "btn btn-function", ariaLabel: "Porcentagem" },
@@ -65,7 +63,7 @@ function buttonMarkup(entry) {
 }
 
 // HTML das duas colunas do teclado, sem o contêiner: { scientific, keypad }.
-export function keypadMarkup() {
+function keypadMarkup() {
   return {
     scientific: FUNCTION_ROW.map(buttonMarkup).join(""),
     keypad: KEYPAD.map(buttonMarkup).join(""),
@@ -74,7 +72,7 @@ export function keypadMarkup() {
 
 // index.html traz as duas colunas vazias; esta função põe o markup gerado dentro delas. É o HTML que o navegador mostra,
 // e os testes leem esse mesmo texto para conferir os botões.
-export function fillKeypadMarkup(html) {
+function fillKeypadMarkup(html) {
   const { scientific, keypad } = keypadMarkup();
   return html
     .replace('<div class="scientific"></div>', () => `<div class="scientific">${scientific}</div>`)
@@ -82,7 +80,7 @@ export function fillKeypadMarkup(html) {
 }
 
 // Preenche as duas colunas do documento com o markup gerado. Chamado por start() em src/main.js, antes de ligar os eventos.
-export function renderKeypad(doc) {
+function renderKeypad(doc) {
   const { scientific, keypad } = keypadMarkup();
   const scientificElement = doc.querySelector(".scientific");
   if (scientificElement) {

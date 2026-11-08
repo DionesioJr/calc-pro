@@ -1,11 +1,9 @@
-// Ponto de entrada da Calculadora Pro (index.html carrega este arquivo como módulo).
+"use strict";
+
+// Ponto de entrada da Calculadora Pro. index.html carrega os scripts de src/ como scripts clássicos, nesta ordem:
+// calculator.js, history.js, keypad.js, ui.js, keyboard.js e main.js. Sem import/export: as funções de cada arquivo ficam no escopo global da página.
 // Liga os módulos ao documento: teclado numérico, botões de função, histórico, teclado físico e painel do mobile.
 // Guarda o estado da calculadora: cada ação passa pelo motor (calculator.js), grava as linhas do histórico e redesenha o visor.
-import { ACTIONS, deleteDigit, handleButton, initialState, showResult } from "./calculator.js";
-import { addCalculation, bindHistory } from "./history.js";
-import { bindKeyboard } from "./keyboard.js";
-import { renderKeypad } from "./keypad.js";
-import { bindUi, hideHistoryPanel, render } from "./ui.js";
 
 // Botões fora do teclado numérico (linha da memória, linha de funções e DEG/RAD), tirados do registro ACTIONS: cada um executa a ação do próprio data-action.
 const FUNCTION_BUTTON_IDS = ACTIONS.filter((action) => action.buttonId).map((action) => action.buttonId);
@@ -43,7 +41,7 @@ function recallResult(result) {
 
 // Monta a calculadora sobre o documento dado. Chamado uma vez no navegador; os testes chamam de novo para começar do zero.
 // Devolve um acesso de leitura ao estado atual (os testes usam para conferir a memória).
-export function start(doc, win, storage) {
+function start(doc, win, storage) {
   state = initialState();
   // Botões primeiro: o teclado e a ligação de eventos abaixo procuram os botões no documento.
   renderKeypad(doc);

@@ -2,8 +2,20 @@
 // Sem DOM: o módulo gera o HTML como texto, e renderKeypad recebe um documento mínimo.
 import { describe, test } from "node:test";
 import assert from "node:assert/strict";
-import { ACTIONS } from "../src/calculator.js";
-import { fillKeypadMarkup, keypadMarkup, renderKeypad } from "../src/keypad.js";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+// src/ são scripts clássicos (sem import/export): calculator.js e keypad.js entram no mesmo escopo, na ordem de index.html.
+const SRC_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "src");
+function carregarScripts(arquivos, nomes) {
+  const codigo = arquivos.map((arquivo) => fs.readFileSync(path.join(SRC_DIR, arquivo), "utf8")).join("\n;\n");
+  return new Function(`${codigo}\nreturn { ${nomes.join(", ")} };`)();
+}
+const { ACTIONS, fillKeypadMarkup, keypadMarkup, renderKeypad } = carregarScripts(
+  ["calculator.js", "keypad.js"],
+  ["ACTIONS", "fillKeypadMarkup", "keypadMarkup", "renderKeypad"],
+);
 
 // angle-unit (DEG) fica estático na barra de status de index.html, fora dos dois contêineres gerados.
 const STATIC_IN_STATUS_BAR = ["angle-unit"];

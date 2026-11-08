@@ -4,7 +4,17 @@
 
 import { describe, test } from "node:test";
 import assert from "node:assert/strict";
-import { addCalculation, bindHistory } from "../src/history.js";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+// src/history.js é um script clássico (o navegador o carrega sem import/export): aqui ele é avaliado e as funções são devolvidas.
+const SRC_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "src");
+function carregarScripts(arquivos, nomes) {
+  const codigo = arquivos.map((arquivo) => fs.readFileSync(path.join(SRC_DIR, arquivo), "utf8")).join("\n;\n");
+  return new Function(`${codigo}\nreturn { ${nomes.join(", ")} };`)();
+}
+const { addCalculation, bindHistory } = carregarScripts(["history.js"], ["addCalculation", "bindHistory"]);
 
 // Chave que src/history.js usa no storage.
 const HISTORY_KEY = "calc-pro:historico";
