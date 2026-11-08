@@ -10,6 +10,7 @@
 // e do botão x² (CALC-26: eleva o visor ao quadrado, com erro e formatação do visor),
 // e da precedência de × e ÷ sobre + e − (CALC-28),
 // e do botão sen (CALC-31: seno do visor em graus, com a unidade DEG visível),
+// e da unidade angular DEG/RAD do sen e do tan (CALC-41: alterna graus e radianos, com a unidade visível no visor),
 // e do botão π (CALC-36: insere pi como operando),
 // e do botão e (CALC-37: insere o número de Euler como operando),
 // e do botão 1/x (CALC-38: inverso do visor, com Erro para zero),
@@ -191,6 +192,9 @@ function createCalculator({ storage = {} } = {}) {
   // 1/x também fica fora do teclado, na linha da memória, como em index.html.
   const inverseElement = createElementMock("button");
   inverseElement.dataset = { action: "inverse" };
+  // DEG/RAD também fica fora do teclado, na linha da memória, como em index.html.
+  const angleUnitElement = createElementMock("button");
+  angleUnitElement.dataset = { action: "angle-unit" };
   // x! também fica fora do teclado, na linha da memória, como em index.html.
   const factorialElement = createElementMock("button");
   factorialElement.dataset = { action: "factorial" };
@@ -284,6 +288,7 @@ function createCalculator({ storage = {} } = {}) {
     "pi-button": piElement,
     "e-button": eElement,
     "inverse-button": inverseElement,
+    "angle-unit": angleUnitElement,
     "factorial-button": factorialElement,
     "cos-button": cosineElement,
     "sqrt-button": squareRootElement,
@@ -321,9 +326,13 @@ function createCalculator({ storage = {} } = {}) {
   // Monta a calculadora sobre o DOM mínimo: zera o estado, liga o histórico ao storage e registra os listeners nos mocks.
   const app = start(document, window, localStorage);
 
-  // Aperta as teclas em sequência e devolve o texto final do display. MC, MR, M+, M-, x², log, sen, cos, π, e, 1/x e √x são clicados pelo próprio botão, fora do teclado.
+  // Aperta as teclas em sequência e devolve o texto final do display. MC, MR, M+, M-, x², log, sen, cos, π, e, 1/x, √x, tan, xʸ e "unidade" (DEG/RAD) são clicados pelo próprio botão, fora do teclado.
   function press(...keys) {
     for (const key of keys) {
+      if (key === "unidade") {
+        angleUnitElement.dispatch("click");
+        continue;
+      }
       if (key === "e") {
         eElement.dispatch("click");
         continue;
@@ -558,6 +567,9 @@ function createCalculator({ storage = {} } = {}) {
     memoryAddFocused: () => memoryAddElement.focused,
     memoryRecallFocused: () => memoryRecallElement.focused,
     memoryClearFocused: () => memoryClearElement.focused,
+    // Texto visível do botão DEG/RAD e o rótulo acessível dele.
+    angleUnitLabel: () => angleUnitElement.textContent,
+    angleUnitName: () => angleUnitElement.getAttribute("aria-label"),
     parenSymbols: () => parenSymbolsElement.textContent,
     parenText: () => parenTextElement.textContent,
     parenIndicatorHidden: () => parenIndicatorElement.hidden,
@@ -2277,8 +2289,11 @@ describe("CALC-31: critérios de aceite do seno (sen, em graus)", () => {
     assert.equal(calc.press("3", "0", "sen"), "0.5");
   });
 
-  test("a unidade angular fica visível o tempo todo: DEG aparece no HTML sem o atributo hidden", () => {
-    assert.match(HTML_SOURCE, /<span id="angle-unit" class="angle-unit"><span aria-hidden="true">DEG<\/span>/);
+  test("a unidade angular fica visível o tempo todo: DEG aparece no HTML, no botão, sem o atributo hidden", () => {
+    assert.match(
+      HTML_SOURCE,
+      /<button type="button" id="angle-unit" class="angle-unit" data-action="angle-unit" aria-label="DEG \(graus\), trocar para radianos">DEG<\/button>/,
+    );
     assert.doesNotMatch(HTML_SOURCE, /id="angle-unit"[^>]*hidden/);
     assert.doesNotMatch(CSS_SOURCE, /\.angle-unit\s*\{[^}]*display:\s*none;[^}]*\}/);
   });
@@ -2364,12 +2379,117 @@ describe("CALC-31: teclado, foco e estrutura do sen", () => {
   test("index.html tem o botão sen na linha da memória (fora do teclado), com rótulo que anuncia a operação", () => {
     assert.match(
       HTML_SOURCE,
-      /<div class="scientific">[\s\S]*?<button type="button" id="sine-button" class="sine-add" data-action="sine" aria-label="Seno em graus \(sen\)">sen<\/button>[\s\S]*?<\/div>\s*<div class="keypad">/,
+      /<div class="scientific">[\s\S]*?<button type="button" id="sine-button" class="sine-add" data-action="sine" aria-label="Seno \(sen\)">sen<\/button>[\s\S]*?<\/div>\s*<div class="keypad">/,
     );
   });
 
   test("o sen tem foco visível com contorno branco, sem remover o outline", () => {
     assert.match(CSS_SOURCE, /\.scientific > button:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
+  });
+});
+
+// CALC-41: alternância DEG/RAD da unidade angular do sen. Padrão é graus; trocar não recalcula o visor.
+describe("CALC-41: critérios de aceite da unidade angular (DEG/RAD)", () => {
+  test("alternar para rad muda sen(π/2) para 1: unidade, π, ÷, 2, =, sen resulta em 1", () => {
+    const calc = createCalculator({ storage: {} });
+    calc.press("unidade", "π", "÷", "2", "=");
+    assert.equal(calc.press("sen"), "1");
+    assert.equal(calc.angleUnitLabel(), "RAD");
+  });
+
+  test("voltar para graus muda sen(90) para 1: unidade, unidade, 9, 0, sen resulta em 1", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("unidade", "unidade", "9", "0", "sen"), "1");
+    assert.equal(calc.angleUnitLabel(), "DEG");
+  });
+
+  test("a unidade aparece no visor o tempo todo: começa em DEG e troca para RAD sem esconder o rótulo", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.angleUnitLabel(), "DEG");
+    calc.press("unidade");
+    assert.equal(calc.angleUnitLabel(), "RAD");
+    calc.press("5", "+", "3", "=");
+    assert.equal(calc.angleUnitLabel(), "RAD");
+  });
+});
+
+describe("CALC-41: casos de borda da unidade angular", () => {
+  test("padrão é graus: sen 90 resulta em 1 sem tocar na unidade, e o botão diz DEG (graus)", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("9", "0", "sen"), "1");
+    assert.equal(calc.angleUnitName(), "DEG (graus), trocar para radianos");
+  });
+
+  test("rótulo acessível acompanha a unidade: RAD (radianos) com a troca de volta para graus", () => {
+    const calc = createCalculator({ storage: {} });
+    calc.press("unidade");
+    assert.equal(calc.angleUnitName(), "RAD (radianos), trocar para graus");
+  });
+
+  test("em rad, sen 90 é o seno de 90 radianos: unidade, 9, 0, sen resulta em 0.89399666", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("unidade", "9", "0", "sen"), "0.89399666");
+  });
+
+  test("em rad, sen 0 é 0: unidade, 0, sen resulta em 0", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("unidade", "0", "sen"), "0");
+  });
+
+  test("em rad, π vale 3.14159265 (8 casas), e sen π resulta em 0: unidade, π, sen resulta em 0", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("unidade", "π", "sen"), "0");
+  });
+
+  test("a unidade vale no momento do sen: 9, 0, unidade, sen usa radianos e resulta em 0.89399666", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("9", "0", "unidade", "sen"), "0.89399666");
+  });
+
+  test("trocar a unidade não recalcula o visor: 2 + 3 =, unidade mostra 5 e RAD", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("2", "+", "3", "="), "5");
+    assert.equal(calc.press("unidade"), "5");
+    assert.equal(calc.angleUnitLabel(), "RAD");
+  });
+
+  test("trocar a unidade não mexe na conta pendente: 2, +, 3, unidade, = resulta em 5", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("2", "+", "3", "unidade", "="), "5");
+  });
+
+  test("trocar a unidade não mexe no histórico nem na memória: 5 M+, unidade, unidade mantém 5", () => {
+    const storage = {};
+    const calc = createCalculator({ storage });
+    calc.press("5", "M+", "unidade", "unidade");
+    assert.deepEqual(calc.historyItems(), []);
+    assert.equal(HISTORY_KEY in storage, false);
+    assert.equal(calc.memoryValue(), 5);
+  });
+});
+
+describe("CALC-41: cos segue a unidade angular", () => {
+  test("cos em radianos: unidade, 1, cos resulta em 0.54030231 (cos 1 rad), e a unidade continua RAD", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("unidade", "1", "cos"), "0.54030231");
+    assert.equal(calc.angleUnitLabel(), "RAD");
+  });
+
+  test("cos em radianos de 0 e de π: unidade, 0, cos resulta em 1; unidade, π, cos resulta em -1", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("unidade", "0", "cos"), "1");
+    assert.equal(calc.press("AC", "π", "cos"), "-1");
+  });
+
+  test("cos em graus continua em graus com a unidade DEG: 6 0 cos resulta em 0.5, e 9 0 cos resulta em 0", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("6", "0", "cos"), "0.5");
+    assert.equal(calc.press("AC", "9", "0", "cos"), "0");
+  });
+
+  test("com Erro no visor, cos mantém o Erro mesmo em rad: 5 ÷ 0 =, unidade, cos mostra Erro", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("5", "÷", "0", "=", "unidade", "cos"), "Erro");
   });
 });
 
@@ -2453,6 +2573,36 @@ describe("CALC-32: casos de borda do cos", () => {
     assert.deepEqual(JSON.parse(storage[HISTORY_KEY]), ["cos(60) = 0.5"]);
     assert.equal(calc.memoryValue(), 5);
   });
+
+  test("com Erro no visor, a unidade troca e o Erro continua: 5 ÷ 0 =, unidade mostra Erro e RAD", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("5", "÷", "0", "=", "unidade"), "Erro");
+    assert.equal(calc.angleUnitLabel(), "RAD");
+  });
+
+  test("a unidade não é salva: uma calculadora nova começa em DEG e o armazenamento continua vazio", () => {
+    const storage = {};
+    createCalculator({ storage }).press("unidade");
+    assert.deepEqual(storage, {});
+    assert.equal(createCalculator({ storage }).angleUnitLabel(), "DEG");
+  });
+});
+
+describe("CALC-41: estrutura e foco do botão DEG/RAD", () => {
+  test("o botão DEG/RAD fica na linha de status, acima do visor (fora do teclado), como um botão nativo", () => {
+    assert.match(
+      HTML_SOURCE,
+      /<div class="status">[\s\S]*?<button type="button" id="angle-unit" class="angle-unit" data-action="angle-unit"[^>]*>DEG<\/button>\s*<\/div>\s*<output id="display"/,
+    );
+  });
+
+  test("o botão DEG/RAD tem foco visível com contorno branco, sem remover o outline", () => {
+    assert.match(CSS_SOURCE, /\.angle-unit:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
+  });
+
+  test("o botão DEG/RAD fica à direita da linha de status: .status com justify-content: flex-end", () => {
+    assert.match(CSS_SOURCE, /\.status\s*\{[^}]*justify-content:\s*flex-end;[^}]*\}/);
+  });
 });
 
 describe("CALC-32: teclado, foco e estrutura do cos", () => {
@@ -2467,7 +2617,7 @@ describe("CALC-32: teclado, foco e estrutura do cos", () => {
   test("index.html tem o botão cos na grade científica, entre sen e tan, fora do teclado, com rótulo que anuncia a operação", () => {
     assert.match(
       HTML_SOURCE,
-      /<div class="scientific">[\s\S]*?<button type="button" id="sine-button"[^>]*>sen<\/button>\s*<button type="button" id="cos-button" class="cos-add" data-action="cos" aria-label="Cosseno em graus \(cos\)">cos<\/button>\s*<button type="button" id="tan-button"[\s\S]*?<\/div>\s*<div class="keypad">/,
+      /<div class="scientific">[\s\S]*?<button type="button" id="sine-button"[^>]*>sen<\/button>\s*<button type="button" id="cos-button" class="cos-add" data-action="cos" aria-label="Cosseno \(cos\)">cos<\/button>\s*<button type="button" id="tan-button"[\s\S]*?<\/div>\s*<div class="keypad">/,
     );
   });
 
@@ -3198,6 +3348,34 @@ describe("CALC-33: casos de borda da tangente", () => {
     assert.equal(calc.press("7"), "7");
   });
 
+  test("tan em radianos: unidade, 1, tan resulta em 1.55740772 (tan 1 rad), e a unidade continua RAD", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("unidade", "1", "tan"), "1.55740772");
+    assert.equal(calc.angleUnitLabel(), "RAD");
+  });
+
+  test("tan em radianos usa o valor do visor como radianos, não graus: unidade, 4, 5, tan resulta em 1.61977519 (tan 45 rad)", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("unidade", "4", "5", "tan"), "1.61977519");
+  });
+
+  test("tan em radianos de 0 e de negativos: unidade, 0, tan resulta em 0; unidade, 1, +/-, tan resulta em -1.55740772", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("unidade", "0", "tan"), "0");
+    assert.equal(calc.press("AC", "1", "+/-", "tan"), "-1.55740772");
+  });
+
+  test("tan em radianos depois do operador vira o segundo operando: unidade, 2, +, 1, tan, = resulta em 3.55740772 (2 + tan 1 rad)", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("unidade", "2", "+", "1", "tan", "="), "3.55740772");
+  });
+
+  test("trocar a unidade não recalcula o tan já mostrado: 1, tan mostra 0.01745506, unidade mantém 0.01745506", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("1", "tan"), "0.01745506");
+    assert.equal(calc.press("unidade"), "0.01745506");
+  });
+
   test("tan grava a própria linha no histórico e não mexe na memória (CALC-43): 5 M+, AC, 4 5 tan grava tan(45) = 1 e mantém a memória em 5", () => {
     const storage = {};
     const calc = createCalculator({ storage });
@@ -3220,7 +3398,7 @@ describe("CALC-33: teclado, foco e estrutura do tan", () => {
   test("index.html tem o botão tan na linha da memória (fora do teclado), com rótulo que anuncia a operação", () => {
     assert.match(
       HTML_SOURCE,
-      /<div class="scientific">[\s\S]*?<button type="button" id="tan-button" class="tan-add" data-action="tan" aria-label="Tangente em graus \(tan\)">tan<\/button>[\s\S]*?<\/div>\s*<div class="keypad">/,
+      /<div class="scientific">[\s\S]*?<button type="button" id="tan-button" class="tan-add" data-action="tan" aria-label="Tangente \(tan\)">tan<\/button>[\s\S]*?<\/div>\s*<div class="keypad">/,
     );
   });
 

@@ -20,6 +20,12 @@ let memoryIndicator = null;
 let parenIndicator = null;
 let parenSymbols = null;
 let parenText = null;
+let angleUnitButton = null;
+// Texto visível e nome do botão DEG/RAD: o rótulo acessível diz a unidade atual e a próxima.
+const ANGLE_UNITS = {
+  deg: { label: "DEG", name: "graus", next: "radianos" },
+  rad: { label: "RAD", name: "radianos", next: "graus" },
+};
 // Botões de operador (destacados enquanto a operação espera o segundo número).
 let operatorButtons = [];
 
@@ -34,6 +40,7 @@ export function bindUi(doc, win) {
   parenIndicator = doc.getElementById("paren-indicator");
   parenSymbols = doc.getElementById("paren-symbols");
   parenText = doc.getElementById("paren-text");
+  angleUnitButton = doc.getElementById("angle-unit");
 
   // Botões do teclado numérico, mais o xʸ (que fica fora do teclado): operadores binários com destaque pendente.
   const keypad = doc.querySelector(".keypad");
@@ -90,6 +97,13 @@ export function render(state) {
   // Indicador de memória: visível só enquanto houver valor guardado.
   if (memoryIndicator) {
     memoryIndicator.hidden = state.memory === 0;
+  }
+
+  // Unidade angular: o botão DEG/RAD mostra a unidade atual o tempo todo, e o rótulo acessível diz a atual e a próxima.
+  if (angleUnitButton) {
+    const unit = ANGLE_UNITS[state.angleUnit];
+    angleUnitButton.textContent = unit.label;
+    angleUnitButton.setAttribute("aria-label", `${unit.label} (${unit.name}), trocar para ${unit.next}`);
   }
 
   // Indicador de parênteses: visível só com grupo aberto. Os "(" aparecem no visor da linha e o texto vai para o leitor de tela.

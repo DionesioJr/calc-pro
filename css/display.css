@@ -14,11 +14,29 @@
   color: #ff9f0a;
 }
 
-/* Unidade angular do sen, sempre visível. Cinza sobre preto: contraste alto. */
+/* Unidade angular do sen, cos e tan (DEG/RAD), sempre visível no status. Botão sem contorno: cinza sobre preto, contraste alto. */
 .angle-unit {
+  padding: 0.4rem 0.375rem;
+  border: 0;
+  background: transparent;
+  font: inherit;
   font-size: 0.875rem;
   font-weight: 600;
   color: #a5a5a5;
+  cursor: pointer;
+}
+
+.angle-unit:hover {
+  color: #ffffff;
+}
+
+.angle-unit:active {
+  filter: brightness(0.8);
+}
+
+.angle-unit:focus-visible {
+  outline: 3px solid #ffffff;
+  outline-offset: 2px;
 }
 
 .display {

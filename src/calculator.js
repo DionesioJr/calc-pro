@@ -73,6 +73,8 @@ export function initialState() {
     // Valor completo do visor quando ele é uma constante (e): o visor mostra 8 casas, o cálculo usa o número inteiro.
     // Qualquer outra mudança no visor passa por setCurrent, que zera este campo.
     exact: null,
+    // Unidade angular do sen, cos e tan: "deg" (padrão ao abrir a página) ou "rad". Trocar a unidade não mexe no visor, na conta nem na memória.
+    angleUnit: "deg",
     // Linhas do histórico geradas pela última ação ("12 × 3 = 36"). handleButton as devolve e zera; quem chama as grava.
     pendingHistory: [],
   };
@@ -152,6 +154,8 @@ export const ACTIONS = [
   { id: "sine", type: "unary", label: "sen", buttonId: "sine-button", replacesDisplay: true, apply: sine },
   { id: "cos", type: "unary", label: "cos", buttonId: "cos-button", replacesDisplay: true, apply: cosine },
   { id: "tan", type: "unary", label: "tan", buttonId: "tan-button", replacesDisplay: true, apply: tangent },
+  // Unidade do sen, cos e tan (DEG/RAD): não mexe no visor, na conta pendente, na memória nem no Erro, por isso não tem replacesDisplay.
+  { id: "angle-unit", type: "control", label: "DEG", buttonId: "angle-unit", apply: toggleAngleUnit },
   { id: "inverse", type: "unary", label: "1/x", buttonId: "inverse-button", replacesDisplay: true, apply: inverse },
   { id: "sqrt", type: "unary", label: "√x", buttonId: "sqrt-button", replacesDisplay: true, apply: squareRoot },
   {
@@ -507,13 +511,16 @@ function sineDegrees(degrees) {
 }
 
 // sen: troca o número exibido pelo seno dele, com a mesma regra de segundo operando do % e do x².
+// A unidade vem de s.angleUnit: em graus usa sineDegrees; em radianos, Math.sin direto sobre o número exibido.
 // Com Erro no visor não calcula e mantém o Erro. O seno fica entre -1 e 1, então não há limite de 2^53 a checar.
 function sine(s) {
   if (s.error) {
     return;
   }
   const expression = `sen(${s.current})`;
-  setCurrent(s, formatResult(sineDegrees(operandValue(s))));
+  const value = operandValue(s);
+  const result = s.angleUnit === "rad" ? Math.sin(value) : sineDegrees(value);
+  setCurrent(s, formatResult(result));
   s.waitingForOperand = false;
   recordFunction(s, expression);
 }
@@ -526,14 +533,16 @@ function cosineDegrees(degrees) {
   return Math.cos((angle * Math.PI) / 180);
 }
 
-// cos: troca o número exibido pelo cosseno dele, com a mesma regra do seno.
+// cos: troca o número exibido pelo cosseno dele, com a mesma regra do seno (unidade vinda de s.angleUnit).
 // Com Erro no visor não calcula e mantém o Erro. O cosseno fica entre -1 e 1, então não há limite de 2^53 a checar.
 function cosine(s) {
   if (s.error) {
     return;
   }
   const expression = `cos(${s.current})`;
-  setCurrent(s, formatResult(cosineDegrees(operandValue(s))));
+  const value = operandValue(s);
+  const result = s.angleUnit === "rad" ? Math.cos(value) : cosineDegrees(value);
+  setCurrent(s, formatResult(result));
   s.waitingForOperand = false;
   recordFunction(s, expression);
 }
@@ -647,12 +656,14 @@ function tangentDegrees(degrees) {
 }
 
 // tan: troca o número exibido pela tangente dele, com a mesma regra de segundo operando do sen e do 1/x.
-// Indefinida (90° + 180°·k) ou com resultado acima de 2^53 em valor absoluto: mostra Erro. Com Erro no visor não calcula e mantém o Erro.
+// A unidade vem de s.angleUnit: em graus usa tangentDegrees; em radianos, Math.tan direto sobre o número exibido.
+// Indefinida (90° + 180°·k, ou o π/2 em radianos) ou com resultado acima de 2^53 em valor absoluto: mostra Erro. Com Erro no visor não calcula e mantém o Erro.
 function tangent(s) {
   if (s.error) {
     return;
   }
-  const result = tangentDegrees(operandValue(s));
+  const value = operandValue(s);
+  const result = s.angleUnit === "rad" ? Math.tan(value) : tangentDegrees(value);
   if (result === null || !Number.isFinite(result) || Math.abs(result) > MAX_RESULT) {
     setError(s);
     return;
@@ -661,6 +672,11 @@ function tangent(s) {
   setCurrent(s, formatResult(result));
   s.waitingForOperand = false;
   recordFunction(s, expression);
+}
+
+// Botão DEG/RAD: alterna a unidade do sen, cos e tan. Não mexe no visor, na conta pendente, na memória, no histórico nem no Erro.
+function toggleAngleUnit(s) {
+  s.angleUnit = s.angleUnit === "deg" ? "rad" : "deg";
 }
 
 // Apaga o último caractere do número em edição (Backspace do teclado). Devolve o estado novo.
