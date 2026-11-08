@@ -18,6 +18,7 @@
 // e do botão xʸ (CALC-29: potência binária com precedência sobre × e ÷, associação à direita e Erro para resultado não real),
 // e do botão M- (CALC-23: subtrai o visor da memória),
 // e do botão MR (CALC-24: copia a memória para o visor como operando),
+// e do botão cos (CALC-32: cosseno do visor em graus, sem ruído de ponto flutuante).
 // e do botão √x (CALC-27: raiz quadrada do visor, com Erro para negativos).
 // e do botão MC (CALC-25: zera a memória e o indicador).
 // Executa script.js real num contexto isolado, com um DOM mínimo, e aperta
@@ -180,6 +181,9 @@ function createCalculator({ storage = {} } = {}) {
   // DEG/RAD também fica fora do teclado, na linha da memória, como em index.html.
   const angleUnitElement = createElementMock("button");
   angleUnitElement.dataset = { action: "angle-unit" };
+  // cos também fica fora do teclado, na linha da memória, como em index.html.
+  const cosineElement = createElementMock("button");
+  cosineElement.dataset = { action: "cos" };
   // √x também fica fora do teclado, na linha da memória, como em index.html.
   const squareRootElement = createElementMock("button");
   squareRootElement.dataset = { action: "sqrt" };
@@ -210,6 +214,7 @@ function createCalculator({ storage = {} } = {}) {
   buttonByKey["π"] = piElement;
   buttonByKey["e"] = eElement;
   buttonByKey["1/x"] = inverseElement;
+  buttonByKey["cos"] = cosineElement;
   buttonByKey["√x"] = squareRootElement;
   buttonByKey["tan"] = tangentElement;
   buttonByKey["xʸ"] = powerElement;
@@ -249,6 +254,7 @@ function createCalculator({ storage = {} } = {}) {
     "e-button": eElement,
     "inverse-button": inverseElement,
     "angle-unit": angleUnitElement,
+    "cos-button": cosineElement,
     "sqrt-button": squareRootElement,
     "tan-button": tangentElement,
     "power-button": powerElement,
@@ -280,7 +286,7 @@ function createCalculator({ storage = {} } = {}) {
   const context = vm.createContext({ document, window, localStorage });
   vm.runInContext(SCRIPT_SOURCE, context, { filename: "script.js" });
 
-  // Aperta as teclas em sequência e devolve o texto final do display. MC, MR, M+, M-, x², log, sen, π, e, 1/x, √x, tan, xʸ e "unidade" (DEG/RAD) são clicados pelo próprio botão, fora do teclado.
+  // Aperta as teclas em sequência e devolve o texto final do display. MC, MR, M+, M-, x², log, sen, cos, π, e, 1/x, √x, tan, xʸ e "unidade" (DEG/RAD) são clicados pelo próprio botão, fora do teclado.
   function press(...keys) {
     for (const key of keys) {
       if (key === "unidade") {
@@ -325,6 +331,10 @@ function createCalculator({ storage = {} } = {}) {
       }
       if (key === "1/x") {
         inverseElement.dispatch("click");
+        continue;
+      }
+      if (key === "cos") {
+        cosineElement.dispatch("click");
         continue;
       }
       if (key === "√x") {
@@ -2286,6 +2296,113 @@ describe("CALC-41: casos de borda da unidade angular", () => {
     assert.equal(HISTORY_KEY in storage, false);
     assert.equal(calc.memoryValue(), 5);
   });
+});
+
+describe("CALC-41: cos segue a unidade angular", () => {
+  test("cos em radianos: unidade, 1, cos resulta em 0.54030231 (cos 1 rad), e a unidade continua RAD", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("unidade", "1", "cos"), "0.54030231");
+    assert.equal(calc.angleUnitLabel(), "RAD");
+  });
+
+  test("cos em radianos de 0 e de π: unidade, 0, cos resulta em 1; unidade, π, cos resulta em -1", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("unidade", "0", "cos"), "1");
+    assert.equal(calc.press("AC", "π", "cos"), "-1");
+  });
+
+  test("cos em graus continua em graus com a unidade DEG: 6 0 cos resulta em 0.5, e 9 0 cos resulta em 0", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("6", "0", "cos"), "0.5");
+    assert.equal(calc.press("AC", "9", "0", "cos"), "0");
+  });
+
+  test("com Erro no visor, cos mantém o Erro mesmo em rad: 5 ÷ 0 =, unidade, cos mostra Erro", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("5", "÷", "0", "=", "unidade", "cos"), "Erro");
+  });
+});
+
+describe("CALC-32: critérios de aceite do cos (cos, em graus)", () => {
+  test("cos(60°) = 0.5: 6, 0, cos resulta em 0.5", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("6", "0", "cos"), "0.5");
+  });
+
+  test("cos(0) = 1: 0, cos resulta em 1", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("0", "cos"), "1");
+  });
+
+  test("sem ruído de ponto flutuante: cos 90° mostra 0, não 6.12e-17", () => {
+    const calc = createCalculator({ storage: {} });
+    const shown = calc.press("9", "0", "cos");
+    assert.equal(shown, "0");
+    assert.doesNotMatch(shown, /e/);
+  });
+});
+
+describe("CALC-32: casos de borda do cos", () => {
+  test("valores de referência em graus: cos 0° = 1, cos 90° = 0, cos 180° = -1, cos 270° = 0, cos 360° = 1", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("0", "cos"), "1");
+    assert.equal(calc.press("AC", "9", "0", "cos"), "0");
+    assert.equal(calc.press("AC", "1", "8", "0", "cos"), "-1");
+    assert.equal(calc.press("AC", "2", "7", "0", "cos"), "0");
+    assert.equal(calc.press("AC", "3", "6", "0", "cos"), "1");
+  });
+
+  test("270° não mostra ruído: cos 270 resulta em 0 (Math.cos daria -1.8e-16)", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("2", "7", "0", "cos"), "0");
+  });
+
+  test("ângulo negativo: cos(-60°) = 0.5, com +/- antes do cos", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("6", "0", "+/-", "cos"), "0.5");
+  });
+
+  test("ângulos fora de 0 a 360 são reduzidos: cos 390 = 0.8660254 (cos 30°)", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("3", "9", "0", "cos"), "0.8660254");
+  });
+
+  test("resultado com casas decimais segue o arredondamento de 8 casas: cos 1° = 0.9998477", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("1", "cos"), "0.9998477");
+  });
+
+  test("cosseno dentro de 5e-9 de 1 some no arredondamento, sem notação científica: 0.00000001 cos mostra 1", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("0", ".", "0", "0", "0", "0", "0", "0", "0", "1", "cos"), "1");
+  });
+
+  test("com Erro no visor, cos mantém o Erro: 5 ÷ 0 =, cos mostra Erro, e a próxima tecla reinicia", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("5", "÷", "0", "=", "cos"), "Erro");
+    assert.equal(calc.press("7"), "7");
+  });
+
+  test("cos depois do igual calcula o resultado: 2 + 58 =, cos mostra 0.5", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("2", "+", "5", "8", "=", "cos"), "0.5");
+    assert.deepEqual(calc.historyItems(), ["2 + 58 = 60"]);
+  });
+
+  test("cos depois do operador vira o segundo operando, como o sen: 2 + 6 0 cos =, resulta em 2.5", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("2", "+", "6", "0", "cos", "="), "2.5");
+    assert.deepEqual(calc.historyItems(), ["2 + 0.5 = 2.5"]);
+  });
+
+  test("cos não grava no histórico sozinho e não mexe na memória: 5 M+, AC, 6 0 cos mantém a memória em 5", () => {
+    const storage = {};
+    const calc = createCalculator({ storage });
+    calc.press("5", "M+", "AC", "6", "0", "cos");
+    assert.deepEqual(calc.historyItems(), []);
+    assert.equal(HISTORY_KEY in storage, false);
+    assert.equal(calc.memoryValue(), 5);
+  });
 
   test("com Erro no visor, a unidade troca e o Erro continua: 5 ÷ 0 =, unidade mostra Erro e RAD", () => {
     const calc = createCalculator({ storage: {} });
@@ -2315,6 +2432,28 @@ describe("CALC-41: estrutura e foco do botão DEG/RAD", () => {
 
   test("o botão DEG/RAD não divide a linha da memória: .angle-unit com flex: 0 0 auto", () => {
     assert.match(CSS_SOURCE, /\.memory > \.angle-unit\s*\{\s*flex:\s*0 0 auto;\s*\}/);
+  });
+});
+
+describe("CALC-32: teclado, foco e estrutura do cos", () => {
+  test("cos não tem tecla própria: Enter com o foco no botão cos não vira igual, o cálculo em curso fica", () => {
+    const calc = createCalculator({ storage: {} });
+    calc.press("2", "+", "3");
+    const event = calc.keyDown("Enter", { target: { tagName: "BUTTON" } });
+    assert.equal(event.defaultPrevented, false);
+    assert.equal(calc.display(), "3");
+  });
+
+  test("index.html tem o botão cos na linha da memória, entre sen e π, fora do teclado, com rótulo que anuncia a operação", () => {
+    assert.match(
+      HTML_SOURCE,
+      /<div class="memory">[\s\S]*?<button type="button" id="sine-button"[^>]*>sen<\/button>\s*<button type="button" id="cos-button" class="cos-add" data-action="cos" aria-label="Cosseno \(cos\)">cos<\/button>\s*<button type="button" id="pi-button"[\s\S]*?<\/div>\s*<div class="keypad">/,
+    );
+  });
+
+  test("o cos tem o mesmo estilo de pílula cinza do sen e foco visível com contorno branco", () => {
+    assert.match(CSS_SOURCE, /\.cos-add\s*\{[^}]*border-radius:\s*999px;[^}]*color:\s*#a5a5a5;[^}]*\}/);
+    assert.match(CSS_SOURCE, /\.cos-add:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
   });
 });
 

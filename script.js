@@ -119,6 +119,8 @@ const logButton = document.getElementById("log-button");
 const sineButton = document.getElementById("sine-button");
 // Botão π também fica nessa linha, pelo mesmo motivo.
 const piButton = document.getElementById("pi-button");
+// Botão cos também fica nessa linha, pelo mesmo motivo.
+const cosineButton = document.getElementById("cos-button");
 // Botão e também fica nessa linha, pelo mesmo motivo.
 const eButton = document.getElementById("e-button");
 // Botão 1/x também fica nessa linha, pelo mesmo motivo.
@@ -529,10 +531,35 @@ function sine() {
   state.waitingForOperand = false;
 }
 
-// DEG/RAD: alterna a unidade angular do sen. Não recalcula o visor nem mexe na conta pendente, na memória ou no histórico;
-// só vale para o próximo sen. Como a memória, funciona também com Erro no visor.
+// DEG/RAD: alterna a unidade angular do sen, do cos e do tan. Não recalcula o visor nem mexe na conta pendente, na memória ou no histórico;
+// só vale para o próximo sen, cos ou tan. Como a memória, funciona também com Erro no visor.
 function toggleAngleUnit() {
   state.angleUnit = state.angleUnit === "deg" ? "rad" : "deg";
+}
+
+// Cosseno em graus, com a mesma regra do seno: múltiplos de 90° saem exatos (cos 0° = 1, cos 90° = 0, cos 180° = -1, cos 270° = 0),
+// sem o ruído de ponto flutuante do Math.cos (ex.: 6.12e-17 em 90°). Os demais usam radianos internamente.
+const EXACT_COSINES = [1, 0, -1, 0];
+
+function cosineDegrees(degrees) {
+  const angle = ((degrees % 360) + 360) % 360;
+  if (angle % 90 === 0) {
+    return EXACT_COSINES[angle / 90];
+  }
+  return Math.cos((angle * Math.PI) / 180);
+}
+
+// cos: troca o número exibido pelo cosseno dele, com a mesma regra de segundo operando do sen.
+// Com Erro no visor não calcula e mantém o Erro. O cosseno fica entre -1 e 1, então não há limite de 2^53 a checar.
+// A unidade vem de state.angleUnit: em graus usa cosineDegrees; em radianos, Math.cos direto sobre o número exibido.
+function cosine() {
+  if (state.error) {
+    return;
+  }
+  const value = operandValue();
+  const result = state.angleUnit === "rad" ? Math.cos(value) : cosineDegrees(value);
+  setCurrent(formatResult(result));
+  state.waitingForOperand = false;
 }
 
 // π: insere pi (3.14159265, com as 8 casas de qualquer resultado) como operando, substituindo o número em curso,
@@ -793,6 +820,8 @@ function handleButton(button) {
     logarithm();
   } else if (action === "sine") {
     sine();
+  } else if (action === "cos") {
+    cosine();
   } else if (action === "tan") {
     tangent();
   } else if (action === "pi") {
@@ -935,6 +964,13 @@ if (logButton) {
 if (sineButton) {
   sineButton.addEventListener("click", () => {
     handleButton(sineButton);
+    render();
+  });
+}
+
+if (cosineButton) {
+  cosineButton.addEventListener("click", () => {
+    handleButton(cosineButton);
     render();
   });
 }
