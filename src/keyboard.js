@@ -1,36 +1,14 @@
 // Teclado físico: cada tecla executa a mesma ação do botão correspondente (mesmo caminho do clique).
 // Não guarda estado: as ações (press e backspace) vêm de main.js, que atualiza o estado e redesenha.
+import { ACTIONS, datasetOf } from "./calculator.js";
 import { hideHistoryPanel, isHistoryPanelShown } from "./ui.js";
 
-// Teclas do teclado físico que a calculadora usa, com o mesmo formato de data-value / data-action do HTML.
-const KEY_BUTTONS = {
-  "+": { action: "add" },
-  "-": { action: "subtract" },
-  "*": { action: "multiply" },
-  "/": { action: "divide" },
-  "=": { action: "equals" },
-  Enter: { action: "equals" },
-  Escape: { action: "all-clear" },
-  ".": { value: "." },
-  ",": { value: "." },
-  // M+ pelo teclado: m ou M (com ou sem Shift).
-  m: { action: "memory-add" },
-  M: { action: "memory-add" },
-  // Parênteses pelo teclado: ( e ) (no teclado com Shift + 9 e Shift + 0).
-  "(": { action: "open-paren" },
-  ")": { action: "close-paren" },
-  // Funções avançadas (CALC-42): ^ para xʸ, p para π, ! para x!, r para MR, c para MC e _ (Shift + -) para M-.
-  // Letras maiúsculas valem também, como m e M.
-  "^": { action: "power" },
-  p: { action: "pi" },
-  P: { action: "pi" },
-  "!": { action: "factorial" },
-  r: { action: "memory-recall" },
-  R: { action: "memory-recall" },
-  c: { action: "memory-clear" },
-  C: { action: "memory-clear" },
-  _: { action: "memory-subtract" },
-};
+// Tecla → ação, a partir das teclas de cada entrada de ACTIONS (calculator.js): botões e atalhos saem do mesmo registro (CALC-53).
+// Ex.: m e M somam à memória; ( e ) abrem e fecham parênteses (Shift + 9 e Shift + 0 no teclado).
+const ACTION_BY_KEY = new Map(ACTIONS.flatMap((action) => (action.keys ?? []).map((key) => [key, action])));
+
+// Ids dos botões fora do teclado numérico que têm tecla (M+, MR, MC, M-, π, x!, xʸ, ( e )): o destaque de tecla pressionada usa esta lista.
+const KEY_BUTTON_IDS = ACTIONS.filter((action) => action.keys && action.buttonId).map((action) => action.buttonId);
 
 // Botões que recebem as mesmas teclas além do teclado numérico: o destaque e o efeito de tecla pressionada usam esta lista.
 let pressableButtons = [];
@@ -39,24 +17,13 @@ let pressableButtons = [];
 // Indexado pelo código físico (event.code), para que soltar a tecla com outro caractere (ex.: Shift) ainda a libere.
 const heldKeys = new Map();
 
-// Liga o teclado físico ao documento e à janela. Os botões que recebem tecla são os do teclado numérico, mais M+, MR, MC, M-, π, x!, xʸ, ( e ).
+// Liga o teclado físico ao documento e à janela. Os botões que recebem tecla são os do teclado numérico, mais os de KEY_BUTTON_IDS.
 // actions: press(dataset) para cada tecla de botão e backspace() para Backspace (main.js atualiza o estado e redesenha).
 export function bindKeyboard(doc, win, actions) {
   heldKeys.clear();
   const keypad = doc.querySelector(".keypad");
   const buttons = keypad ? Array.from(keypad.querySelectorAll("button")) : [];
-  const ids = [
-    "memory-add",
-    "memory-subtract",
-    "memory-recall",
-    "memory-clear",
-    "pi-button",
-    "factorial-button",
-    "open-paren-button",
-    "close-paren-button",
-    "power-button",
-  ];
-  pressableButtons = [...buttons, ...ids.map((id) => doc.getElementById(id))].filter(Boolean);
+  pressableButtons = [...buttons, ...KEY_BUTTON_IDS.map((id) => doc.getElementById(id))].filter(Boolean);
 
   doc.addEventListener("keydown", (event) => {
     // Atalhos do navegador (Ctrl+C, Cmd+R etc.) continuam funcionando.
@@ -106,10 +73,8 @@ export function bindKeyboard(doc, win, actions) {
 
 // Tecla → dataset no mesmo formato de data-value/data-action; null se a tecla não tem botão (ex.: Backspace).
 function datasetForKey(key) {
-  if (/^[0-9]$/.test(key)) {
-    return { value: key };
-  }
-  return Object.hasOwn(KEY_BUTTONS, key) ? KEY_BUTTONS[key] : null;
+  const action = ACTION_BY_KEY.get(key);
+  return action === undefined ? null : datasetOf(action);
 }
 
 // Botão do teclado correspondente a um dataset (ex.: { value: "7" } ou { action: "add" }), ou null.
