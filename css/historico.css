@@ -1,0 +1,269 @@
+/* Histórico: escondido no mobile (fora da árvore de acessibilidade também). */
+.history {
+  display: none;
+}
+
+/* Botão Histórico e × do painel: só existem no mobile (ver o bloco no fim do arquivo). */
+.history-open,
+.history-close {
+  display: none;
+}
+
+/* Desktop: o histórico ocupa a coluna da direita, com a mesma largura da calculadora. */
+@media (min-width: 768px) {
+  .history {
+    grid-column: 3;
+    justify-self: start;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    width: min(360px, 100%);
+    min-width: 0;
+    padding: 1rem;
+    border-radius: 1.5rem;
+    background: #000000;
+  }
+}
+
+.history-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.history-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #ff9f0a;
+}
+
+.history-empty {
+  margin: 0;
+  padding: 0.5rem 0;
+  text-align: center;
+  color: #a5a5a5;
+}
+
+.history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  max-height: 26rem;
+  overflow-y: auto;
+  list-style: none;
+}
+
+/* Lista vazia (hidden): sem display flex acima, some de vez, inclusive do foco por teclado. */
+.history-list[hidden] {
+  display: none;
+}
+
+/* Lista com rolagem precisa ser alcançável pelo teclado, então mostra o foco. */
+.history-list:focus-visible {
+  outline: 3px solid #ffffff;
+  outline-offset: 2px;
+}
+
+/* Cada cálculo é um botão: tocar nele devolve o resultado ao visor. Expressão pequena e cinza; resultado grande e branco. */
+.history-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.125rem;
+  width: 100%;
+  padding: 0.625rem 0.75rem;
+  border: 0;
+  border-radius: 0.75rem;
+  background: #333333;
+  color: #ffffff;
+  font: inherit;
+  text-align: right;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+
+.history-item:active {
+  filter: brightness(0.8);
+}
+
+.history-item:focus-visible {
+  outline: 3px solid #ffffff;
+  outline-offset: 2px;
+}
+
+.history-expression {
+  font-size: 0.875rem;
+  color: #a5a5a5;
+  font-variant-numeric: tabular-nums;
+}
+
+.history-result {
+  font-size: 1.5rem;
+  font-weight: 600;
+  line-height: 1.2;
+  color: #ffffff;
+  font-variant-numeric: tabular-nums;
+}
+
+.history-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* Painel de ações (hidden) some quando não há cálculos, inclusive o botão de limpar. */
+.history-actions[hidden],
+.history-confirm[hidden] {
+  display: none;
+}
+
+/* Ação secundária: contorno cinza, sem preenchimento, menor que os botões da calculadora. */
+.history-clear,
+.history-cancel {
+  padding: 0.4rem 0.9rem;
+  border: 1px solid #a5a5a5;
+  border-radius: 999px;
+  background: transparent;
+  color: #a5a5a5;
+  font: inherit;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.history-clear:hover,
+.history-cancel:hover {
+  border-color: #ffffff;
+  color: #ffffff;
+}
+
+.history-clear:focus-visible,
+.history-cancel:focus-visible,
+.history-confirm-yes:focus-visible {
+  outline: 3px solid #ffffff;
+  outline-offset: 2px;
+}
+
+.history-confirm {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.history-confirm-text {
+  margin: 0;
+  font-size: 0.875rem;
+  color: #ffffff;
+  text-align: center;
+}
+
+.history-confirm-buttons {
+  display: flex;
+  gap: 0.5rem;
+}
+
+/* Confirmação de apagar: botão claro, para ser diferente da ação secundária que o abriu. */
+.history-confirm-yes {
+  padding: 0.4rem 0.9rem;
+  border: 0;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #000000;
+  font: inherit;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.history-confirm-yes:active,
+.history-cancel:active,
+.history-clear:active {
+  filter: brightness(0.8);
+}
+
+/*
+ * Mobile (até 767px). Fica no fim deste arquivo para vencer as regras base de mesma especificidade.
+ * Botão Histórico no canto superior e painel em tela cheia, por cima da calculadora.
+ */
+@media (max-width: 767px) {
+  .history-open {
+    display: inline-flex;
+    position: absolute;
+    top: var(--pad);
+    left: var(--pad);
+    align-items: center;
+    padding: 0.4rem 0.9rem;
+    border: 1px solid #a5a5a5;
+    border-radius: 999px;
+    background: transparent;
+    color: #a5a5a5;
+    font: inherit;
+    font-size: 0.875rem;
+    cursor: pointer;
+  }
+
+  .history-open:hover {
+    border-color: #ffffff;
+    color: #ffffff;
+  }
+
+  .history-open:active {
+    filter: brightness(0.8);
+  }
+
+  .history-open:focus-visible,
+  .history-close:focus-visible {
+    outline: 3px solid #ffffff;
+    outline-offset: 2px;
+  }
+
+  /* Painel em tela cheia, por cima da calculadora (que fica inerte enquanto ele está aberto). */
+  .history.is-open {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    position: fixed;
+    inset: 0;
+    z-index: 1;
+    width: auto;
+    min-width: 0;
+    height: 100dvh;
+    margin: 0;
+    padding: 1rem;
+    border-radius: 0;
+    background: #000000;
+    overflow-y: auto;
+  }
+
+  .history.is-open .history-list {
+    flex: 1 1 auto;
+    min-height: 0;
+    max-height: none;
+  }
+
+  .history.is-open .history-close {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: #333333;
+    color: #ffffff;
+    font: inherit;
+    font-size: 1.5rem;
+    line-height: 1;
+    cursor: pointer;
+  }
+
+  .history.is-open .history-close:active {
+    filter: brightness(0.8);
+  }
+}

@@ -1,0 +1,119 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+/* Medidas do teclado: todos os botões são quadrados de lado --cell, separados por --gap.
+ * Desktop: 7 colunas (3 científicas + 4 básicas) em 332px, dentro dos 360px da calculadora. */
+:root {
+  --pad: 0.875rem;
+  --gap: 0.25rem;
+  --cell: 2.75rem;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  background: #686868;
+  color: #ffffff;
+}
+
+.calculator {
+  width: min(360px, 100% - 2rem);
+  padding: var(--pad);
+  background: #000000;
+}
+
+/* Título mantido para leitores de tela; fora da área visível, como na referência iOS. */
+.calculator h1 {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Texto só para leitor de tela. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Área da calculadora e do histórico: no mobile só a calculadora, centralizada. */
+.layout {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+}
+
+/* Desktop: cantos arredondados na calculadora preta, sobre a página cinza. */
+@media (min-width: 768px) {
+  .calculator {
+    border-radius: 1.5rem;
+  }
+
+  /* Calculadora no centro exato, na coluna do meio; o histórico ocupa a coluna da direita (regra em historico.css). */
+  .layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    align-items: start;
+    column-gap: 1.5rem;
+  }
+
+  .calculator {
+    grid-column: 2;
+    width: 360px;
+  }
+}
+
+/*
+ * Mobile (até 767px). Fica no fim deste arquivo para vencer as regras base de mesma especificidade.
+ * A calculadora ocupa a viewport inteira. Cada botão é um quadrado de lado --cell, que é o menor entre:
+ * a largura (7 colunas, com 6 espaços entre elas) e a altura (5 linhas, com o visor com pelo menos --display-min
+ * e a linha de status acima dele). Assim os botões não distorcem, ficam com pelo menos 44px em 360px de largura,
+ * e o visor recebe o que sobra.
+ */
+@media (max-width: 767px) {
+  body {
+    display: block;
+    min-height: 100dvh;
+    background: #000000;
+  }
+
+  .layout {
+    height: 100dvh;
+  }
+
+  .calculator {
+    --display-min: 4.5rem;
+    --status-height: 1.5rem;
+    /* Largura: 7 colunas e 6 espaços. Altura: 5 linhas, 4 espaços, visor mínimo e status. */
+    --cell: min(
+      calc((100vw - 2 * var(--pad) - 6 * var(--gap)) / 7),
+      calc((100dvh - 2 * var(--pad) - 4 * var(--gap) - var(--display-min) - var(--status-height)) / 5)
+    );
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+    padding: var(--pad);
+    border-radius: 0;
+  }
+}

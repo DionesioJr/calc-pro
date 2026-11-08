@@ -1,0 +1,68 @@
+/* Linha de status acima do visor: indicador M e unidade DEG, alinhados à direita. */
+.status {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 1.5rem;
+}
+
+/* Indicador de memória: aparece enquanto o registrador for diferente de 0 (o atributo hidden esconde). */
+.memory-indicator {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #ff9f0a;
+}
+
+/* Unidade angular do sen, sempre visível. Cinza sobre preto: contraste alto. */
+.angle-unit {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #a5a5a5;
+}
+
+.display {
+  display: block;
+  min-height: 6rem;
+  padding: 0 0.5rem;
+  text-align: right;
+  font-size: 4rem; /* 64px: até 6 caracteres */
+  font-weight: 300;
+  line-height: 1.1;
+  color: #ffffff;
+  font-variant-numeric: tabular-nums;
+  background: transparent;
+  overflow-wrap: anywhere;
+}
+
+/* Tamanho definido pelo src/ui.js conforme o número de caracteres exibidos. */
+.display-48 {
+  font-size: 3rem; /* 48px: 7 ou 8 caracteres */
+}
+
+.display-40 {
+  font-size: 2.5rem; /* 40px: 9 ou mais caracteres */
+}
+
+/* Indicador de parênteses abertos: laranja como o indicador de memória, um "(" por nível. */
+.paren-indicator {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #ff9f0a;
+}
+
+/* Mobile (até 767px): status e visor. Visor ocupa o que sobra entre a linha de status e o teclado. */
+@media (max-width: 767px) {
+  .status {
+    flex: none;
+    min-height: var(--status-height);
+  }
+
+  .display {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+  }
+}
