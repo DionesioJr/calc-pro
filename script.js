@@ -26,7 +26,7 @@ const state = {
   // Conta pendente, em ordem: números e operadores alternados (ex.: [2, "add", 3, "multiply"]).
   // Um operador no fim da pilha é o operador pendente, aguardando o segundo número.
   stack: [],
-  // Sequência crua da conta em curso, sem reduzir: números como texto (como digitados) e nomes de operador.
+  // Sequência crua da conta em curso, sem reduzir: números como texto (como digitados; e entra com o valor completo) e nomes de operador.
   // Trocar um operador refaz a pilha a partir daqui, para os termos já fechados voltarem a abrir.
   terms: [],
   // true logo após apertar um operador ou o igual: o próximo dígito começa um novo número.
@@ -37,8 +37,11 @@ const state = {
   expression: [],
   // Registrador da memória (M+): soma dos valores do visor. Começa em 0; AC não o apaga, só MC.
   memory: 0,
-  // Unidade angular do sen: "deg" (padrão, graus) ou "rad" (radianos). Só em memória: volta a graus ao recarregar.
+  // Unidade angular do sen e do tan: "deg" (padrão, graus) ou "rad" (radianos). Só em memória: volta a graus ao recarregar.
   angleUnit: "deg",
+  // Valor completo do visor quando ele é uma constante (e): o visor mostra 8 casas, o cálculo usa o número inteiro.
+  // Qualquer outra mudança no visor passa por setCurrent, que zera este campo.
+  exact: null,
 };
 
 // Rótulos da unidade angular: o visível (DEG/RAD), o nome por extenso e o nome da unidade para trocar.
@@ -47,19 +50,27 @@ const ANGLE_UNITS = {
   rad: { label: "RAD", name: "radianos", next: "graus" },
 };
 
+// Base negativa com expoente fracionário, ou 0 elevado a negativo, dão NaN ou Infinity: a conta falha como as outras (Erro).
 const OPERATIONS = {
   add: (a, b) => a + b,
   subtract: (a, b) => a - b,
   multiply: (a, b) => a * b,
   divide: (a, b) => (b === 0 ? null : a / b),
+  power: (a, b) => a ** b,
 };
 
-// Precedência: × e ÷ são calculados antes de + e −. Entre operadores de mesma precedência vale a ordem da esquerda para a direita.
+// Precedência: xʸ antes de × e ÷, e × e ÷ antes de + e −. Entre operadores de mesma precedência vale a ordem da esquerda para a direita,
+// exceto xʸ, que associa à direita (2 xʸ 3 xʸ 2 = 2 xʸ 9 = 512).
 const PRECEDENCE = {
   add: 1,
   subtract: 1,
   multiply: 2,
   divide: 2,
+  power: 3,
+};
+
+const RIGHT_ASSOCIATIVE = {
+  power: true,
 };
 
 const OPERATOR_SYMBOLS = {
@@ -67,6 +78,7 @@ const OPERATOR_SYMBOLS = {
   subtract: "−",
   multiply: "×",
   divide: "÷",
+  power: "xʸ",
 };
 
 // Histórico de cálculos, no localStorage; do mais antigo para o mais recente.
@@ -107,12 +119,21 @@ const logButton = document.getElementById("log-button");
 const sineButton = document.getElementById("sine-button");
 // Botão π também fica nessa linha, pelo mesmo motivo.
 const piButton = document.getElementById("pi-button");
+// Botão e também fica nessa linha, pelo mesmo motivo.
+const eButton = document.getElementById("e-button");
 // Botão 1/x também fica nessa linha, pelo mesmo motivo.
 const inverseButton = document.getElementById("inverse-button");
-// Botão DEG/RAD (unidade angular) fica nessa linha, à direita; alterna a unidade usada pelo sen.
+// Botão DEG/RAD (unidade angular) fica nessa linha, à direita; alterna a unidade usada pelo sen e pelo tan.
 const angleUnitButton = document.getElementById("angle-unit");
+// Botão √x também fica nessa linha, pelo mesmo motivo.
+const squareRootButton = document.getElementById("sqrt-button");
 // Botão tan também fica nessa linha, pelo mesmo motivo.
 const tangentButton = document.getElementById("tan-button");
+// Botão xʸ também fica nessa linha, pelo mesmo motivo. É um operador binário: entra em operatorButtons para mostrar o destaque pendente.
+const powerButton = document.getElementById("power-button");
+if (powerButton) {
+  operatorButtons.push(powerButton);
+}
 const pressableButtons = memoryAddButton ? [...buttons, memoryAddButton] : buttons;
 
 function displaySizeClass(text) {
@@ -149,7 +170,7 @@ function render() {
 
 // Reinicia o cálculo em curso. O histórico não é apagado aqui (só pelo botão Limpar histórico).
 function reset() {
-  state.current = "0";
+  setCurrent("0");
   state.stack = [];
   state.terms = [];
   state.waitingForOperand = false;
@@ -157,8 +178,24 @@ function reset() {
   state.expression = [];
 }
 
+// Troca o texto do visor e descarta o valor completo de uma constante (e), se havia um.
+function setCurrent(text) {
+  state.current = text;
+  state.exact = null;
+}
+
+// Número usado nas contas: o valor completo da constante, se o visor mostra uma; senão, o número do visor.
+function operandValue() {
+  return state.exact !== null ? state.exact : Number(state.current);
+}
+
+// Número fechado que entra na sequência crua: o texto do visor, ou o valor completo da constante (String(Math.E) volta ao mesmo double).
+function closedNumber() {
+  return state.exact !== null ? String(state.exact) : state.current;
+}
+
 function setError() {
-  state.current = ERROR_TEXT;
+  setCurrent(ERROR_TEXT);
   state.stack = [];
   state.terms = [];
   state.waitingForOperand = true;
@@ -209,7 +246,7 @@ function splitCalculation(text) {
 // Clique ou toque num item: o resultado vai para o visor, e o próximo dígito começa um número novo.
 function recallResult(result) {
   reset();
-  state.current = result;
+  setCurrent(result);
   state.waitingForOperand = true;
   render();
 }
@@ -342,7 +379,7 @@ function inputDigit(digit) {
     reset();
   }
   if (state.waitingForOperand) {
-    state.current = digit;
+    setCurrent(digit);
     state.waitingForOperand = false;
     return;
   }
@@ -351,7 +388,7 @@ function inputDigit(digit) {
     return;
   }
   // O "0" inicial é substituído pelo primeiro dígito digitado.
-  state.current = state.current === "0" ? digit : state.current + digit;
+  setCurrent(state.current === "0" ? digit : state.current + digit);
 }
 
 function inputDecimal() {
@@ -359,7 +396,7 @@ function inputDecimal() {
     reset();
   }
   if (state.waitingForOperand) {
-    state.current = "0.";
+    setCurrent("0.");
     state.waitingForOperand = false;
     return;
   }
@@ -367,7 +404,7 @@ function inputDecimal() {
   if (state.current.includes(".")) {
     return;
   }
-  state.current += ".";
+  setCurrent(state.current + ".");
 }
 
 // +/-: inverte o sinal do número exibido. Com o zero não há sinal a inverter.
@@ -381,7 +418,10 @@ function toggleSign() {
   if (state.current === "0") {
     return;
   }
-  state.current = state.current.startsWith("-") ? state.current.slice(1) : "-" + state.current;
+  // Com a constante, o sinal inverte também o valor completo (−e continua exato).
+  const exact = state.exact;
+  setCurrent(state.current.startsWith("-") ? state.current.slice(1) : "-" + state.current);
+  state.exact = exact === null ? null : -exact;
   state.waitingForOperand = false;
 }
 
@@ -391,7 +431,7 @@ function percent() {
     reset();
     return;
   }
-  state.current = formatResult(Number(state.current) / 100);
+  setCurrent(formatResult(operandValue() / 100));
   state.waitingForOperand = false;
 }
 
@@ -401,7 +441,7 @@ function changeMemory(sign) {
   if (state.error) {
     return;
   }
-  const total = state.memory + sign * Number(state.current);
+  const total = state.memory + sign * operandValue();
   if (!Number.isFinite(total) || Math.abs(total) > MAX_RESULT) {
     setError();
     return;
@@ -429,7 +469,7 @@ function memoryRecall() {
   if (state.error) {
     reset();
   }
-  state.current = formatResult(state.memory);
+  setCurrent(formatResult(state.memory));
   state.waitingForOperand = false;
 }
 
@@ -439,12 +479,12 @@ function square() {
   if (state.error) {
     return;
   }
-  const result = Number(state.current) ** 2;
+  const result = operandValue() ** 2;
   if (!Number.isFinite(result) || Math.abs(result) > MAX_RESULT) {
     setError();
     return;
   }
-  state.current = formatResult(result);
+  setCurrent(formatResult(result));
   state.waitingForOperand = false;
 }
 
@@ -455,12 +495,12 @@ function logarithm() {
   if (state.error) {
     return;
   }
-  const value = Number(state.current);
+  const value = operandValue();
   if (value <= 0) {
     setError();
     return;
   }
-  state.current = formatResult(Math.log10(value));
+  setCurrent(formatResult(Math.log10(value)));
   state.waitingForOperand = false;
 }
 
@@ -483,9 +523,9 @@ function sine() {
   if (state.error) {
     return;
   }
-  const value = Number(state.current);
+  const value = operandValue();
   const result = state.angleUnit === "rad" ? Math.sin(value) : sineDegrees(value);
-  state.current = formatResult(result);
+  setCurrent(formatResult(result));
   state.waitingForOperand = false;
 }
 
@@ -502,7 +542,19 @@ function insertPi() {
   if (state.error) {
     reset();
   }
-  state.current = formatResult(Math.PI);
+  setCurrent(formatResult(Math.PI));
+  state.waitingForOperand = false;
+}
+
+// e: insere o número de Euler como operando, substituindo o número em curso, como o π. O visor mostra 2.71828183
+// (8 casas, como os resultados), mas as contas usam o valor completo (e² = 7.38905610, não 7.38905611).
+// Após Erro, começa uma calculadora nova, como um dígito.
+function insertEuler() {
+  if (state.error) {
+    reset();
+  }
+  setCurrent(formatResult(Math.E));
+  state.exact = Math.E;
   state.waitingForOperand = false;
 }
 
@@ -512,20 +564,36 @@ function inverse() {
   if (state.error) {
     return;
   }
-  if (Number(state.current) === 0) {
+  if (operandValue() === 0) {
     setError();
     return;
   }
-  const result = 1 / Number(state.current);
+  const result = 1 / operandValue();
   if (!Number.isFinite(result) || Math.abs(result) > MAX_RESULT) {
     setError();
     return;
   }
-  state.current = formatResult(result);
+  setCurrent(formatResult(result));
   state.waitingForOperand = false;
 }
 
-// Tangente em graus (o visor mostra DEG). A tangente tem período de 180°, então o ângulo é reduzido módulo 180 antes.
+// √x: troca o número exibido pela raiz quadrada dele, com a mesma regra de segundo operando do %, do x², do sen, do π e do 1/x.
+// Negativo não tem raiz real: mostra Erro. Com Erro no visor não calcula e mantém o Erro.
+// A raiz de um número até 2^53 fica até ~9.5e7, então não há limite de 2^53 a checar.
+function squareRoot() {
+  if (state.error) {
+    return;
+  }
+  const value = Number(state.current);
+  if (value < 0) {
+    setError();
+    return;
+  }
+  state.current = formatResult(Math.sqrt(value));
+  state.waitingForOperand = false;
+}
+
+// Tangente em graus (quando a unidade é DEG). A tangente tem período de 180°, então o ângulo é reduzido módulo 180 antes.
 // Múltiplos de 45° saem exatos (tan 0° = 0, tan 45° = 1, tan 135° = -1); 90° (e 90° + 180°·k) é indefinida: null.
 const EXACT_TANGENTS = [0, 1, null, -1];
 
@@ -538,17 +606,19 @@ function tangentDegrees(degrees) {
 }
 
 // tan: troca o número exibido pela tangente dele, com a mesma regra de segundo operando do sen e do 1/x.
+// A unidade vem de state.angleUnit: em graus usa tangentDegrees; em radianos, Math.tan direto sobre o número exibido.
 // Indefinida (90° + 180°·k) ou com resultado acima de 2^53 em valor absoluto: mostra Erro. Com Erro no visor não calcula e mantém o Erro.
 function tangent() {
   if (state.error) {
     return;
   }
-  const result = tangentDegrees(Number(state.current));
+  const value = operandValue();
+  const result = state.angleUnit === "rad" ? Math.tan(value) : tangentDegrees(value);
   if (result === null || !Number.isFinite(result) || Math.abs(result) > MAX_RESULT) {
     setError();
     return;
   }
-  state.current = formatResult(result);
+  setCurrent(formatResult(result));
   state.waitingForOperand = false;
 }
 
@@ -566,17 +636,23 @@ function deleteDigit() {
     return;
   }
   const remaining = state.current.slice(0, -1);
-  state.current = VALID_ENTRY.test(remaining) ? remaining : "0";
+  setCurrent(VALID_ENTRY.test(remaining) ? remaining : "0");
 }
 
 // Calcula a pilha de trás para a frente enquanto o operador logo antes do último número tiver precedência >= minPrecedence.
 // Com 0 calcula tudo (no igual); com a precedência de × ou ÷, só fecha o termo de × e ÷ que já estava em curso.
 // Como a pilha guarda operadores em ordem crescente de precedência, o de cima é sempre o que vem primeiro.
+// Com rightAssociative (xʸ), só fecha operadores de precedência estritamente maior: 2 xʸ 3 xʸ 2 fica para depois, como 2 xʸ (3 xʸ 2).
 // Não mexe no estado: devolve { stack, result } (result é o último resultado calculado, ou null se nada foi calculado),
 // ou null se a conta falhou (divisão por zero, resultado não finito ou acima de 2^53).
-function reduceStack(stack, minPrecedence) {
+function reduceStack(stack, minPrecedence, rightAssociative = false) {
   let result = null;
-  while (stack.length >= 3 && PRECEDENCE[stack[stack.length - 2]] >= minPrecedence) {
+  while (
+    stack.length >= 3 &&
+    (rightAssociative
+      ? PRECEDENCE[stack[stack.length - 2]] > minPrecedence
+      : PRECEDENCE[stack[stack.length - 2]] >= minPrecedence)
+  ) {
     const right = stack.pop();
     const operator = stack.pop();
     const left = stack.pop();
@@ -591,19 +667,19 @@ function reduceStack(stack, minPrecedence) {
 }
 
 // Monta a pilha a partir da sequência crua, reduzindo antes de empilhar cada operador.
-// Devolve { stack, display } (display: o último resultado parcial, ou o último número fechado, que é o que o visor mostra),
-// ou null se a conta falhou.
+// Devolve { stack, display }: display é o resultado do último operador que reduziu, ou null se esse operador não reduziu
+// nada (o visor segue mostrando o último número fechado, com o valor completo de e, se for o caso). Ou null se a conta falhou.
 function foldTerms(terms) {
   const stack = [];
-  let display = "0";
+  let display = null;
   for (let i = 0; i < terms.length; i++) {
     const term = terms[i];
     if (isOperator(term)) {
-      const reduced = reduceStack(stack, PRECEDENCE[term]);
+      const reduced = reduceStack(stack, PRECEDENCE[term], RIGHT_ASSOCIATIVE[term] === true);
       if (reduced === null) {
         return null;
       }
-      display = reduced.result ?? terms[i - 1];
+      display = reduced.result;
       stack.push(term);
     } else {
       stack.push(Number(term));
@@ -623,7 +699,7 @@ function inputOperator(operator) {
     state.expression[state.expression.length - 1] = OPERATOR_SYMBOLS[operator];
   } else {
     // O número que está sendo fechado agora entra na sequência crua, sem reduzir.
-    state.terms.push(state.current, operator);
+    state.terms.push(closedNumber(), operator);
     state.expression.push(state.current, OPERATOR_SYMBOLS[operator]);
   }
 
@@ -635,7 +711,10 @@ function inputOperator(operator) {
     return;
   }
   state.stack = folded.stack;
-  state.current = folded.display;
+  // Sem redução neste operador, o visor não muda: continua o último número fechado (e, se for a constante, com state.exact).
+  if (folded.display !== null) {
+    setCurrent(folded.display);
+  }
   state.waitingForOperand = true;
 }
 
@@ -657,7 +736,7 @@ function inputEquals() {
     state.stack.push(operator, repeated);
   } else {
     rightOperand = state.current;
-    state.stack.push(Number(state.current));
+    state.stack.push(operandValue());
   }
 
   const reduced = reduceStack(state.stack, 0);
@@ -665,7 +744,7 @@ function inputEquals() {
     setError();
     return;
   }
-  state.current = reduced.result ?? state.current;
+  setCurrent(reduced.result ?? state.current);
 
   state.expression.push(rightOperand, "=", state.current);
   addCalculation(state.expression.join(" "));
@@ -718,10 +797,14 @@ function handleButton(button) {
     tangent();
   } else if (action === "pi") {
     insertPi();
+  } else if (action === "euler") {
+    insertEuler();
   } else if (action === "inverse") {
     inverse();
   } else if (action === "angle-unit") {
     toggleAngleUnit();
+  } else if (action === "sqrt") {
+    squareRoot();
   } else if (action in OPERATIONS) {
     inputOperator(action);
   }
@@ -863,9 +946,23 @@ if (tangentButton) {
   });
 }
 
+if (powerButton) {
+  powerButton.addEventListener("click", () => {
+    handleButton(powerButton);
+    render();
+  });
+}
+
 if (piButton) {
   piButton.addEventListener("click", () => {
     handleButton(piButton);
+    render();
+  });
+}
+
+if (eButton) {
+  eButton.addEventListener("click", () => {
+    handleButton(eButton);
     render();
   });
 }
@@ -880,6 +977,13 @@ if (inverseButton) {
 if (angleUnitButton) {
   angleUnitButton.addEventListener("click", () => {
     handleButton(angleUnitButton);
+    render();
+  });
+}
+
+if (squareRootButton) {
+  squareRootButton.addEventListener("click", () => {
+    handleButton(squareRootButton);
     render();
   });
 }
