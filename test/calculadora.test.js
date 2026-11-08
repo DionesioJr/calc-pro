@@ -25,21 +25,22 @@
 // e do valor completo de e em √x e cos (CALC-49),
 // e dos botões ( e ) (CALC-30: agrupamento com aninhamento, multiplicação implícita e indicador de parênteses abertos),
 // e do histórico das funções avançadas (CALC-43: cada função aplicada ao visor vira uma linha, como √16 = 4 ou sen(30) = 0.5).
-// Executa script.js real num contexto isolado, com um DOM mínimo, e aperta
+// Monta os módulos reais de src/ (start de src/main.js) sobre um DOM mínimo, e aperta
 // os botões pelo mesmo caminho de clique que o navegador usa; o teclado usa o mesmo
 // caminho de keydown.
 // Sem dependências: rodar com `npm test` (node --test, Node 18+).
 
-const { describe, test } = require("node:test");
-const assert = require("node:assert/strict");
-const fs = require("node:fs");
-const path = require("node:path");
-const vm = require("node:vm");
+import { describe, test } from "node:test";
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { state } from "../src/calculator.js";
+import { start } from "../src/main.js";
 
-const ROOT = path.join(__dirname, "..");
-const SCRIPT_SOURCE = fs.readFileSync(path.join(ROOT, "script.js"), "utf8");
+const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 const HTML_SOURCE = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
-const CSS_SOURCE = fs.readFileSync(path.join(ROOT, "style.css"), "utf8");
+const CSS_SOURCE = fs.readFileSync(path.join(ROOT, "css", "style.css"), "utf8");
 
 // Teclas usadas nos testes, com os mesmos data-* que index.html define para cada botão.
 const KEY_DATASET = {
@@ -64,7 +65,7 @@ const KEY_DATASET = {
   "=": { action: "equals" },
 };
 
-// classList mínimo, com o que o script.js usa (add, remove, contains).
+// classList mínimo, com o que os módulos de src/ usam (add, remove, contains).
 function createClassList() {
   const names = new Set();
   return {
@@ -309,9 +310,8 @@ function createCalculator({ storage = {} } = {}) {
   };
 
   const localStorage = createLocalStorage(storage);
-  // Contexto com o script carregado: depois de rodar, o estado do script (const state) fica lido por runInContext.
-  const context = vm.createContext({ document, window, localStorage });
-  vm.runInContext(SCRIPT_SOURCE, context, { filename: "script.js" });
+  // Monta a calculadora sobre o DOM mínimo: zera o estado, liga o histórico ao storage e registra os listeners nos mocks.
+  start(document, window, localStorage);
 
   // Aperta as teclas em sequência e devolve o texto final do display. MC, MR, M+, M-, x², log, sen, cos, π, e, 1/x e √x são clicados pelo próprio botão, fora do teclado.
   function press(...keys) {
@@ -394,9 +394,9 @@ function createCalculator({ storage = {} } = {}) {
     return display.textContent;
   }
 
-  // Valor guardado na memória (registrador do script), lido do mesmo contexto.
+  // Valor guardado na memória (registrador de src/calculator.js).
   function memoryValue() {
-    return vm.runInContext("state.memory", context);
+    return state.memory;
   }
 
   // Botão do teclado pela tecla (ex.: "7", "+", "AC").
@@ -1321,7 +1321,7 @@ describe("CALC-16: casos de borda do limite de resultado (2^53)", () => {
   });
 });
 
-// Chave do localStorage do histórico (ver HISTORY_KEY em script.js).
+// Chave do localStorage do histórico (ver HISTORY_KEY em src/history.js).
 const HISTORY_KEY = "calc-pro:historico";
 
 describe("CALC-19: critérios de aceite do histórico de cálculos", () => {
@@ -1678,7 +1678,7 @@ describe("CALC-20: estilo e estrutura do histórico reformulado", () => {
   });
 });
 
-// Regras do mobile: o bloco @media (max-width: 767px) fica no fim do style.css.
+// Regras do mobile: o bloco @media (max-width: 767px) fica no fim do css/style.css.
 const MOBILE_CSS = (CSS_SOURCE.match(/@media \(max-width: 767px\) \{[\s\S]*$/) || [""])[0];
 
 // Lado do botão no mobile, como o style.css calcula em --cell: o menor entre a largura (7 colunas, com 6 espaços)

@@ -1,7 +1,6 @@
-"use strict";
-
-const display = document.getElementById("display");
-const keypad = document.querySelector(".keypad");
+// Lógica da calculadora: estado, entrada de números e operadores, funções, parênteses e igual.
+// Não toca no DOM: quem desenha o visor e lê os botões é ui.js, keyboard.js e main.js.
+import { addCalculation } from "./history.js";
 
 const ERROR_TEXT = "Erro";
 
@@ -14,44 +13,11 @@ const DECIMAL_PLACES = 8;
 // Resultado com valor absoluto acima de 2^53 não é exato em double (ex.: 999999999 × 999999999 perderia algarismos): mostra Erro.
 const MAX_RESULT = 2 ** 53;
 
-// Tamanho do display pelo número de caracteres exibidos (sinal e ponto contam).
-const DISPLAY_SIZES = [
-  { maxLength: 6, className: "display-64" },
-  { maxLength: 8, className: "display-48" },
-  { maxLength: Infinity, className: "display-40" },
-];
-
-const state = {
-  current: "0",
-  // Conta pendente, em ordem: números e operadores alternados (ex.: [2, "add", 3, "multiply"]).
-  // Um operador no fim da pilha é o operador pendente, aguardando o segundo número.
-  stack: [],
-  // Sequência crua da conta em curso, sem reduzir: números como texto (como digitados; e entra com o valor completo) e nomes de operador.
-  // Trocar um operador refaz a pilha a partir daqui, para os termos já fechados voltarem a abrir.
-  terms: [],
-  // true logo após apertar um operador ou o igual: o próximo dígito começa um novo número.
-  waitingForOperand: false,
-  // true quando a última operação falhou (divisão por zero).
-  error: false,
-  // Partes da expressão em curso (ex.: ["12", "×", "3", "="]); viram uma linha do histórico no igual.
-  // Parênteses entram como "(" e ")", e o texto do grupo fechado já está aqui quando valueIsGroup é true.
-  expression: [],
-  // true logo depois de fechar um grupo ")": o número do visor é o valor do grupo, e o texto do grupo já está em expression.
-  valueIsGroup: false,
-  // true enquanto uma função é aplicada a um grupo fechado: ela não grava linha própria no histórico (a conta que usa o resultado grava).
-  functionOnGroup: false,
-  // Registrador da memória (M+): soma dos valores do visor. Começa em 0; AC não o apaga, só MC.
-  memory: 0,
-  // Valor completo do visor quando ele é uma constante (e): o visor mostra 8 casas, o cálculo usa o número inteiro.
-  // Qualquer outra mudança no visor passa por setCurrent, que zera este campo.
-  exact: null,
-};
-
 // Marcador de grupo aberto dentro de terms e da pilha. Um ")" nunca fica guardado: ao fechar, o grupo vira número.
-const OPEN_PAREN = "(";
+export const OPEN_PAREN = "(";
 
 // Base negativa com expoente fracionário, ou 0 elevado a negativo, dão NaN ou Infinity: a conta falha como as outras (Erro).
-const OPERATIONS = {
+export const OPERATIONS = {
   add: (a, b) => a + b,
   subtract: (a, b) => a - b,
   multiply: (a, b) => a * b,
@@ -81,111 +47,78 @@ const OPERATOR_SYMBOLS = {
   power: "xʸ",
 };
 
-// Histórico de cálculos, no localStorage; do mais antigo para o mais recente.
-const HISTORY_KEY = "calc-pro:historico";
-const calculationHistory = loadHistory();
-const historyList = document.getElementById("history-list");
-const historyEmpty = document.getElementById("history-empty");
-const historyActions = document.getElementById("history-actions");
-const historyClear = document.getElementById("history-clear");
-const historyConfirm = document.getElementById("history-confirm");
-const historyCancel = document.getElementById("history-cancel");
-const historyConfirmYes = document.getElementById("history-confirm-yes");
-
-// Mobile: o histórico vira painel em tela cheia, aberto pelo botão Histórico e fechado pelo × ou por Escape.
-const calculator = document.getElementById("calculator");
-const historyOpen = document.getElementById("history-open");
-const historyPanel = document.getElementById("history-panel");
-const historyClose = document.getElementById("history-close");
-
-// Botões do teclado numérico: o destaque do operador e o efeito de tecla pressionada usam esta lista.
-const buttons = keypad ? Array.from(keypad.querySelectorAll("button")) : [];
-const operatorButtons = buttons.filter((button) => Object.hasOwn(OPERATIONS, button.dataset.action));
-
-// Botão M+ fica fora do teclado numérico, mas recebe as mesmas teclas e o efeito de tecla pressionada.
-const memoryAddButton = document.getElementById("memory-add");
-const memoryIndicator = document.getElementById("memory-indicator");
-// Botão M- fica na linha da memória, ao lado do M+, sem tecla própria no teclado físico (o "-" segue como subtração).
-const memorySubtractButton = document.getElementById("memory-subtract");
-// Botão MR fica na linha da memória, antes do M+, também sem tecla própria no teclado físico.
-const memoryRecallButton = document.getElementById("memory-recall");
-// Botão MC fica na linha da memória, antes do MR, também sem tecla própria no teclado físico.
-const memoryClearButton = document.getElementById("memory-clear");
-
-// Botões x² e log ficam na mesma linha do M+, fora do teclado numérico (que segue com 5 linhas).
-const squareButton = document.getElementById("square-button");
-const logButton = document.getElementById("log-button");
-// Botão ln também fica nessa linha, pelo mesmo motivo.
-const lnButton = document.getElementById("ln-button");
-// Botão sen também fica nessa linha, pelo mesmo motivo.
-const sineButton = document.getElementById("sine-button");
-// Botão π também fica nessa linha, pelo mesmo motivo.
-const piButton = document.getElementById("pi-button");
-// Botão cos também fica nessa linha, pelo mesmo motivo.
-const cosineButton = document.getElementById("cos-button");
-// Botão e também fica nessa linha, pelo mesmo motivo.
-const eButton = document.getElementById("e-button");
-// Botão 1/x também fica nessa linha, pelo mesmo motivo.
-const inverseButton = document.getElementById("inverse-button");
-// Botão x! também fica nessa linha, pelo mesmo motivo.
-const factorialButton = document.getElementById("factorial-button");
-// Botão √x também fica nessa linha, pelo mesmo motivo.
-const squareRootButton = document.getElementById("sqrt-button");
-// Botão tan também fica nessa linha, pelo mesmo motivo.
-const tangentButton = document.getElementById("tan-button");
-// Botões ( e ) ficam na linha da memória, com o mesmo estilo das outras funções.
-const openParenButton = document.getElementById("open-paren-button");
-const closeParenButton = document.getElementById("close-paren-button");
-// Indicador de parênteses abertos: visível só com grupo aberto; um "(" por nível.
-const parenIndicator = document.getElementById("paren-indicator");
-const parenSymbols = document.getElementById("paren-symbols");
-const parenText = document.getElementById("paren-text");
-// Botão xʸ também fica nessa linha, pelo mesmo motivo. É um operador binário: entra em operatorButtons para mostrar o destaque pendente.
-const powerButton = document.getElementById("power-button");
-if (powerButton) {
-  operatorButtons.push(powerButton);
-}
-const pressableButtons = [...buttons, memoryAddButton, openParenButton, closeParenButton].filter(Boolean);
-
-function displaySizeClass(text) {
-  return DISPLAY_SIZES.find((size) => text.length <= size.maxLength).className;
+function initialState() {
+  return {
+    current: "0",
+    // Conta pendente, em ordem: números e operadores alternados (ex.: [2, "add", 3, "multiply"]).
+    // Um operador no fim da pilha é o operador pendente, aguardando o segundo número.
+    stack: [],
+    // Sequência crua da conta em curso, sem reduzir: números como texto (como digitados; e entra com o valor completo) e nomes de operador.
+    // Trocar um operador refaz a pilha a partir daqui, para os termos já fechados voltarem a abrir.
+    terms: [],
+    // true logo após apertar um operador ou o igual: o próximo dígito começa um novo número.
+    waitingForOperand: false,
+    // true quando a última operação falhou (divisão por zero).
+    error: false,
+    // Partes da expressão em curso (ex.: ["12", "×", "3", "="]); viram uma linha do histórico no igual.
+    // Parênteses entram como "(" e ")", e o texto do grupo fechado já está aqui quando valueIsGroup é true.
+    expression: [],
+    // true logo depois de fechar um grupo ")": o número do visor é o valor do grupo, e o texto do grupo já está em expression.
+    valueIsGroup: false,
+    // true enquanto uma função é aplicada a um grupo fechado: ela não grava linha própria no histórico (a conta que usa o resultado grava).
+    functionOnGroup: false,
+    // Registrador da memória (M+): soma dos valores do visor. Começa em 0; AC não o apaga, só MC.
+    memory: 0,
+    // Valor completo do visor quando ele é uma constante (e): o visor mostra 8 casas, o cálculo usa o número inteiro.
+    // Qualquer outra mudança no visor passa por setCurrent, que zera este campo.
+    exact: null,
+  };
 }
 
-function render() {
-  if (display) {
-    display.textContent = state.current;
-    for (const size of DISPLAY_SIZES) {
-      display.classList.remove(size.className);
-    }
-    display.classList.add(displaySizeClass(state.current));
-  }
+// Estado único da calculadora. resetState volta tudo ao início sem trocar o objeto (quem o lê continua com a mesma referência).
+export const state = initialState();
 
-  // Operador destacado (aria-pressed="true", estilizado no CSS): só enquanto o segundo número não começou.
-  const selectedOperator = state.waitingForOperand ? trailingOperator() : null;
-  for (const button of operatorButtons) {
-    button.setAttribute("aria-pressed", String(button.dataset.action === selectedOperator));
-  }
-
-  // Indicador de memória: visível só enquanto houver valor guardado.
-  if (memoryIndicator) {
-    memoryIndicator.hidden = state.memory === 0;
-  }
-
-  // Indicador de parênteses: visível só com grupo aberto. Os "(" aparecem no visor da linha e o texto vai para o leitor de tela.
-  if (parenIndicator) {
-    const depth = openDepth();
-    parenIndicator.hidden = depth === 0;
-    if (parenSymbols) {
-      parenSymbols.textContent = OPEN_PAREN.repeat(depth);
-    }
-    if (parenText) {
-      parenText.textContent = depth === 1 ? "1 parêntese aberto" : `${depth} parênteses abertos`;
-    }
-  }
+export function resetState() {
+  Object.assign(state, initialState());
 }
+
+// Seno em graus (o visor mostra DEG). Múltiplos de 90° saem exatos (sen 0° = 0, sen 90° = 1); os demais usam radianos.
+// Reduzir módulo 360 antes evita perder precisão com ângulos grandes.
+const EXACT_SINES = [0, 1, 0, -1];
+
+// Cosseno em graus, com a mesma regra do seno: múltiplos de 90° saem exatos (cos 0° = 1, cos 90° = 0, cos 180° = -1, cos 270° = 0),
+// sem o ruído de ponto flutuante do Math.cos (ex.: 6.12e-17 em 90°). Os demais usam radianos.
+const EXACT_COSINES = [1, 0, -1, 0];
+
+// Tangente em graus (o visor mostra DEG). A tangente tem período de 180°, então o ângulo é reduzido módulo 180 antes.
+// Múltiplos de 45° saem exatos (tan 0° = 0, tan 45° = 1, tan 135° = -1); 90° (e 90° + 180°·k) é indefinida: null.
+const EXACT_TANGENTS = [0, 1, null, -1];
+
+// Backspace (teclado): apaga o último caractere do número em edição.
+// Sem número em edição (após operador ou igual) não faz nada. Após erro, reinicia a calculadora.
+// Se sobrar algo que não é um número válido (ex.: "-" ou notação científica), volta para 0.
+const VALID_ENTRY = /^-?\d+(\.\d*)?$/;
+
+// Funções que trocam o número do visor. Aplicadas a um grupo fechado, o texto do grupo sai da expressão (ver dropGroupText).
+const FUNCTION_ACTIONS = [
+  "percent",
+  "toggle-sign",
+  "square",
+  "log",
+  "ln",
+  "sine",
+  "cos",
+  "tan",
+  "pi",
+  "euler",
+  "inverse",
+  "sqrt",
+  "factorial",
+  "memory-recall",
+];
 
 // Reinicia o cálculo em curso. O histórico não é apagado aqui (só pelo botão Limpar histórico).
-function reset() {
+export function reset() {
   setCurrent("0");
   state.stack = [];
   state.terms = [];
@@ -196,7 +129,7 @@ function reset() {
 }
 
 // Troca o texto do visor e descarta o valor completo de uma constante (e), se havia um.
-function setCurrent(text) {
+export function setCurrent(text) {
   state.current = text;
   state.exact = null;
 }
@@ -222,7 +155,7 @@ function setError() {
 }
 
 // Operador pendente (está no fim da pilha), ou null se a pilha termina em número. "(" não é operador.
-function trailingOperator() {
+export function trailingOperator() {
   const last = state.stack[state.stack.length - 1];
   return isOperator(last) ? last : null;
 }
@@ -230,167 +163,6 @@ function trailingOperator() {
 // Na sequência crua, operador é o nome (ex.: "add"); número é o texto digitado (ex.: "2", "0.5").
 function isOperator(term) {
   return Object.hasOwn(OPERATIONS, term);
-}
-
-function loadHistory() {
-  try {
-    const saved = JSON.parse(localStorage.getItem(HISTORY_KEY));
-    // Só entram textos no formato "expressão = resultado"; o resto é descartado.
-    return Array.isArray(saved) ? saved.filter((item) => typeof item === "string" && item.includes(" = ")) : [];
-  } catch {
-    // Dado corrompido ou armazenamento indisponível: começa com histórico vazio.
-    return [];
-  }
-}
-
-function saveHistory() {
-  try {
-    if (calculationHistory.length === 0) {
-      localStorage.removeItem(HISTORY_KEY);
-    } else {
-      localStorage.setItem(HISTORY_KEY, JSON.stringify(calculationHistory));
-    }
-  } catch {
-    // Sem armazenamento (ex.: modo privado com cota cheia): o histórico vale só até fechar a página.
-  }
-}
-
-// Divide "12 × 3 = 36" em expressão e resultado (o resultado vem depois do último " = ").
-function splitCalculation(text) {
-  const index = text.lastIndexOf(" = ");
-  return { expression: text.slice(0, index), result: text.slice(index + 3) };
-}
-
-// Clique ou toque num item: o resultado vai para o visor, e o próximo dígito começa um número novo.
-function recallResult(result) {
-  reset();
-  setCurrent(result);
-  state.waitingForOperand = true;
-  render();
-}
-
-// Painel do histórico (mobile). Enquanto aberto, a calculadora fica inerte: foco e toque não chegam aos botões.
-function isHistoryPanelShown() {
-  return historyPanel !== null && historyPanel.classList.contains("is-open");
-}
-
-function showHistoryPanel() {
-  if (!historyPanel) {
-    return;
-  }
-  historyPanel.classList.add("is-open");
-  if (calculator) {
-    calculator.inert = true;
-  }
-  if (historyOpen) {
-    historyOpen.setAttribute("aria-expanded", "true");
-  }
-  if (historyClose) {
-    historyClose.focus();
-  }
-}
-
-// Fecha o painel e devolve o foco ao botão Histórico, de onde o usuário veio.
-function hideHistoryPanel() {
-  if (!historyPanel || !isHistoryPanelShown()) {
-    return;
-  }
-  historyPanel.classList.remove("is-open");
-  if (calculator) {
-    calculator.inert = false;
-  }
-  if (historyOpen) {
-    historyOpen.setAttribute("aria-expanded", "false");
-    historyOpen.focus();
-  }
-}
-
-// Mais recente primeiro. Cada item é um botão (alcançável pelo teclado); texto vai por textContent, nunca como HTML.
-function renderHistory() {
-  if (!historyList || !historyEmpty) {
-    return;
-  }
-  const items = calculationHistory.slice().reverse().map((text) => {
-    const { expression, result } = splitCalculation(text);
-
-    const expressionText = document.createElement("span");
-    expressionText.className = "history-expression";
-    expressionText.textContent = expression;
-
-    const resultText = document.createElement("span");
-    resultText.className = "history-result";
-    resultText.textContent = result;
-
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "history-item";
-    button.setAttribute("aria-label", `${expression} igual a ${result}, usar no visor`);
-    button.replaceChildren(expressionText, resultText);
-    // No mobile, o painel cobre o visor: ao usar um item, o painel fecha para o resultado aparecer.
-    button.addEventListener("click", () => {
-      recallResult(result);
-      hideHistoryPanel();
-    });
-
-    const item = document.createElement("li");
-    item.replaceChildren(button);
-    return item;
-  });
-  historyList.replaceChildren(...items);
-  historyList.hidden = items.length === 0;
-  historyEmpty.hidden = items.length > 0;
-  // Sem cálculos, o botão Limpar some: o painel mostra só a mensagem de vazio.
-  if (historyActions) {
-    historyActions.hidden = items.length === 0;
-  }
-}
-
-function addCalculation(text) {
-  calculationHistory.push(text);
-  saveHistory();
-  renderHistory();
-}
-
-// Função aplicada ao visor (ex.: √16, sen(30)) vira uma linha do histórico, com o resultado que ficou no visor.
-// Só é chamada quando a função deu certo: Erro não grava.
-function recordFunction(expression) {
-  if (state.functionOnGroup) {
-    return;
-  }
-  addCalculation(`${expression} = ${state.current}`);
-}
-
-// Negativo entre parênteses nas funções que escrevem o número antes ou depois do símbolo (ex.: (-3)²), para não ler como -(3²).
-function operandText(text) {
-  return text.startsWith("-") ? `(${text})` : text;
-}
-
-// Limpar pede confirmação: o botão dá lugar a "Apagar todo o histórico?" com Cancelar (foco inicial) e Apagar.
-function showClearConfirm() {
-  if (!historyClear || !historyConfirm || !historyCancel) {
-    return;
-  }
-  historyClear.hidden = true;
-  historyConfirm.hidden = false;
-  historyCancel.focus();
-}
-
-function hideClearConfirm() {
-  if (!historyClear || !historyConfirm) {
-    return;
-  }
-  historyConfirm.hidden = true;
-  historyClear.hidden = false;
-}
-
-function clearHistory() {
-  calculationHistory.length = 0;
-  saveHistory();
-  hideClearConfirm();
-  renderHistory();
-  if (historyEmpty) {
-    historyEmpty.focus();
-  }
 }
 
 // Arredonda para no máximo 8 casas decimais e remove os zeros à direita (0.1 + 0.2 → 0.3; 1 ÷ 3 → 0.33333333).
@@ -505,6 +277,20 @@ function memoryRecall() {
   state.waitingForOperand = false;
 }
 
+// Função aplicada ao visor (ex.: √16, sen(30)) vira uma linha do histórico, com o resultado que ficou no visor.
+// Só é chamada quando a função deu certo: Erro não grava.
+function recordFunction(expression) {
+  if (state.functionOnGroup) {
+    return;
+  }
+  addCalculation(`${expression} = ${state.current}`);
+}
+
+// Negativo entre parênteses nas funções que escrevem o número antes ou depois do símbolo (ex.: (-3)²), para não ler como -(3²).
+function operandText(text) {
+  return text.startsWith("-") ? `(${text})` : text;
+}
+
 // x²: eleva o número exibido ao quadrado, com a mesma regra de segundo operando do % (o visor mostra o resultado).
 // Com Erro no visor não calcula e mantém o Erro. Se o quadrado passar de 2^53 em valor absoluto, mostra Erro.
 function square() {
@@ -558,10 +344,6 @@ function naturalLogarithm() {
   recordFunction(expression);
 }
 
-// Seno em graus (o visor mostra DEG). Múltiplos de 90° saem exatos (sen 0° = 0, sen 90° = 1); os demais usam radianos.
-// Reduzir módulo 360 antes evita perder precisão com ângulos grandes.
-const EXACT_SINES = [0, 1, 0, -1];
-
 function sineDegrees(degrees) {
   const angle = ((degrees % 360) + 360) % 360;
   if (angle % 90 === 0) {
@@ -582,10 +364,6 @@ function sine() {
   recordFunction(expression);
 }
 
-// Cosseno em graus, com a mesma regra do seno: múltiplos de 90° saem exatos (cos 0° = 1, cos 90° = 0, cos 180° = -1, cos 270° = 0),
-// sem o ruído de ponto flutuante do Math.cos (ex.: 6.12e-17 em 90°). Os demais usam radianos.
-const EXACT_COSINES = [1, 0, -1, 0];
-
 function cosineDegrees(degrees) {
   const angle = ((degrees % 360) + 360) % 360;
   if (angle % 90 === 0) {
@@ -594,7 +372,7 @@ function cosineDegrees(degrees) {
   return Math.cos((angle * Math.PI) / 180);
 }
 
-// cos: troca o número exibido pelo cosseno dele, com a mesma regra de segundo operando do sen.
+// cos: troca o número exibido pelo cosseno dele, com a mesma regra do seno.
 // Com Erro no visor não calcula e mantém o Erro. O cosseno fica entre -1 e 1, então não há limite de 2^53 a checar.
 function cosine() {
   if (state.error) {
@@ -706,10 +484,6 @@ function isScientific(text) {
   return /E\+\d+$/.test(text);
 }
 
-// Tangente em graus (o visor mostra DEG). A tangente tem período de 180°, então o ângulo é reduzido módulo 180 antes.
-// Múltiplos de 45° saem exatos (tan 0° = 0, tan 45° = 1, tan 135° = -1); 90° (e 90° + 180°·k) é indefinida: null.
-const EXACT_TANGENTS = [0, 1, null, -1];
-
 function tangentDegrees(degrees) {
   const angle = ((degrees % 180) + 180) % 180;
   if (angle % 45 === 0) {
@@ -735,12 +509,8 @@ function tangent() {
   recordFunction(expression);
 }
 
-// Backspace (teclado): apaga o último caractere do número em edição.
-// Sem número em edição (após operador ou igual) não faz nada. Após erro, reinicia a calculadora.
-// Se sobrar algo que não é um número válido (ex.: "-" ou notação científica), volta para 0.
-const VALID_ENTRY = /^-?\d+(\.\d*)?$/;
-
-function deleteDigit() {
+// Apaga o último caractere do número em edição (Backspace do teclado).
+export function deleteDigit() {
   if (state.error) {
     reset();
     return;
@@ -805,7 +575,7 @@ function foldTerms(terms) {
 }
 
 // Quantos grupos estão abertos: cada "(" em terms é um grupo que ainda não foi fechado.
-function openDepth() {
+export function openDepth() {
   return state.terms.filter((term) => term === OPEN_PAREN).length;
 }
 
@@ -1062,25 +832,8 @@ function inputEquals() {
   finishCalculation();
 }
 
-// Funções que trocam o número do visor. Aplicadas a um grupo fechado, o texto do grupo sai da expressão (ver dropGroupText).
-const FUNCTION_ACTIONS = [
-  "percent",
-  "toggle-sign",
-  "square",
-  "log",
-  "ln",
-  "sine",
-  "cos",
-  "tan",
-  "pi",
-  "euler",
-  "inverse",
-  "sqrt",
-  "factorial",
-  "memory-recall",
-];
-
-function handleButton(button) {
+// Ação de um botão (data-value para dígitos e ponto, data-action para o resto). Não redesenha: quem chama chama render().
+export function handleButton(button) {
   if (button.dataset.value !== undefined) {
     const value = button.dataset.value;
 
@@ -1150,299 +903,3 @@ function handleButton(button) {
   }
   state.functionOnGroup = false;
 }
-
-// Teclado físico: cada tecla executa a mesma ação do botão correspondente (mesmo caminho do clique).
-const KEY_BUTTONS = {
-  "+": { action: "add" },
-  "-": { action: "subtract" },
-  "*": { action: "multiply" },
-  "/": { action: "divide" },
-  "=": { action: "equals" },
-  Enter: { action: "equals" },
-  Escape: { action: "all-clear" },
-  ".": { value: "." },
-  ",": { value: "." },
-  // M+ pelo teclado: m ou M (com ou sem Shift).
-  m: { action: "memory-add" },
-  M: { action: "memory-add" },
-  // Parênteses pelo teclado: ( e ) (no teclado com Shift + 9 e Shift + 0).
-  "(": { action: "open-paren" },
-  ")": { action: "close-paren" },
-};
-
-// Tecla → dataset no mesmo formato de data-value/data-action; null se a tecla não tem botão (ex.: Backspace).
-function datasetForKey(key) {
-  if (/^[0-9]$/.test(key)) {
-    return { value: key };
-  }
-  return Object.hasOwn(KEY_BUTTONS, key) ? KEY_BUTTONS[key] : null;
-}
-
-// Botão do teclado correspondente a um dataset (ex.: { value: "7" } ou { action: "add" }), ou null.
-function findButton(dataset) {
-  const attribute = dataset.value !== undefined ? "value" : "action";
-  return pressableButtons.find((button) => button.dataset[attribute] === dataset[attribute]) ?? null;
-}
-
-// Tecla física pressionada: o botão correspondente escurece até a tecla ser solta, ou até a janela perder o foco.
-// Indexado pelo código físico (event.code), para que soltar a tecla com outro caractere (ex.: Shift) ainda a libere.
-const heldKeys = new Map();
-
-function holdKey(code, button) {
-  if (button === null) {
-    return;
-  }
-  button.classList.add("is-pressed");
-  heldKeys.set(code, button);
-}
-
-function releaseKey(code) {
-  const button = heldKeys.get(code);
-  if (button !== undefined) {
-    button.classList.remove("is-pressed");
-    heldKeys.delete(code);
-  }
-}
-
-function releaseAllKeys() {
-  Array.from(heldKeys.keys()).forEach((code) => releaseKey(code));
-}
-
-// Devolve true se a tecla é uma das usadas pela calculadora.
-function handleKey(key) {
-  if (key === "Backspace") {
-    deleteDigit();
-    return true;
-  }
-  const dataset = datasetForKey(key);
-  if (dataset === null) {
-    return false;
-  }
-  handleButton({ dataset });
-  return true;
-}
-
-if (keypad) {
-  keypad.addEventListener("click", (event) => {
-    const button = event.target.closest("button");
-    if (!button || !keypad.contains(button)) {
-      return;
-    }
-
-    handleButton(button);
-    render();
-  });
-}
-
-if (memoryAddButton) {
-  memoryAddButton.addEventListener("click", () => {
-    handleButton(memoryAddButton);
-    render();
-  });
-}
-
-if (memorySubtractButton) {
-  memorySubtractButton.addEventListener("click", () => {
-    handleButton(memorySubtractButton);
-    render();
-  });
-}
-
-if (memoryClearButton) {
-  memoryClearButton.addEventListener("click", () => {
-    handleButton(memoryClearButton);
-    render();
-  });
-}
-
-if (memoryRecallButton) {
-  memoryRecallButton.addEventListener("click", () => {
-    handleButton(memoryRecallButton);
-    render();
-  });
-}
-
-if (squareButton) {
-  squareButton.addEventListener("click", () => {
-    handleButton(squareButton);
-    render();
-  });
-}
-
-if (logButton) {
-  logButton.addEventListener("click", () => {
-    handleButton(logButton);
-    render();
-  });
-}
-
-if (lnButton) {
-  lnButton.addEventListener("click", () => {
-    handleButton(lnButton);
-    render();
-  });
-}
-
-if (sineButton) {
-  sineButton.addEventListener("click", () => {
-    handleButton(sineButton);
-    render();
-  });
-}
-
-if (cosineButton) {
-  cosineButton.addEventListener("click", () => {
-    handleButton(cosineButton);
-    render();
-  });
-}
-
-if (tangentButton) {
-  tangentButton.addEventListener("click", () => {
-    handleButton(tangentButton);
-    render();
-  });
-}
-
-if (powerButton) {
-  powerButton.addEventListener("click", () => {
-    handleButton(powerButton);
-    render();
-  });
-}
-
-if (piButton) {
-  piButton.addEventListener("click", () => {
-    handleButton(piButton);
-    render();
-  });
-}
-
-if (eButton) {
-  eButton.addEventListener("click", () => {
-    handleButton(eButton);
-    render();
-  });
-}
-
-if (inverseButton) {
-  inverseButton.addEventListener("click", () => {
-    handleButton(inverseButton);
-    render();
-  });
-}
-
-if (openParenButton) {
-  openParenButton.addEventListener("click", () => {
-    handleButton(openParenButton);
-    render();
-  });
-}
-
-if (closeParenButton) {
-  closeParenButton.addEventListener("click", () => {
-    handleButton(closeParenButton);
-    render();
-  });
-}
-
-if (factorialButton) {
-  factorialButton.addEventListener("click", () => {
-    handleButton(factorialButton);
-    render();
-  });
-}
-
-if (squareRootButton) {
-  squareRootButton.addEventListener("click", () => {
-    handleButton(squareRootButton);
-    render();
-  });
-}
-
-if (historyClear) {
-  historyClear.addEventListener("click", showClearConfirm);
-}
-
-if (historyCancel) {
-  historyCancel.addEventListener("click", () => {
-    hideClearConfirm();
-    if (historyClear) {
-      historyClear.focus();
-    }
-  });
-}
-
-if (historyConfirmYes) {
-  historyConfirmYes.addEventListener("click", clearHistory);
-}
-
-if (historyOpen) {
-  historyOpen.addEventListener("click", showHistoryPanel);
-}
-
-if (historyClose) {
-  historyClose.addEventListener("click", hideHistoryPanel);
-}
-
-document.addEventListener("keydown", (event) => {
-  // Atalhos do navegador (Ctrl+C, Cmd+R etc.) continuam funcionando.
-  if (event.ctrlKey || event.metaKey || event.altKey) {
-    return;
-  }
-  // Painel aberto (mobile): Escape fecha o painel sem limpar o visor; as outras teclas não chegam à calculadora.
-  if (isHistoryPanelShown()) {
-    if (event.key === "Escape") {
-      event.preventDefault();
-      hideHistoryPanel();
-    }
-    return;
-  }
-  // Enter com o foco num botão fora do teclado (ex.: Limpar histórico) aciona esse botão, não o igual.
-  if (
-    event.key === "Enter" &&
-    event.target &&
-    event.target.tagName === "BUTTON" &&
-    keypad &&
-    !keypad.contains(event.target)
-  ) {
-    return;
-  }
-  if (!handleKey(event.key)) {
-    return;
-  }
-
-  const dataset = datasetForKey(event.key);
-  if (dataset !== null) {
-    holdKey(event.code || event.key, findButton(dataset));
-  }
-
-  // Impede que Enter, com um botão da calculadora focado, dispare também o clique desse botão.
-  event.preventDefault();
-  render();
-});
-
-document.addEventListener("keyup", (event) => {
-  releaseKey(event.code || event.key);
-});
-
-// Sem essa liberação, uma tecla solta com a janela fora de foco deixaria o botão escurecido.
-if (typeof window !== "undefined") {
-  window.addEventListener("blur", releaseAllKeys);
-}
-
-// Ao passar para o desktop, o histórico volta a ser coluna ao lado: se o painel estava aberto, fecha para
-// não deixar a calculadora inerte.
-if (typeof window !== "undefined" && typeof window.matchMedia === "function") {
-  const desktopQuery = window.matchMedia("(min-width: 768px)");
-  if (desktopQuery && typeof desktopQuery.addEventListener === "function") {
-    desktopQuery.addEventListener("change", (event) => {
-      if (event.matches) {
-        hideHistoryPanel();
-      }
-    });
-  }
-}
-
-render();
-renderHistory();

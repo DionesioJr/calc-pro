@@ -2,12 +2,13 @@
   "name": "calc-pro",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "description": "Calculadora Pro",
   "scripts": {
     "test": "node --test",
-    "lint": "eslint script.js test/",
-    "format": "prettier --write script.js test/",
-    "format:check": "prettier --check script.js test/"
+    "lint": "eslint src/ test/",
+    "format": "prettier --write src/ test/",
+    "format:check": "prettier --check src/ test/"
   },
   "devDependencies": {
     "@eslint/js": "^9.0.0",

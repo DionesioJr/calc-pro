@@ -79,7 +79,7 @@ body {
   overflow-wrap: anywhere;
 }
 
-/* Tamanho definido pelo script.js conforme o número de caracteres exibidos. */
+/* Tamanho definido pelo src/ui.js conforme o número de caracteres exibidos. */
 .display-48 {
   font-size: 3rem; /* 48px: 7 ou 8 caracteres */
 }
