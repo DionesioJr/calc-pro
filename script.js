@@ -531,7 +531,7 @@ function cosine() {
   if (state.error) {
     return;
   }
-  state.current = formatResult(cosineDegrees(Number(state.current)));
+  setCurrent(formatResult(cosineDegrees(operandValue())));
   state.waitingForOperand = false;
 }
 
@@ -584,12 +584,12 @@ function squareRoot() {
   if (state.error) {
     return;
   }
-  const value = Number(state.current);
+  const value = operandValue();
   if (value < 0) {
     setError();
     return;
   }
-  state.current = formatResult(Math.sqrt(value));
+  setCurrent(formatResult(Math.sqrt(value)));
   state.waitingForOperand = false;
 }
 

@@ -20,7 +20,8 @@
 // e do botão MC (CALC-25: zera a memória e o indicador),
 // e do botão x! (CALC-39: fatorial do visor, com notação científica acima de 2^53 e Erro para negativo, decimal e overflow),
 // e do botão cos (CALC-32: cosseno do visor em graus, sem ruído de ponto flutuante).
-// e do botão √x (CALC-27: raiz quadrada do visor, com Erro para negativos).
+// e do botão √x (CALC-27: raiz quadrada do visor, com Erro para negativos),
+// e do valor completo de e em √x e cos (CALC-49).
 // Executa script.js real num contexto isolado, com um DOM mínimo, e aperta
 // os botões pelo mesmo caminho de clique que o navegador usa; o teclado usa o mesmo
 // caminho de keydown.
@@ -2689,6 +2690,32 @@ describe("CALC-27: casos de borda do √x", () => {
     assert.deepEqual(calc.historyItems(), []);
     assert.equal(HISTORY_KEY in storage, false);
     assert.equal(calc.memoryValue(), 5);
+  });
+});
+
+// CALC-49: √x e cos usam o valor completo de e (Math.E), como as demais contas, e trocam o visor pelo resultado.
+describe("CALC-49: √x e cos com e usam o valor completo", () => {
+  // Mesmo formato do visor: 8 casas, sem zeros à direita.
+  const formatted = (value) => value.toFixed(8).replace(/\.?0+$/, "");
+
+  test("√e usa o valor completo: e, √x resulta em 1.64872127 (√ de Math.E)", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("e", "√x"), formatted(Math.sqrt(Math.E)));
+  });
+
+  test("depois de e, √x, o visor é o operando: e, √x, x² resulta em 2.71828183 (não 7.3890561 de e²)", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("e", "√x", "x²"), "2.71828183");
+  });
+
+  test("cos usa o valor completo de e: e, cos resulta no cosseno de Math.E graus", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("e", "cos"), formatted(Math.cos((Math.E * Math.PI) / 180)));
+  });
+
+  test("depois de e, cos, o visor é o operando: e, cos, x² não usa e² (não mostra 7.3890561)", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.notEqual(calc.press("e", "cos", "x²"), "7.3890561");
   });
 });
 
