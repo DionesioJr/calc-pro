@@ -75,6 +75,8 @@ const operatorButtons = buttons.filter((button) => Object.hasOwn(OPERATIONS, but
 // Botão M+ fica fora do teclado numérico, mas recebe as mesmas teclas e o efeito de tecla pressionada.
 const memoryAddButton = document.getElementById("memory-add");
 const memoryIndicator = document.getElementById("memory-indicator");
+// Botão M- fica na linha da memória, ao lado do M+, sem tecla própria no teclado físico (o "-" segue como subtração).
+const memorySubtractButton = document.getElementById("memory-subtract");
 
 // Botão x² fica na mesma linha do M+, fora do teclado numérico (que segue com 5 linhas).
 const squareButton = document.getElementById("square-button");
@@ -348,18 +350,27 @@ function percent() {
   state.waitingForOperand = false;
 }
 
-// M+: soma o número exibido à memória (o visor não muda). Com Erro no visor não faz nada.
-// Se a soma passar de 2^53, mostra Erro, como qualquer resultado, e a memória fica como estava.
-function memoryAdd() {
+// M+ e M-: somam (sign 1) ou subtraem (sign -1) o número exibido da memória; o visor não muda. Com Erro no visor não faz nada.
+// Se o resultado passar de 2^53 em valor absoluto, mostra Erro, como qualquer resultado, e a memória fica como estava.
+function changeMemory(sign) {
   if (state.error) {
     return;
   }
-  const sum = state.memory + Number(state.current);
-  if (!Number.isFinite(sum) || Math.abs(sum) > MAX_RESULT) {
+  const total = state.memory + sign * Number(state.current);
+  if (!Number.isFinite(total) || Math.abs(total) > MAX_RESULT) {
     setError();
     return;
   }
-  state.memory = Number(formatResult(sum));
+  state.memory = Number(formatResult(total));
+}
+
+function memoryAdd() {
+  changeMemory(1);
+}
+
+// M-: subtrai o número exibido da memória (ex.: memória 8, visor 3 → memória 5).
+function memorySubtract() {
+  changeMemory(-1);
 }
 
 // x²: eleva o número exibido ao quadrado, com a mesma regra de segundo operando do % (o visor mostra o resultado).
@@ -539,6 +550,8 @@ function handleButton(button) {
     inputEquals();
   } else if (action === "memory-add") {
     memoryAdd();
+  } else if (action === "memory-subtract") {
+    memorySubtract();
   } else if (action === "square") {
     square();
   } else if (action === "sine") {
@@ -635,6 +648,13 @@ if (keypad) {
 if (memoryAddButton) {
   memoryAddButton.addEventListener("click", () => {
     handleButton(memoryAddButton);
+    render();
+  });
+}
+
+if (memorySubtractButton) {
+  memorySubtractButton.addEventListener("click", () => {
+    handleButton(memorySubtractButton);
     render();
   });
 }

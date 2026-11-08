@@ -10,7 +10,8 @@
 // e do botão x² (CALC-26: eleva o visor ao quadrado, com erro e formatação do visor),
 // e do botão sen (CALC-31: seno do visor em graus, com a unidade DEG visível),
 // e do botão π (CALC-36: insere pi como operando),
-// e do botão 1/x (CALC-38: inverso do visor, com Erro para zero).
+// e do botão 1/x (CALC-38: inverso do visor, com Erro para zero),
+// e do botão M- (CALC-23: subtrai o visor da memória).
 // Executa script.js real num contexto isolado, com um DOM mínimo, e aperta
 // os botões pelo mesmo caminho de clique que o navegador usa; o teclado usa o mesmo
 // caminho de keydown.
@@ -139,6 +140,9 @@ function createCalculator({ storage = {} } = {}) {
   // M+ fica fora do teclado, como em index.html; o indicador começa escondido, como no HTML.
   const memoryAddElement = createElementMock("button");
   memoryAddElement.dataset = { action: "memory-add" };
+  // M- fica ao lado do M+, na linha da memória, como em index.html.
+  const memorySubtractElement = createElementMock("button");
+  memorySubtractElement.dataset = { action: "memory-subtract" };
   const memoryIndicatorElement = createElementMock("span");
   memoryIndicatorElement.hidden = true;
   // x² também fica fora do teclado, na linha da memória, como em index.html.
@@ -165,6 +169,7 @@ function createCalculator({ storage = {} } = {}) {
   }
   const buttons = Object.values(buttonByKey);
   buttonByKey["M+"] = memoryAddElement;
+  buttonByKey["M-"] = memorySubtractElement;
   buttonByKey["x²"] = squareElement;
   buttonByKey["sen"] = sineElement;
   buttonByKey["π"] = piElement;
@@ -194,6 +199,7 @@ function createCalculator({ storage = {} } = {}) {
     "history-close": historyCloseButton,
     calculator: calculatorMain,
     "memory-add": memoryAddElement,
+    "memory-subtract": memorySubtractElement,
     "memory-indicator": memoryIndicatorElement,
     "square-button": squareElement,
     "sine-button": sineElement,
@@ -227,11 +233,15 @@ function createCalculator({ storage = {} } = {}) {
   const context = vm.createContext({ document, window, localStorage });
   vm.runInContext(SCRIPT_SOURCE, context, { filename: "script.js" });
 
-  // Aperta as teclas em sequência e devolve o texto final do display. M+, x², sen, π e 1/x são clicados pelo próprio botão, fora do teclado.
+  // Aperta as teclas em sequência e devolve o texto final do display. M+, M-, x², sen, π e 1/x são clicados pelo próprio botão, fora do teclado.
   function press(...keys) {
     for (const key of keys) {
       if (key === "M+") {
         memoryAddElement.dispatch("click");
+        continue;
+      }
+      if (key === "M-") {
+        memorySubtractElement.dispatch("click");
         continue;
       }
       if (key === "x²") {
@@ -2053,5 +2063,123 @@ describe("CALC-38: teclado, foco e estrutura do 1/x", () => {
 
   test("o 1/x tem foco visível com contorno branco, sem remover o outline", () => {
     assert.match(CSS_SOURCE, /\.inverse-add:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
+  });
+});
+
+describe("CALC-23: critérios de aceite do M-", () => {
+  test("memória 8 e visor 3, M- deixa a memória em 5: 8, M+, AC, 3, M- mostra 3 e memória 5", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("8", "M+", "AC", "3", "M-"), "3");
+    assert.equal(calc.memoryValue(), 5);
+    assert.equal(calc.memoryIndicatorHidden(), false);
+  });
+
+  test("M- não muda o visor nem o operador pendente: 2, +, 3, M-, = resulta em 5 e a memória fica em -3", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("2", "+", "3", "M-", "="), "5");
+    assert.equal(calc.memoryValue(), -3);
+  });
+
+  test("M- não entra no histórico de cálculos: 5, M- não grava nada", () => {
+    const storage = {};
+    const calc = createCalculator({ storage });
+    calc.press("5", "M-");
+    assert.deepEqual(calc.historyItems(), []);
+    assert.equal(HISTORY_KEY in storage, false);
+  });
+});
+
+describe("CALC-23: casos de borda do M-", () => {
+  test("memória vazia conta como 0: 3, M- deixa a memória em -3 e o indicador visível", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("3", "M-"), "3");
+    assert.equal(calc.memoryValue(), -3);
+    assert.equal(calc.memoryIndicatorHidden(), false);
+  });
+
+  test("zero no visor não muda a memória: 5, M+, AC, M- mantém a memória em 5", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("5", "M+", "AC", "M-"), "0");
+    assert.equal(calc.memoryValue(), 5);
+  });
+
+  test("memória que volta a 0 esconde o indicador: 5, M+, AC, 5, M- deixa a memória em 0 e o indicador escondido", () => {
+    const calc = createCalculator({ storage: {} });
+    calc.press("5", "M+", "AC", "5", "M-");
+    assert.equal(calc.memoryValue(), 0);
+    assert.equal(calc.memoryIndicatorHidden(), true);
+  });
+
+  test("M- seguido de M+ com o mesmo visor volta à memória original: 8, M+, AC, 3, M-, M+ deixa a memória em 8", () => {
+    const calc = createCalculator({ storage: {} });
+    calc.press("8", "M+", "AC", "3", "M-", "M+");
+    assert.equal(calc.memoryValue(), 8);
+  });
+
+  test("decimais sem ruído de ponto flutuante: 0.3, M+, AC, 0.1, M- deixa a memória em 0.2", () => {
+    const calc = createCalculator({ storage: {} });
+    calc.press("0", ".", "3", "M+", "AC", "0", ".", "1", "M-");
+    assert.equal(calc.memoryValue(), 0.2);
+  });
+
+  test("valor negativo no visor soma à memória: 5, M+, AC, 8, +/-, M- deixa a memória em 13", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("5", "M+", "AC", "8", "+/-", "M-"), "-8");
+    assert.equal(calc.memoryValue(), 13);
+  });
+
+  test("com Erro no visor, M- não faz nada: 5, M+, AC, 5, ÷, 0, =, M- mantém o Erro e a memória em 5", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("5", "M+", "AC", "5", "÷", "0", "=", "M-"), "Erro");
+    assert.equal(calc.memoryValue(), 5);
+  });
+
+  test("resultado acima de 2^53 mostra Erro e a memória fica como estava: memória 9007199136250225, visor -9007199136250225, M- mostra Erro", () => {
+    const calc = createCalculator({ storage: {} });
+    calc.press("9", "4", "9", "0", "6", "2", "6", "5", "×", "9", "4", "9", "0", "6", "2", "6", "5", "=", "M+", "AC");
+    calc.press("9", "4", "9", "0", "6", "2", "6", "5", "×", "9", "4", "9", "0", "6", "2", "6", "5", "=", "+/-");
+    assert.equal(calc.press("M-"), "Erro");
+    assert.equal(calc.memoryValue(), 9007199136250225);
+  });
+
+  test("a próxima tecla depois do Erro de memória reinicia a calculadora: depois do erro, 7 resulta em 7 e a memória continua", () => {
+    const calc = createCalculator({ storage: {} });
+    calc.press("9", "4", "9", "0", "6", "2", "6", "5", "×", "9", "4", "9", "0", "6", "2", "6", "5", "=", "M+", "AC");
+    calc.press("9", "4", "9", "0", "6", "2", "6", "5", "×", "9", "4", "9", "0", "6", "2", "6", "5", "=", "+/-", "M-");
+    assert.equal(calc.press("7"), "7");
+    assert.equal(calc.memoryValue(), 9007199136250225);
+  });
+});
+
+describe("CALC-23: teclado, foco e estrutura do M-", () => {
+  test("não há tecla de M- no teclado físico: a tecla - segue como subtração, e a memória não muda: 5, M+, AC, 8, -, 3, = resulta em 5", () => {
+    const calc = createCalculator({ storage: {} });
+    calc.press("5", "M+", "AC", "8");
+    assert.equal(calc.type("-", "3", "="), "5");
+    assert.equal(calc.memoryValue(), 5);
+  });
+
+  test("Enter com o foco no M- não vira igual: o botão é que age (clique nativo), o cálculo em curso fica", () => {
+    const calc = createCalculator({ storage: {} });
+    calc.press("2", "+", "3");
+    const event = calc.keyDown("Enter", { target: { tagName: "BUTTON" } });
+    assert.equal(event.defaultPrevented, false);
+    assert.equal(calc.display(), "3");
+  });
+
+  test("index.html tem o botão M- ao lado do M+, na linha da memória, fora do teclado, com rótulo que anuncia a operação", () => {
+    assert.match(
+      HTML_SOURCE,
+      /<div class="memory">\s*<button type="button" id="memory-add"[^>]*>M\+<\/button>\s*<button type="button" id="memory-subtract" class="memory-subtract" data-action="memory-subtract" aria-label="Subtrair da memória \(M-\)">M-<\/button>\s*<button type="button" id="square-button"[\s\S]*?<\/div>\s*<div class="keypad">/,
+    );
+  });
+
+  test("o M- tem o mesmo estilo de pílula cinza do M+ e foco visível com contorno branco", () => {
+    assert.match(CSS_SOURCE, /\.memory-subtract\s*\{[^}]*border-radius:\s*999px;[^}]*color:\s*#a5a5a5;[^}]*\}/);
+    assert.match(CSS_SOURCE, /\.memory-subtract:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
+  });
+
+  test("a linha da memória quebra linha em vez de estourar a largura com seis botões: .memory com flex-wrap: wrap", () => {
+    assert.match(CSS_SOURCE, /\.memory\s*\{[^}]*flex-wrap:\s*wrap;[^}]*\}/);
   });
 });
