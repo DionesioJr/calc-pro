@@ -103,6 +103,7 @@ const buttons = keypad ? Array.from(keypad.querySelectorAll("button")) : [];
 const operatorButtons = buttons.filter((button) => Object.hasOwn(OPERATIONS, button.dataset.action));
 
 // Botão M+ fica fora do teclado numérico, mas recebe as mesmas teclas e o efeito de tecla pressionada.
+// Os demais botões de função com tecla (MR, MC, M-, π, x!, xʸ) entram em pressableButtons mais abaixo.
 const memoryAddButton = document.getElementById("memory-add");
 const memoryIndicator = document.getElementById("memory-indicator");
 // Botão M- fica na linha da memória, ao lado do M+, sem tecla própria no teclado físico (o "-" segue como subtração).
@@ -145,7 +146,19 @@ const powerButton = document.getElementById("power-button");
 if (powerButton) {
   operatorButtons.push(powerButton);
 }
-const pressableButtons = [...buttons, memoryAddButton, openParenButton, closeParenButton].filter(Boolean);
+// Botões fora do teclado numérico que têm tecla própria: recebem o efeito de tecla pressionada (is-pressed).
+const pressableButtons = [
+  ...buttons,
+  memoryAddButton,
+  memorySubtractButton,
+  memoryRecallButton,
+  memoryClearButton,
+  piButton,
+  factorialButton,
+  openParenButton,
+  closeParenButton,
+  powerButton,
+].filter(Boolean);
 
 function displaySizeClass(text) {
   return DISPLAY_SIZES.find((size) => text.length <= size.maxLength).className;
@@ -1168,6 +1181,17 @@ const KEY_BUTTONS = {
   // Parênteses pelo teclado: ( e ) (no teclado com Shift + 9 e Shift + 0).
   "(": { action: "open-paren" },
   ")": { action: "close-paren" },
+  // Funções avançadas (CALC-42): ^ para xʸ, p para π, ! para x!, r para MR, c para MC e _ (Shift + -) para M-.
+  // Letras maiúsculas valem também, como m e M.
+  "^": { action: "power" },
+  p: { action: "pi" },
+  P: { action: "pi" },
+  "!": { action: "factorial" },
+  r: { action: "memory-recall" },
+  R: { action: "memory-recall" },
+  c: { action: "memory-clear" },
+  C: { action: "memory-clear" },
+  _: { action: "memory-subtract" },
 };
 
 // Tecla → dataset no mesmo formato de data-value/data-action; null se a tecla não tem botão (ex.: Backspace).

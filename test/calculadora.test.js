@@ -24,7 +24,8 @@
 // e do botão √x (CALC-27: raiz quadrada do visor, com Erro para negativos),
 // e do valor completo de e em √x e cos (CALC-49),
 // e dos botões ( e ) (CALC-30: agrupamento com aninhamento, multiplicação implícita e indicador de parênteses abertos),
-// e do histórico das funções avançadas (CALC-43: cada função aplicada ao visor vira uma linha, como √16 = 4 ou sen(30) = 0.5).
+// e do histórico das funções avançadas (CALC-43: cada função aplicada ao visor vira uma linha, como √16 = 4 ou sen(30) = 0.5),
+// e dos atalhos de teclado das funções avançadas (CALC-42: ^ xʸ, p π, ! x!, r MR, c MC, _ M-, e a lista de atalhos na tela).
 // Executa script.js real num contexto isolado, com um DOM mínimo, e aperta
 // os botões pelo mesmo caminho de clique que o navegador usa; o teclado usa o mesmo
 // caminho de keydown.
@@ -2420,7 +2421,7 @@ describe("CALC-36: casos de borda do π", () => {
 });
 
 describe("CALC-36: teclado, foco e estrutura do π", () => {
-  test("π não tem tecla própria: Enter com o foco no botão π não vira igual, o cálculo em curso fica", () => {
+  test("Enter com o foco no botão π não vira igual, o cálculo em curso fica (a tecla própria é p, CALC-42)", () => {
     const calc = createCalculator({ storage: {} });
     calc.press("2", "+", "3");
     const event = calc.keyDown("Enter", { target: { tagName: "BUTTON" } });
@@ -2867,7 +2868,7 @@ describe("CALC-23: casos de borda do M-", () => {
 });
 
 describe("CALC-23: teclado, foco e estrutura do M-", () => {
-  test("não há tecla de M- no teclado físico: a tecla - segue como subtração, e a memória não muda: 5, M+, AC, 8, -, 3, = resulta em 5", () => {
+  test("a tecla - segue como subtração e não mexe na memória: 5, M+, AC, 8, -, 3, = resulta em 5 (M- é _, CALC-42)", () => {
     const calc = createCalculator({ storage: {} });
     calc.press("5", "M+", "AC", "8");
     assert.equal(calc.type("-", "3", "="), "5");
@@ -2983,7 +2984,7 @@ describe("CALC-24: casos de borda do MR", () => {
 });
 
 describe("CALC-24: teclado, foco e estrutura do MR", () => {
-  test("MR não tem tecla própria: Enter com o foco no MR não vira igual, o cálculo em curso fica", () => {
+  test("Enter com o foco no MR não vira igual, o cálculo em curso fica (a tecla própria é r, CALC-42)", () => {
     const calc = createCalculator({ storage: {} });
     calc.press("2", "+", "3");
     const event = calc.keyDown("Enter", { target: { tagName: "BUTTON" } });
@@ -3181,12 +3182,12 @@ describe("CALC-25: casos de borda do MC", () => {
 });
 
 describe("CALC-25: teclado, foco e estrutura do MC", () => {
-  test("MC não tem tecla própria: a tecla c não zera a memória", () => {
+  test("MC tem tecla c (CALC-42): a tecla c zera a memória e o indicador some", () => {
     const calc = createCalculator({ storage: {} });
     calc.press("5", "M+", "AC");
     calc.type("c");
-    assert.equal(calc.memoryValue(), 5);
-    assert.equal(calc.memoryIndicatorHidden(), false);
+    assert.equal(calc.memoryValue(), 0);
+    assert.equal(calc.memoryIndicatorHidden(), true);
   });
 
   test("index.html tem o botão MC antes do MR, na linha da memória, fora do teclado, com rótulo que anuncia a operação", () => {
@@ -3199,6 +3200,117 @@ describe("CALC-25: teclado, foco e estrutura do MC", () => {
   test("o MC usa o estilo da grade científica (cinza escuro, formato redondo) e foco visível com contorno branco", () => {
     assert.match(CSS_SOURCE, /\.scientific > button\s*\{[^}]*border-radius:\s*999px;[^}]*background:\s*#333333;[^}]*\}/);
     assert.match(CSS_SOURCE, /\.scientific > button:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
+  });
+});
+
+// CALC-42: teclas das funções avançadas (^ xʸ, p π, ! x!, r MR, c MC, _ M-) e a lista de atalhos na tela.
+describe("CALC-42: critérios de aceite dos atalhos das funções avançadas", () => {
+  test("^ é potência: 2 ^ 3 = resulta em 8", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.type("2", "^", "3", "="), "8");
+  });
+
+  test("p insere π: p mostra 3.14159265", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.type("p"), "3.14159265");
+  });
+
+  test("! é fatorial: 5 ! resulta em 120", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.type("5", "!"), "120");
+  });
+
+  test("r recupera a memória: 5, M+, AC, r mostra 5", () => {
+    const calc = createCalculator({ storage: {} });
+    calc.press("5", "M+", "AC");
+    assert.equal(calc.type("r"), "5");
+  });
+
+  test("_ subtrai o visor da memória: 5, M+, AC, 8, _ deixa a memória em -3", () => {
+    const calc = createCalculator({ storage: {} });
+    calc.press("5", "M+", "AC");
+    calc.type("8", "_");
+    assert.equal(calc.memoryValue(), -3);
+    assert.equal(calc.memoryIndicatorHidden(), false);
+  });
+
+  test("as teclas em maiúscula valem como as minúsculas: P insere π, R recupera e C limpa a memória", () => {
+    assert.equal(createCalculator({ storage: {} }).type("P"), "3.14159265");
+    const calc = createCalculator({ storage: {} });
+    calc.press("5", "M+", "AC");
+    assert.equal(calc.type("R"), "5");
+    assert.equal(calc.type("C"), "5");
+    assert.equal(calc.memoryValue(), 0);
+  });
+
+  test("parênteses e potência juntos: ( 2 + 3 ) ^ 2 = resulta em 25", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.type("(", "2", "+", "3", ")", "^", "2", "="), "25");
+  });
+
+  test("a potência associa à direita pelo teclado: 2 ^ 3 ^ 2 = resulta em 512", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.type("2", "^", "3", "^", "2", "="), "512");
+  });
+
+  test("^ seguido de outro ^ só troca o operador: 2 ^ ^ 3 = resulta em 8", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.type("2", "^", "^", "3", "="), "8");
+  });
+
+  test("! depois de um número no meio da conta: 3 + 4 ! = resulta em 27", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.type("3", "+", "4", "!", "="), "27");
+  });
+
+  test("! com negativo mostra Erro, como o botão x!: 1, +/-, ! resulta em Erro", () => {
+    const calc = createCalculator({ storage: {} });
+    calc.press("1", "+/-");
+    assert.equal(calc.type("!"), "Erro");
+  });
+
+  test("atalhos atuais continuam: ( ) * e Enter funcionam como antes", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.type("(", "2", "+", "3", ")", "*", "4", "="), "20");
+    assert.equal(createCalculator().type("7", "-", "2", "Enter"), "5");
+    assert.equal(createCalculator().type("8", "/", "2", "="), "4");
+  });
+
+  test("Escape continua limpando e m continua somando à memória: 5, m, Escape deixa a memória em 5", () => {
+    const calc = createCalculator({ storage: {} });
+    calc.type("5", "m", "Escape");
+    assert.equal(calc.memoryValue(), 5);
+    assert.equal(calc.display(), "0");
+  });
+
+  test("tecla pressionada marca o botão correspondente: p marca π, r marca MR e ^ marca xʸ", () => {
+    const calc = createCalculator({ storage: {} });
+    calc.keyDown("p", { code: "KeyP" });
+    assert.equal(calc.buttonFor("π").classList.contains("is-pressed"), true);
+    calc.keyUp("p", "KeyP");
+    assert.equal(calc.buttonFor("π").classList.contains("is-pressed"), false);
+    calc.keyDown("r", { code: "KeyR" });
+    assert.equal(calc.buttonFor("MR").classList.contains("is-pressed"), true);
+    calc.keyUp("r", "KeyR");
+    calc.keyDown("^", { code: "Digit6" });
+    assert.equal(calc.buttonFor("xʸ").classList.contains("is-pressed"), true);
+    calc.keyUp("^", "Digit6");
+    assert.equal(calc.buttonFor("xʸ").classList.contains("is-pressed"), false);
+  });
+
+  test("lista de atalhos na tela: section com título e uma tecla (kbd) para cada atalho", () => {
+    assert.match(HTML_SOURCE, /<section class="shortcuts" aria-labelledby="shortcuts-title">/);
+    assert.match(HTML_SOURCE, /<h2 id="shortcuts-title" class="shortcuts-title">Atalhos de teclado<\/h2>/);
+    assert.ok(HTML_SOURCE.includes("<kbd>(</kbd> <kbd>)</kbd>"));
+    for (const key of ["^", "p", "!", "m", "_", "r", "c"]) {
+      assert.ok(HTML_SOURCE.includes(`<kbd>${key}</kbd>`), `atalho ${key} na lista`);
+    }
+  });
+
+  test("a lista fica dentro da calculadora, depois do teclado, e some no mobile", () => {
+    assert.match(HTML_SOURCE, /<\/div>\s*<section class="shortcuts"[\s\S]*<\/section>\s*<\/main>/);
+    assert.match(CSS_SOURCE, /\.shortcuts\s*\{[^}]*color:\s*#a5a5a5;[^}]*\}/);
+    assert.match(MOBILE_CSS, /\.shortcuts\s*\{\s*display:\s*none;\s*\}/);
   });
 });
 
@@ -3572,7 +3684,7 @@ describe("CALC-39: casos de borda do x!", () => {
 });
 
 describe("CALC-39: teclado, foco e estrutura do x!", () => {
-  test("x! não tem tecla própria: Enter com o foco no botão x! não vira igual, o cálculo em curso fica", () => {
+  test("Enter com o foco no botão x! não vira igual, o cálculo em curso fica (a tecla própria é !, CALC-42)", () => {
     const calc = createCalculator({ storage: {} });
     calc.press("2", "+", "3");
     const event = calc.keyDown("Enter", { target: { tagName: "BUTTON" } });
@@ -3730,7 +3842,7 @@ describe("CALC-29: casos de borda do xʸ (potência)", () => {
 });
 
 describe("CALC-29: teclado, foco e estrutura do xʸ", () => {
-  test("xʸ não tem tecla própria: Enter com o foco no botão xʸ não vira igual, o cálculo em curso fica", () => {
+  test("Enter com o foco no botão xʸ não vira igual, o cálculo em curso fica (a tecla própria é ^, CALC-42)", () => {
     const calc = createCalculator({ storage: {} });
     calc.press("2", "+", "3");
     const event = calc.keyDown("Enter", { target: { tagName: "BUTTON" } });
