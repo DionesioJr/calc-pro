@@ -3778,9 +3778,21 @@ describe("CALC-30: casos de borda dos parênteses", () => {
     assert.deepEqual(calc.historyItems(), ["-1 + 1 = 0"]);
   });
 
+  test("cos aplicado ao grupo não grava o grupo no histórico: (90 + 90) cos = não cria item", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("(", "9", "0", "+", "9", "0", ")", "cos", "="), "-1");
+    assert.deepEqual(calc.historyItems(), []);
+  });
+
   test("e substitui o grupo, como o π, sem multiplicação implícita: (2 + 3) e mostra 2.71828183", () => {
     const calc = createCalculator({ storage: {} });
     assert.equal(calc.press("(", "2", "+", "3", ")", "e"), "2.71828183");
+  });
+
+  test("e aplicado ao grupo não grava o grupo no histórico: (2 + 3) e = não cria item", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("(", "2", "+", "3", ")", "e", "="), "2.71828183");
+    assert.deepEqual(calc.historyItems(), []);
   });
 
   test("e depois do grupo entra na conta com o valor completo: (2 + 3) e + 1 = resulta em 3.71828183 e grava 2.71828183 + 1 = 3.71828183", () => {
