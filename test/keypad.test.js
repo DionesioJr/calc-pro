@@ -82,12 +82,22 @@ describe("CALC-59: o teclado numérico e a linha de funções cobrem o registro 
     assert.deepEqual(generated, generatedActions);
   });
 
-  test("o botão de ponto usa data-value e aria-label do registro: <button ... data-value=\".\" aria-label=\"Ponto decimal\">.</button>", () => {
+  test("o botão de ponto usa data-value e aria-label do registro: <button ... data-value=\".\" aria-label=\"Ponto decimal (.)\">.</button>", () => {
     assert.ok(
       keypadMarkup().keypad.includes(
-        '<button type="button" class="btn btn-digit" data-value="." aria-label="Ponto decimal">.</button>',
+        '<button type="button" class="btn btn-digit" data-value="." aria-label="Ponto decimal (.)">.</button>',
       ),
     );
+  });
+
+  test("CALC-74: o nome acessível de cada botão contém o rótulo visível (WCAG 2.5.3), no teclado e na linha de funções", () => {
+    const markup = keypadMarkup().scientific + keypadMarkup().keypad;
+    const named = [...markup.matchAll(/aria-label="([^"]+)"[^>]*>([^<]+)<\/button>/g)];
+    // Os 20 da linha de funções têm aria-label; no teclado, só os que não são dígitos.
+    assert.ok(named.length >= 30, `só ${named.length} botões com aria-label`);
+    for (const [, name, visible] of named) {
+      assert.ok(name.includes(visible), `"${name}" não contém o rótulo visível "${visible}"`);
+    }
   });
 
   test("0 leva a classe btn-zero e os dígitos não têm aria-label (o rótulo visível já é o nome)", () => {
@@ -99,7 +109,7 @@ describe("CALC-59: o teclado numérico e a linha de funções cobrem o registro 
   test("⌫ sai no teclado com data-action backspace, classe de função e aria-label que diz o que faz (CALC-65)", () => {
     assert.ok(
       keypadMarkup().keypad.includes(
-        '<button type="button" class="btn btn-function" data-action="backspace" aria-label="Apagar último dígito (Backspace)">⌫</button>',
+        '<button type="button" class="btn btn-function" data-action="backspace" aria-label="Apagar último dígito (⌫, Backspace)">⌫</button>',
       ),
     );
   });
