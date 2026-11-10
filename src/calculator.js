@@ -78,6 +78,9 @@ function initialState() {
     functionOnGroup: false,
     // Registrador da memória (M+): soma dos valores do visor. Começa em 0; AC não o apaga, só MC.
     memory: 0,
+    // Último resultado calculado com sucesso (Ans), como texto do visor: vem de = e das funções unárias que deram certo.
+    // Erro, AC e a própria tecla Ans não o substituem. null até a primeira conta: Ans então insere 0.
+    lastResult: null,
     // Valor completo do visor quando ele é uma constante (e): o visor mostra 8 casas, o cálculo usa o número inteiro.
     // Qualquer outra mudança no visor passa por setCurrent, que zera este campo.
     exact: null,
@@ -230,6 +233,15 @@ const ACTIONS = [
     buttonId: "memory-recall",
     replacesDisplay: true,
     apply: memoryRecall,
+  },
+  // Ans: insere o último resultado calculado (ou 0, sem resultado ainda), substituindo o número em curso, como a MR.
+  {
+    id: "ans",
+    type: "constant",
+    label: "Ans",
+    buttonId: "ans-button",
+    replacesDisplay: true,
+    apply: insertAnswer,
   },
   { id: "all-clear", type: "control", label: "AC", keys: ["Escape"], apply: reset },
   { id: "equals", type: "control", label: "=", keys: ["=", "Enter"], apply: inputEquals },
@@ -462,6 +474,16 @@ function memoryRecall(s) {
     reset(s);
   }
   setCurrent(s, formatResult(s.memory));
+  s.waitingForOperand = false;
+}
+
+// Ans: copia o último resultado calculado para o visor como operando atual, substituindo o número em curso, como a MR.
+// Sem resultado ainda, insere 0. Após Erro, começa uma calculadora nova, como um dígito; o Erro não entra no lugar do resultado.
+function insertAnswer(s) {
+  if (s.error) {
+    reset(s);
+  }
+  setCurrent(s, s.lastResult ?? "0");
   s.waitingForOperand = false;
 }
 
@@ -1129,8 +1151,15 @@ function applyButton(s, dataset) {
   if (s.functionOnGroup) {
     dropGroupText(s);
   }
+  const hadError = s.error;
   action.apply(s);
   s.functionOnGroup = false;
+  // Último resultado (Ans): o visor depois de uma conta fechada (= que gravou linha) ou de uma função unária que deu certo.
+  // Ação sobre Erro (que reinicia) não conta, e o = sem conta (ex.: depois de AC) não sobrescreve o resultado anterior.
+  const calculated = action.type === "unary" || (action.id === "equals" && s.pendingHistory.length > 0);
+  if (!hadError && !s.error && calculated) {
+    s.lastResult = s.current;
+  }
 }
 
 // Ação de um botão. Devolve { state, history }: o estado novo e as linhas do histórico que a ação gerou (quem chama grava e redesenha).
