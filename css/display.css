@@ -39,6 +39,42 @@
   outline-offset: 2px;
 }
 
+/* Tecla 2nd (CALC-69): pílula cinza na linha de status, ao lado do DEG/RAD. Padding vertical zero: a linha não cresce no mobile. */
+.secondary-toggle {
+  padding: 0 0.6rem;
+  border: 1px solid #a5a5a5;
+  border-radius: 999px;
+  background: transparent;
+  color: #a5a5a5;
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.secondary-toggle:hover {
+  border-color: #ffffff;
+  color: #ffffff;
+}
+
+.secondary-toggle:active {
+  filter: brightness(0.8);
+}
+
+.secondary-toggle:focus-visible {
+  outline: 3px solid #ffffff;
+  outline-offset: 2px;
+}
+
+/* 2nd ativa: fundo branco e texto laranja, como o operador pendente (mesmo contraste de .btn-operator[aria-pressed="true"]). */
+.secondary-toggle[aria-pressed="true"] {
+  background: #ffffff;
+  border-color: #ffffff;
+  color: #b35c00;
+}
+
 .display {
   display: block;
   min-height: 6rem;

@@ -92,6 +92,9 @@ function initialState() {
     exponent: null,
     // Unidade angular do sen, cos e tan: "deg" (padrão ao abrir a página) ou "rad". Trocar a unidade não mexe no visor, na conta nem na memória.
     angleUnit: "deg",
+    // true enquanto a tecla 2nd está ativa: a próxima função (ação unária) roda a função secundária do botão, se ele tiver uma, e a 2nd volta a false.
+    // Dígitos, operadores e o igual não a desligam. AC não a desliga (só uma função a desliga).
+    secondary: false,
     // Linhas do histórico geradas pela última ação ("12 × 3 = 36"). handleButton as devolve e zera; quem chama as grava.
     pendingHistory: [],
   };
@@ -129,6 +132,7 @@ const VALID_ENTRY = /^-?\d+(\.\d*)?$/;
 // type: digit, binary, unary, constant, memory ou control.
 // label: símbolo do botão. keys: teclas do teclado físico que disparam a ação. buttonId: id do botão fora do teclado numérico.
 // replacesDisplay: true quando a ação troca o número do visor; aplicada a um grupo fechado, o texto do grupo sai da expressão (ver dropGroupText).
+// secondary: função da tecla 2nd ({ label, ariaLabel, apply }), quando o botão tem uma. Com a 2nd ativa, apply dá lugar a ela.
 // apply(s): age na cópia s do estado.
 // Para uma função unária nova: uma entrada aqui, com a função em apply, e uma linha em FUNCTION_ROW (src/keypad.js), que gera o botão. handleButton não muda.
 const ACTIONS = [
@@ -164,14 +168,57 @@ const ACTIONS = [
     buttonId: "square-button",
     replacesDisplay: true,
     apply: square,
+    secondary: { label: "√x", ariaLabel: "Raiz quadrada (√x)", apply: squareRoot },
   },
-  { id: "log", type: "unary", label: "log", buttonId: "log-button", replacesDisplay: true, apply: logarithm },
-  { id: "ln", type: "unary", label: "ln", buttonId: "ln-button", replacesDisplay: true, apply: naturalLogarithm },
-  { id: "sine", type: "unary", label: "sen", buttonId: "sine-button", replacesDisplay: true, apply: sine },
-  { id: "cos", type: "unary", label: "cos", buttonId: "cos-button", replacesDisplay: true, apply: cosine },
-  { id: "tan", type: "unary", label: "tan", buttonId: "tan-button", replacesDisplay: true, apply: tangent },
+  {
+    id: "log",
+    type: "unary",
+    label: "log",
+    buttonId: "log-button",
+    replacesDisplay: true,
+    apply: logarithm,
+    secondary: { label: "10ˣ", ariaLabel: "Potência de base 10 (10ˣ)", apply: powerOfTen },
+  },
+  {
+    id: "ln",
+    type: "unary",
+    label: "ln",
+    buttonId: "ln-button",
+    replacesDisplay: true,
+    apply: naturalLogarithm,
+    secondary: { label: "eˣ", ariaLabel: "Exponencial de base e (eˣ)", apply: exponentialE },
+  },
+  {
+    id: "sine",
+    type: "unary",
+    label: "sen",
+    buttonId: "sine-button",
+    replacesDisplay: true,
+    apply: sine,
+    secondary: { label: "asen", ariaLabel: "Arco-seno (asen)", apply: arcSine },
+  },
+  {
+    id: "cos",
+    type: "unary",
+    label: "cos",
+    buttonId: "cos-button",
+    replacesDisplay: true,
+    apply: cosine,
+    secondary: { label: "acos", ariaLabel: "Arco-cosseno (acos)", apply: arcCosine },
+  },
+  {
+    id: "tan",
+    type: "unary",
+    label: "tan",
+    buttonId: "tan-button",
+    replacesDisplay: true,
+    apply: tangent,
+    secondary: { label: "atan", ariaLabel: "Arco-tangente (atan)", apply: arcTangent },
+  },
   // Unidade do sen, cos e tan (DEG/RAD): não mexe no visor, na conta pendente, na memória nem no Erro, por isso não tem replacesDisplay.
   { id: "angle-unit", type: "control", label: "DEG", buttonId: "angle-unit", apply: toggleAngleUnit },
+  // Tecla 2nd (CALC-69): liga e desliga a função secundária. Fica na linha de status, fora da grade, como o DEG/RAD.
+  { id: "secondary", type: "control", label: "2nd", buttonId: "secondary-toggle", apply: toggleSecondary },
   { id: "inverse", type: "unary", label: "1/x", buttonId: "inverse-button", replacesDisplay: true, apply: inverse },
   { id: "sqrt", type: "unary", label: "√x", buttonId: "sqrt-button", replacesDisplay: true, apply: squareRoot },
   {
@@ -814,9 +861,99 @@ function tangent(s) {
   recordFunction(s, expression);
 }
 
+// 10ˣ (2nd do log): potência de 10 do número exibido, com a mesma regra de segundo operando do x². Acima de 2^53 em valor absoluto,
+// ou não finito (10^400), mostra Erro. Com Erro no visor não calcula e mantém o Erro.
+function powerOfTen(s) {
+  if (s.error) {
+    return;
+  }
+  const result = 10 ** operandValue(s);
+  if (!Number.isFinite(result) || Math.abs(result) > MAX_RESULT) {
+    setError(s);
+    return;
+  }
+  const expression = `10^${operandText(s.current)}`;
+  setCurrent(s, formatResult(result));
+  s.waitingForOperand = false;
+  recordFunction(s, expression);
+}
+
+// eˣ (2nd do ln): exponencial de e do número exibido, com a mesma regra do 10ˣ. Acima de 2^53 em valor absoluto, ou não finito, mostra Erro.
+// Com Erro no visor não calcula e mantém o Erro.
+function exponentialE(s) {
+  if (s.error) {
+    return;
+  }
+  const result = Math.exp(operandValue(s));
+  if (!Number.isFinite(result) || Math.abs(result) > MAX_RESULT) {
+    setError(s);
+    return;
+  }
+  const expression = `e^${operandText(s.current)}`;
+  setCurrent(s, formatResult(result));
+  s.waitingForOperand = false;
+  recordFunction(s, expression);
+}
+
+// Radianos para a unidade do visor (s.angleUnit): em radianos devolve o próprio valor; em graus converte.
+function angleFromRadians(s, radians) {
+  return s.angleUnit === "rad" ? radians : (radians * 180) / Math.PI;
+}
+
+// asen (2nd do sen): arco-seno do número exibido, na unidade do visor. Fora do intervalo de −1 a 1 não há ângulo real: mostra Erro.
+// Com Erro no visor não calcula e mantém o Erro.
+function arcSine(s) {
+  if (s.error) {
+    return;
+  }
+  const value = operandValue(s);
+  if (value < -1 || value > 1) {
+    setError(s);
+    return;
+  }
+  const expression = `asen(${s.current})`;
+  setCurrent(s, formatResult(angleFromRadians(s, Math.asin(value))));
+  s.waitingForOperand = false;
+  recordFunction(s, expression);
+}
+
+// acos (2nd do cos): arco-cosseno do número exibido, na unidade do visor, com a mesma regra de domínio do asen.
+// Com Erro no visor não calcula e mantém o Erro.
+function arcCosine(s) {
+  if (s.error) {
+    return;
+  }
+  const value = operandValue(s);
+  if (value < -1 || value > 1) {
+    setError(s);
+    return;
+  }
+  const expression = `acos(${s.current})`;
+  setCurrent(s, formatResult(angleFromRadians(s, Math.acos(value))));
+  s.waitingForOperand = false;
+  recordFunction(s, expression);
+}
+
+// atan (2nd do tan): arco-tangente do número exibido, na unidade do visor. Todo número tem arco-tangente real, então não há Erro de domínio.
+// Com Erro no visor não calcula e mantém o Erro.
+function arcTangent(s) {
+  if (s.error) {
+    return;
+  }
+  const expression = `atan(${s.current})`;
+  setCurrent(s, formatResult(angleFromRadians(s, Math.atan(operandValue(s)))));
+  s.waitingForOperand = false;
+  recordFunction(s, expression);
+}
+
 // Botão DEG/RAD: alterna a unidade do sen, cos e tan. Não mexe no visor, na conta pendente, na memória, no histórico nem no Erro.
 function toggleAngleUnit(s) {
   s.angleUnit = s.angleUnit === "deg" ? "rad" : "deg";
+}
+
+// Tecla 2nd (CALC-69): liga ou desliga a função secundária. Não mexe no visor, na conta, na memória, no histórico nem no Erro.
+function toggleSecondary(s) {
+  s.secondary = !s.secondary;
 }
 
 // ⌫ (botão e Backspace): apaga o último caractere do número em edição. Devolve o estado novo (quem chama copia para o estado em curso).
@@ -1185,7 +1322,12 @@ function applyButton(s, dataset) {
     dropGroupText(s);
   }
   const hadError = s.error;
-  action.apply(s);
+  // Com a 2nd ativa, roda a função secundária do botão (se houver). Qualquer função unária consome a 2nd, com ou sem secundária.
+  const runSecondary = s.secondary && action.secondary !== undefined;
+  (runSecondary ? action.secondary.apply : action.apply)(s);
+  if (action.type === "unary") {
+    s.secondary = false;
+  }
   s.functionOnGroup = false;
   // Último resultado (Ans): o visor depois de uma conta fechada (= que gravou linha) ou de uma função unária que deu certo.
   // Ação sobre Erro (que reinicia) não conta, e o = sem conta (ex.: depois de AC) não sobrescreve o resultado anterior.

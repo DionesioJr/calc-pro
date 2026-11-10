@@ -208,6 +208,10 @@ function createCalculator({ storage = {} } = {}) {
   // DEG/RAD também fica fora do teclado, na linha da memória, como em index.html.
   const angleUnitElement = createElementMock("button");
   angleUnitElement.dataset = { action: "angle-unit" };
+  // 2nd (CALC-69) fica na linha de status, fora da grade, como o DEG/RAD; começa com aria-pressed="false", como no HTML.
+  const secondaryToggleElement = createElementMock("button");
+  secondaryToggleElement.dataset = { action: "secondary" };
+  secondaryToggleElement.setAttribute("aria-pressed", "false");
   // x! também fica fora do teclado, na linha da memória, como em index.html.
   const factorialElement = createElementMock("button");
   factorialElement.dataset = { action: "factorial" };
@@ -265,6 +269,7 @@ function createCalculator({ storage = {} } = {}) {
   buttonByKey["("] = openParenElement;
   buttonByKey[")"] = closeParenElement;
   buttonByKey["xʸ"] = powerElement;
+  buttonByKey["2nd"] = secondaryToggleElement;
 
   const keypad = {
     addEventListener(type, listener) {
@@ -302,6 +307,7 @@ function createCalculator({ storage = {} } = {}) {
     "e-button": eElement,
     "inverse-button": inverseElement,
     "angle-unit": angleUnitElement,
+    "secondary-toggle": secondaryToggleElement,
     "factorial-button": factorialElement,
     "cos-button": cosineElement,
     "sqrt-button": squareRootElement,
@@ -416,6 +422,10 @@ function createCalculator({ storage = {} } = {}) {
       }
       if (key === "xʸ") {
         powerElement.dispatch("click");
+        continue;
+      }
+      if (key === "2nd") {
+        secondaryToggleElement.dispatch("click");
         continue;
       }
       const button = buttonByKey[key];
@@ -2728,6 +2738,55 @@ describe("CALC-32: casos de borda do cos", () => {
     assert.equal(calc.angleUnitLabel(), "RAD");
   });
 
+});
+
+describe("CALC-69: a tecla 2nd na interface", () => {
+  test("2nd alterna o estado visível: aria-pressed vai de false a true e volta a false", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.buttonFor("2nd").getAttribute("aria-pressed"), "false");
+    calc.press("2nd");
+    assert.equal(calc.buttonFor("2nd").getAttribute("aria-pressed"), "true");
+    calc.press("2nd");
+    assert.equal(calc.buttonFor("2nd").getAttribute("aria-pressed"), "false");
+  });
+
+  test("com a 2nd ativa, o botão x² mostra o rótulo e o nome de √x; a próxima função devolve x² e o nome primário", () => {
+    const calc = createCalculator({ storage: {} });
+    const primaryName = calc.buttonFor("x²").getAttribute("aria-label");
+    calc.press("2nd");
+    assert.equal(calc.buttonFor("x²").textContent, "√x");
+    assert.equal(calc.buttonFor("x²").getAttribute("aria-label"), "Raiz quadrada (√x)");
+    assert.equal(calc.press("9", "x²"), "3");
+    assert.equal(calc.buttonFor("2nd").getAttribute("aria-pressed"), "false");
+    assert.equal(calc.buttonFor("x²").textContent, "x²");
+    assert.equal(calc.buttonFor("x²").getAttribute("aria-label"), primaryName);
+  });
+
+  test("a 2nd não mexe no visor: 5, 2nd mostra 5 e continua com a tecla ativa", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("5", "2nd"), "5");
+    assert.equal(calc.buttonFor("2nd").getAttribute("aria-pressed"), "true");
+  });
+
+  test("o botão 2nd fica na linha de status, antes do DEG/RAD e fora da grade do teclado", () => {
+    assert.match(
+      HTML_SOURCE,
+      /<div class="status">[\s\S]*?<button type="button" id="secondary-toggle" class="secondary-toggle" data-action="secondary" aria-pressed="false" aria-label="Funções secundárias \(2nd\)">2nd<\/button>\s*<button type="button" id="angle-unit"/,
+    );
+    assert.ok(HTML_SOURCE.indexOf('id="secondary-toggle"') < HTML_SOURCE.indexOf('class="panel"'));
+  });
+
+  test("o estado ativo tem aparência de pressionado, com contraste do operador pendente, e foco visível", () => {
+    assert.match(
+      CSS_SOURCE,
+      /\.secondary-toggle\[aria-pressed="true"\]\s*\{\s*background:\s*#ffffff;[^}]*color:\s*#b35c00;/,
+    );
+    assert.match(CSS_SOURCE, /\.secondary-toggle:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
+  });
+
+  test("a barra de status não quebra linha: o botão 2nd tem white-space: nowrap", () => {
+    assert.match(CSS_SOURCE, /\.secondary-toggle\s*\{[^}]*white-space:\s*nowrap;[^}]*\}/);
+  });
 });
 
 describe("CALC-41: estrutura e foco do botão DEG/RAD", () => {
