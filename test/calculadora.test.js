@@ -26,7 +26,8 @@
 // e do valor completo de e em √x e cos (CALC-49),
 // e dos botões ( e ) (CALC-30: agrupamento com aninhamento, multiplicação implícita e indicador de parênteses abertos),
 // e do histórico das funções avançadas (CALC-43: cada função aplicada ao visor vira uma linha, como √16 = 4 ou sen(30) = 0.5),
-// e dos atalhos de teclado das funções avançadas (CALC-42: ^ xʸ, p π, ! x!, r MR, c MC, _ M-, e a lista de atalhos na tela).
+// e dos atalhos de teclado das funções avançadas (CALC-42: ^ xʸ, p π, ! x!, r MR, c MC, _ M-, e a lista de atalhos na tela),
+// e da memória e da unidade DEG/RAD guardadas entre sessões, com armazenamento indisponível tratado sem erro (CALC-73).
 // Monta os módulos reais de src/ (start de src/main.js) sobre um DOM mínimo, e aperta
 // os botões pelo mesmo caminho de clique que o navegador usa; o teclado usa o mesmo
 // caminho de keydown.
@@ -2646,12 +2647,6 @@ describe("CALC-32: casos de borda do cos", () => {
     assert.equal(calc.angleUnitLabel(), "RAD");
   });
 
-  test("a unidade não é salva: uma calculadora nova começa em DEG e o armazenamento continua vazio", () => {
-    const storage = {};
-    createCalculator({ storage }).press("unidade");
-    assert.deepEqual(storage, {});
-    assert.equal(createCalculator({ storage }).angleUnitLabel(), "DEG");
-  });
 });
 
 describe("CALC-69: a tecla 2nd na interface", () => {
@@ -4587,5 +4582,125 @@ describe("CALC-35: histórico, teclado, foco e estrutura do ln", () => {
 
   test("o ln tem foco visível com contorno branco, sem remover o outline", () => {
     assert.match(CSS_SOURCE, /\.ln-add:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
+  });
+});
+
+// CALC-73: a memória e a unidade DEG/RAD ficam no armazenamento. "Recarregar" é criar outra calculadora com o mesmo objeto de storage.
+const PREFERENCES_KEY = "calc-pro:preferencias";
+
+// Armazenamento bloqueado (ex.: cookies desligados): qualquer acesso lança erro, como o localStorage faz nesse caso.
+function blockedStorage() {
+  const blocked = () => {
+    throw new Error("armazenamento bloqueado");
+  };
+  return new Proxy({}, { has: blocked, get: blocked, set: blocked, deleteProperty: blocked });
+}
+
+describe("CALC-73: critérios de aceite da memória e da unidade guardadas entre sessões", () => {
+  test("a memória volta ao reabrir: 5 M+, nova calculadora no mesmo storage mantém a memória em 5 e o indicador visível", () => {
+    const storage = {};
+    createCalculator({ storage }).press("5", "M+");
+    const reopened = createCalculator({ storage });
+    assert.equal(reopened.memoryValue(), 5);
+    assert.equal(reopened.memoryIndicatorHidden(), false);
+  });
+
+  test("a unidade volta ao reabrir: unidade para RAD, nova calculadora no mesmo storage abre em RAD", () => {
+    const storage = {};
+    createCalculator({ storage }).press("unidade");
+    assert.equal(createCalculator({ storage }).angleUnitLabel(), "RAD");
+  });
+
+  test("ao reabrir, o visor começa em 0 e a memória e a unidade voltam juntas: 7 M+ e unidade", () => {
+    const storage = {};
+    createCalculator({ storage }).press("7", "M+", "unidade");
+    const reopened = createCalculator({ storage });
+    assert.equal(reopened.display(), "0");
+    assert.equal(reopened.memoryValue(), 7);
+    assert.equal(reopened.angleUnitLabel(), "RAD");
+  });
+
+  test("M+, M- e a unidade atualizam o que está guardado: 5 M+, AC, 3 M- e unidade gravam memória 2 e RAD", () => {
+    const storage = {};
+    createCalculator({ storage }).press("5", "M+", "AC", "3", "M-", "unidade");
+    assert.deepEqual(JSON.parse(storage[PREFERENCES_KEY]), { memory: 2, angleUnit: "rad" });
+  });
+
+  test("MC limpa também o valor guardado: 5 M+, MC grava memória 0 e a calculadora reaberta mostra memória 0 e indicador escondido", () => {
+    const storage = {};
+    createCalculator({ storage }).press("5", "M+", "MC");
+    assert.equal(JSON.parse(storage[PREFERENCES_KEY]).memory, 0);
+    const reopened = createCalculator({ storage });
+    assert.equal(reopened.memoryValue(), 0);
+    assert.equal(reopened.memoryIndicatorHidden(), true);
+  });
+
+  test("pelo teclado também grava: 5, m (tecla M+) e reabrir mantém a memória em 5", () => {
+    const storage = {};
+    createCalculator({ storage }).type("5", "m");
+    assert.equal(createCalculator({ storage }).memoryValue(), 5);
+  });
+});
+
+describe("CALC-73: casos de borda da memória e da unidade guardadas", () => {
+  test("MC limpa o valor guardado mesmo com Erro no visor: 5 M+, 5 ÷ 0 =, MC deixa a memória guardada em 0", () => {
+    const storage = {};
+    const calc = createCalculator({ storage });
+    assert.equal(calc.press("5", "M+", "5", "÷", "0", "=", "MC"), "Erro");
+    assert.equal(createCalculator({ storage }).memoryValue(), 0);
+  });
+
+  test("AC não apaga a memória guardada: 5 M+, AC, reabrir mantém a memória em 5", () => {
+    const storage = {};
+    createCalculator({ storage }).press("5", "M+", "AC");
+    assert.equal(createCalculator({ storage }).memoryValue(), 5);
+  });
+
+  test("digitar e fazer contas não grava nada: 2 + 3 = não cria a chave das preferências", () => {
+    const storage = {};
+    createCalculator({ storage }).press("2", "+", "3", "=");
+    assert.equal(PREFERENCES_KEY in storage, false);
+  });
+
+  test("sem nada salvo, a calculadora abre em DEG com memória 0", () => {
+    const reopened = createCalculator({ storage: {} });
+    assert.equal(reopened.angleUnitLabel(), "DEG");
+    assert.equal(reopened.memoryValue(), 0);
+  });
+
+  test("armazenamento indisponível não quebra a calculadora: a conta, M+ e a unidade funcionam na sessão", () => {
+    const calc = createCalculator({ storage: blockedStorage() });
+    assert.equal(calc.press("2", "+", "3", "="), "5");
+    assert.equal(calc.press("M+"), "5");
+    assert.equal(calc.memoryValue(), 5);
+    assert.equal(calc.press("unidade"), "5");
+    assert.equal(calc.angleUnitLabel(), "RAD");
+  });
+
+  test("armazenamento indisponível: a calculadora abre com memória 0 e DEG, sem erro", () => {
+    const calc = createCalculator({ storage: blockedStorage() });
+    assert.equal(calc.memoryValue(), 0);
+    assert.equal(calc.angleUnitLabel(), "DEG");
+  });
+
+  test("dado salvo que não é JSON vira o padrão (memória 0, DEG), sem erro", () => {
+    const storage = { [PREFERENCES_KEY]: "{não é json" };
+    const calc = createCalculator({ storage });
+    assert.equal(calc.memoryValue(), 0);
+    assert.equal(calc.angleUnitLabel(), "DEG");
+  });
+
+  test("memória salva que não é número finito dentro do limite vira 0: texto e acima de 2^53", () => {
+    const text = { [PREFERENCES_KEY]: JSON.stringify({ memory: "8", angleUnit: "deg" }) };
+    assert.equal(createCalculator({ storage: text }).memoryValue(), 0);
+    const huge = { [PREFERENCES_KEY]: JSON.stringify({ memory: 2 ** 53 + 2, angleUnit: "deg" }) };
+    assert.equal(createCalculator({ storage: huge }).memoryValue(), 0);
+  });
+
+  test("unidade salva que não é deg nem rad vira DEG, e a memória válida é mantida", () => {
+    const storage = { [PREFERENCES_KEY]: JSON.stringify({ memory: 4, angleUnit: "gradianos" }) };
+    const calc = createCalculator({ storage });
+    assert.equal(calc.memoryValue(), 4);
+    assert.equal(calc.angleUnitLabel(), "DEG");
   });
 });
