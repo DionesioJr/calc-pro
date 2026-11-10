@@ -332,6 +332,116 @@ describe("CALC-69: log, ln, sen, cos e tan têm função secundária na 2nd", ()
   });
 });
 
+describe("CALC-70: sen⁻¹, cos⁻¹ e tan⁻¹ (asen, acos, atan) respeitam DEG/RAD e o domínio", () => {
+  test("critério: sen⁻¹(0,5) = 30 em DEG: 0.5, 2nd, sen resulta em 30 e a linha asen(0.5) = 30", () => {
+    const result = run(showResult(initialState(), "0.5"), [{ action: "secondary" }, { action: "sine" }]);
+    assert.equal(result.state.current, "30");
+    assert.equal(result.state.secondary, false);
+    assert.deepEqual(result.history, ["asen(0.5) = 30"]);
+  });
+
+  test("sen⁻¹ de negativo em DEG: -0.5, 2nd, sen resulta em -30", () => {
+    const result = run(showResult(initialState(), "-0.5"), [{ action: "secondary" }, { action: "sine" }]);
+    assert.equal(result.state.current, "-30");
+    assert.deepEqual(result.history, ["asen(-0.5) = -30"]);
+  });
+
+  test("sen⁻¹ aceita os limites −1 e 1 (−90° e 90°): -1, 2nd, sen resulta em -90", () => {
+    const result = run(showResult(initialState(), "-1"), [{ action: "secondary" }, { action: "sine" }]);
+    assert.equal(result.state.current, "-90");
+    assert.deepEqual(result.history, ["asen(-1) = -90"]);
+  });
+
+  test("sen⁻¹ em RAD: DEG→RAD, 0.5, 2nd, sen resulta em 0.52359878 (π/6)", () => {
+    const result = run(showResult(initialState(), "0.5"), [
+      { action: "angle-unit" },
+      { action: "secondary" },
+      { action: "sine" },
+    ]);
+    assert.equal(result.state.current, "0.52359878");
+    assert.deepEqual(result.history, ["asen(0.5) = 0.52359878"]);
+  });
+
+  test("sen⁻¹ fora de −1 a 1 em RAD também mostra Erro e não grava histórico: DEG→RAD, 1,5, 2nd, sen resulta em Erro", () => {
+    const result = run(showResult(initialState(), "1.5"), [
+      { action: "angle-unit" },
+      { action: "secondary" },
+      { action: "sine" },
+    ]);
+    assert.equal(result.state.current, "Erro");
+    assert.deepEqual(result.history, []);
+  });
+
+  test("cos⁻¹ em DEG: 0.5, 2nd, cos resulta em 60 e a linha acos(0.5) = 60", () => {
+    const result = run(showResult(initialState(), "0.5"), [{ action: "secondary" }, { action: "cos" }]);
+    assert.equal(result.state.current, "60");
+    assert.deepEqual(result.history, ["acos(0.5) = 60"]);
+  });
+
+  test("cos⁻¹ aceita os limites −1 e 1: 1, 2nd, cos resulta em 0 e -1, 2nd, cos resulta em 180", () => {
+    const zero = run(showResult(initialState(), "1"), [{ action: "secondary" }, { action: "cos" }]);
+    assert.equal(zero.state.current, "0");
+    const straight = run(showResult(initialState(), "-1"), [{ action: "secondary" }, { action: "cos" }]);
+    assert.equal(straight.state.current, "180");
+    assert.deepEqual(straight.history, ["acos(-1) = 180"]);
+  });
+
+  test("cos⁻¹ em RAD: DEG→RAD, 0, 2nd, cos resulta em 1.57079633 (π/2)", () => {
+    const result = run(showResult(initialState(), "0"), [
+      { action: "angle-unit" },
+      { action: "secondary" },
+      { action: "cos" },
+    ]);
+    assert.equal(result.state.current, "1.57079633");
+    assert.deepEqual(result.history, ["acos(0) = 1.57079633"]);
+  });
+
+  test("cos⁻¹ de −2 (fora do domínio) em DEG e RAD mostra Erro: -2, 2nd, cos resulta em Erro, e o mesmo em RAD", () => {
+    const deg = run(showResult(initialState(), "-2"), [{ action: "secondary" }, { action: "cos" }]);
+    assert.equal(deg.state.current, "Erro");
+    assert.deepEqual(deg.history, []);
+    const rad = run(showResult(initialState(), "-2"), [
+      { action: "angle-unit" },
+      { action: "secondary" },
+      { action: "cos" },
+    ]);
+    assert.equal(rad.state.current, "Erro");
+    assert.deepEqual(rad.history, []);
+  });
+
+  test("tan⁻¹ de número grande em DEG fica perto de 90 e não mostra Erro: 1000, 2nd, tan", () => {
+    const result = run(showResult(initialState(), "1000"), [{ action: "secondary" }, { action: "tan" }]);
+    const degrees = Number(result.state.current);
+    assert.ok(degrees > 89.9 && degrees < 90, result.state.current);
+    assert.equal(result.history.length, 1);
+    assert.equal(result.history[0], `atan(1000) = ${result.state.current}`);
+  });
+
+  test("tan⁻¹ em RAD: DEG→RAD, 1, 2nd, tan resulta em 0.78539816 (π/4)", () => {
+    const result = run(showResult(initialState(), "1"), [
+      { action: "angle-unit" },
+      { action: "secondary" },
+      { action: "tan" },
+    ]);
+    assert.equal(result.state.current, "0.78539816");
+    assert.deepEqual(result.history, ["atan(1) = 0.78539816"]);
+  });
+
+  test("tan⁻¹ não tem erro de domínio: -1000, 2nd, tan dá um valor perto de -90, não Erro", () => {
+    const result = run(showResult(initialState(), "-1000"), [{ action: "secondary" }, { action: "tan" }]);
+    const degrees = Number(result.state.current);
+    assert.ok(degrees < -89.9 && degrees > -90, result.state.current);
+  });
+
+  test("com Erro no visor, 2nd + cos mantém o Erro e não grava histórico: sen⁻¹(2) → Erro; depois 2nd, cos", () => {
+    const erro = run(showResult(initialState(), "2"), [{ action: "secondary" }, { action: "sine" }]);
+    assert.equal(erro.state.current, "Erro");
+    const depois = run(erro.state, [{ action: "secondary" }, { action: "cos" }]);
+    assert.equal(depois.state.current, "Erro");
+    assert.deepEqual(depois.history, []);
+  });
+});
+
 describe("CALC-53: o registro de ações é a única fonte de botões e teclas", () => {
   test("cada id e cada tecla aparecem em uma só entrada", () => {
     const ids = ACTIONS.map((action) => action.id);
