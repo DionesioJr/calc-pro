@@ -2649,6 +2649,34 @@ describe("CALC-32: casos de borda do cos", () => {
 
 });
 
+describe("CALC-71: ʸ√x e x³ na interface", () => {
+  test("com a 2nd ativa, o xʸ mostra ʸ√x e o √x mostra x³; sem a 2nd voltam ao rótulo e ao nome primários", () => {
+    const calc = createCalculator({ storage: {} });
+    calc.press("2nd");
+    assert.equal(calc.buttonFor("xʸ").textContent, "ʸ√x");
+    assert.equal(calc.buttonFor("xʸ").getAttribute("aria-label"), "Raiz de índice y (ʸ√x)");
+    assert.equal(calc.buttonFor("√x").textContent, "x³");
+    assert.equal(calc.buttonFor("√x").getAttribute("aria-label"), "Potência de três (x³)");
+    calc.press("2nd");
+    assert.equal(calc.buttonFor("xʸ").textContent, "xʸ");
+    assert.notEqual(calc.buttonFor("xʸ").getAttribute("aria-label"), "Raiz de índice y (ʸ√x)");
+    assert.equal(calc.buttonFor("√x").textContent, "√x");
+    assert.notEqual(calc.buttonFor("√x").getAttribute("aria-label"), "Potência de três (x³)");
+  });
+
+  test("ʸ√x pendente destaca a tecla xʸ, que é o operador da tecla: 3, 2nd, xʸ deixa o xʸ com aria-pressed true", () => {
+    const calc = createCalculator({ storage: {} });
+    calc.press("3", "2nd", "xʸ");
+    assert.equal(calc.buttonFor("xʸ").getAttribute("aria-pressed"), "true");
+    assert.equal(calc.buttonFor("2nd").getAttribute("aria-pressed"), "false");
+  });
+
+  test("3, 2nd, xʸ, 2, 7, = mostra 3 no visor pela interface", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("3", "2nd", "xʸ", "2", "7", "="), "3");
+  });
+});
+
 describe("CALC-69: a tecla 2nd na interface", () => {
   test("2nd alterna o estado visível: aria-pressed vai de false a true e volta a false", () => {
     const calc = createCalculator({ storage: {} });

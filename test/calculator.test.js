@@ -669,3 +669,170 @@ describe("CALC-67: Ans insere o último resultado calculado", () => {
     assert.equal(result.state.error, false);
   });
 });
+
+describe("CALC-71: 10ˣ, eˣ, x³ e ʸ√x como funções secundárias", () => {
+  test("10ˣ dentro de uma conta: 2 + 1, 2nd, log, = resulta em 12 e grava 10^1 = 10 e 2 + 10 = 12", () => {
+    const result = run(initialState(), [
+      { value: "2" },
+      { action: "add" },
+      { value: "1" },
+      { action: "secondary" },
+      { action: "log" },
+      EQ,
+    ]);
+    assert.equal(result.state.current, "12");
+    assert.deepEqual(result.history, ["10^1 = 10", "2 + 10 = 12"]);
+  });
+
+  test("eˣ(1) guarda o valor completo de e: 1, 2nd, ln mostra 2.71828183 com exact igual a Math.exp(1), e ln de novo resulta em 1", () => {
+    const first = run(showResult(initialState(), "1"), [{ action: "secondary" }, { action: "ln" }]);
+    assert.equal(first.state.current, "2.71828183");
+    assert.equal(first.state.exact, Math.exp(1));
+    const second = run(first.state, [{ action: "ln" }]);
+    assert.equal(second.state.current, "1");
+    assert.deepEqual(second.history, ["ln(2.71828183) = 1"]);
+  });
+
+  test("x³ de 3 com a 2nd em √x: 3, 2nd, √x resulta em 27 e a linha 3³ = 27, e a 2nd é consumida", () => {
+    const result = run(showResult(initialState(), "3"), [{ action: "secondary" }, { action: "sqrt" }]);
+    assert.equal(result.state.current, "27");
+    assert.equal(result.state.secondary, false);
+    assert.deepEqual(result.history, ["3³ = 27"]);
+  });
+
+  test("√x sem a 2nd continua raiz quadrada: 16, √x resulta em 4", () => {
+    const result = run(showResult(initialState(), "16"), [{ action: "sqrt" }]);
+    assert.equal(result.state.current, "4");
+    assert.deepEqual(result.history, ["√16 = 4"]);
+  });
+
+  test("x³ de negativo usa parênteses na linha: -2, 2nd, √x resulta em -8 e a linha (-2)³ = -8", () => {
+    const result = run(showResult(initialState(), "-2"), [{ action: "secondary" }, { action: "sqrt" }]);
+    assert.equal(result.state.current, "-8");
+    assert.deepEqual(result.history, ["(-2)³ = -8"]);
+  });
+
+  test("x³ que passa de 2^53 mostra Erro e não grava histórico: 1000000, 2nd, √x resulta em Erro", () => {
+    const result = run(showResult(initialState(), "1000000"), [{ action: "secondary" }, { action: "sqrt" }]);
+    assert.equal(result.state.current, "Erro");
+    assert.deepEqual(result.history, []);
+  });
+
+  test("x³ dentro de uma conta: 2 + 3, 2nd, √x, = resulta em 29 e grava 3³ = 27 e 2 + 27 = 29", () => {
+    const result = run(initialState(), [
+      { value: "2" },
+      { action: "add" },
+      { value: "3" },
+      { action: "secondary" },
+      { action: "sqrt" },
+      EQ,
+    ]);
+    assert.equal(result.state.current, "29");
+    assert.deepEqual(result.history, ["3³ = 27", "2 + 27 = 29"]);
+  });
+
+  test("x³ de um grupo fechado: 2 + (1 + 2), 2nd, √x, = resulta em 29 e grava só 2 + 27 = 29 (o grupo não grava linha própria)", () => {
+    const result = run(initialState(), [
+      { value: "2" },
+      { action: "add" },
+      { action: "open-paren" },
+      { value: "1" },
+      { action: "add" },
+      { value: "2" },
+      { action: "close-paren" },
+      { action: "secondary" },
+      { action: "sqrt" },
+      EQ,
+    ]);
+    assert.equal(result.state.current, "29");
+    assert.deepEqual(result.history, ["2 + 27 = 29"]);
+  });
+
+  test("2nd + xʸ roda ʸ√x e consome a 2nd: 3, 2nd, xʸ, 2, 7, = resulta em 3 e grava 3 ʸ√x 27 = 3", () => {
+    const result = run(initialState(), [
+      { value: "3" },
+      { action: "secondary" },
+      { action: "power" },
+      { value: "2" },
+      { value: "7" },
+      EQ,
+    ]);
+    assert.equal(result.state.current, "3");
+    assert.equal(result.state.secondary, false);
+    assert.deepEqual(result.history, ["3 ʸ√x 27 = 3"]);
+  });
+
+  test("ʸ√x de índice 2: 2, 2nd, xʸ, 1, 6, = resulta em 4 e grava 2 ʸ√x 16 = 4", () => {
+    const result = run(initialState(), [
+      { value: "2" },
+      { action: "secondary" },
+      { action: "power" },
+      { value: "1" },
+      { value: "6" },
+      EQ,
+    ]);
+    assert.equal(result.state.current, "4");
+    assert.deepEqual(result.history, ["2 ʸ√x 16 = 4"]);
+  });
+
+  test("ʸ√x com índice zero mostra Erro e não grava histórico: 0, 2nd, xʸ, 8, = resulta em Erro", () => {
+    const result = run(initialState(), [
+      { value: "0" },
+      { action: "secondary" },
+      { action: "power" },
+      { value: "8" },
+      EQ,
+    ]);
+    assert.equal(result.state.current, "Erro");
+    assert.deepEqual(result.history, []);
+  });
+
+  test("ʸ√x de negativo com índice ímpar tem raiz real: 3, 2nd, xʸ, 8, +/-, = resulta em -2 e grava 3 ʸ√x -8 = -2", () => {
+    const result = run(initialState(), [
+      { value: "3" },
+      { action: "secondary" },
+      { action: "power" },
+      { value: "8" },
+      NEG,
+      EQ,
+    ]);
+    assert.equal(result.state.current, "-2");
+    assert.deepEqual(result.history, ["3 ʸ√x -8 = -2"]);
+  });
+
+  test("ʸ√x de negativo com índice par não tem raiz real: 2, 2nd, xʸ, 4, +/-, = resulta em Erro", () => {
+    const result = run(initialState(), [
+      { value: "2" },
+      { action: "secondary" },
+      { action: "power" },
+      { value: "4" },
+      NEG,
+      EQ,
+    ]);
+    assert.equal(result.state.current, "Erro");
+    assert.deepEqual(result.history, []);
+  });
+
+  test("xʸ sem a 2nd continua potência: 2, xʸ, 3, = resulta em 8 e grava 2 xʸ 3 = 8", () => {
+    const result = run(initialState(), [{ value: "2" }, { action: "power" }, { value: "3" }, EQ]);
+    assert.equal(result.state.current, "8");
+    assert.deepEqual(result.history, ["2 xʸ 3 = 8"]);
+  });
+
+  test("ʸ√x dentro de parênteses: (3, 2nd, xʸ, 2, 7, ) + 1, = resulta em 4 e grava (3 ʸ√x 27) + 1 = 4", () => {
+    const result = run(initialState(), [
+      { action: "open-paren" },
+      { value: "3" },
+      { action: "secondary" },
+      { action: "power" },
+      { value: "2" },
+      { value: "7" },
+      { action: "close-paren" },
+      { action: "add" },
+      { value: "1" },
+      EQ,
+    ]);
+    assert.equal(result.state.current, "4");
+    assert.deepEqual(result.history, ["(3 ʸ√x 27) + 1 = 4"]);
+  });
+});
