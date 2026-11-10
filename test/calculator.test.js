@@ -14,9 +14,9 @@ function carregarScripts(arquivos, nomes) {
   const codigo = arquivos.map((arquivo) => fs.readFileSync(path.join(SRC_DIR, arquivo), "utf8")).join("\n;\n");
   return new Function(`${codigo}\nreturn { ${nomes.join(", ")} };`)();
 }
-const { ACTIONS, handleButton, initialState, showResult, fillKeypadMarkup } = carregarScripts(
+const { ACTIONS, deleteDigit, handleButton, initialState, showResult, fillKeypadMarkup } = carregarScripts(
   ["calculator.js", "keypad.js"],
-  ["ACTIONS", "handleButton", "initialState", "showResult", "fillKeypadMarkup"],
+  ["ACTIONS", "deleteDigit", "handleButton", "initialState", "showResult", "fillKeypadMarkup"],
 );
 // HTML final: index.html com os botões gerados a partir do registro (CALC-59).
 const INDEX_HTML = fillKeypadMarkup(fs.readFileSync(path.join(SRC_DIR, "..", "index.html"), "utf8"));
@@ -208,6 +208,199 @@ describe("CALC-53: o registro de ações é a única fonte de botões e teclas",
   });
 });
 
+// Atalhos para montar sequências de botões no estilo do registro: dígitos e ponto como data-value, o resto como data-action.
+const EXP = { action: "exp" };
+const NEG = { action: "toggle-sign" };
+const SUB = { action: "subtract" };
+const EQ = { action: "equals" };
+
+describe("CALC-68: EXP (×10ˣ) digita números grandes e pequenos", () => {
+  test("1,5 EXP 3 resulta em 1500 (sem linha de histórico enquanto não há conta)", () => {
+    const result = run(initialState(), [{ value: "1" }, { value: "." }, { value: "5" }, EXP, { value: "3" }]);
+    assert.equal(result.state.current, "1500");
+    assert.deepEqual(result.history, []);
+  });
+
+  test("1,5 EXP 3 × 2 = resulta em 3000 e grava 1500 × 2 = 3000", () => {
+    const result = run(initialState(), [
+      { value: "1" },
+      { value: "." },
+      { value: "5" },
+      EXP,
+      { value: "3" },
+      { action: "multiply" },
+      { value: "2" },
+      EQ,
+    ]);
+    assert.equal(result.state.current, "3000");
+    assert.deepEqual(result.history, ["1500 × 2 = 3000"]);
+  });
+
+  test("expoente negativo com o sinal de subtrair logo após EXP: 1,5 EXP − 3 resulta em 0.0015", () => {
+    const result = run(initialState(), [{ value: "1" }, { value: "." }, { value: "5" }, EXP, SUB, { value: "3" }]);
+    assert.equal(result.state.current, "0.0015");
+  });
+
+  test("expoente negativo com +/-: 1,5 EXP 3 +/- resulta em 0.0015", () => {
+    const result = run(initialState(), [{ value: "1" }, { value: "." }, { value: "5" }, EXP, { value: "3" }, NEG]);
+    assert.equal(result.state.current, "0.0015");
+  });
+
+  test("mantissa negativa: 1,5 +/- EXP 3 resulta em -1500", () => {
+    const result = run(initialState(), [{ value: "1" }, { value: "." }, { value: "5" }, NEG, EXP, { value: "3" }]);
+    assert.equal(result.state.current, "-1500");
+  });
+
+  test("valor pequeno sai em notação científica: 1,5 EXP − 9 resulta em 1.5E-9", () => {
+    const result = run(initialState(), [{ value: "1" }, { value: "." }, { value: "5" }, EXP, SUB, { value: "9" }]);
+    assert.equal(result.state.current, "1.5E-9");
+  });
+
+  test("valor grande sai em notação científica: 1 EXP 20 resulta em 1E+20", () => {
+    const result = run(initialState(), [{ value: "1" }, EXP, { value: "2" }, { value: "0" }]);
+    assert.equal(result.state.current, "1E+20");
+  });
+
+  test("valor grande com mantissa: 6,02 EXP 23 resulta em 6.02E+23", () => {
+    const result = run(initialState(), [
+      { value: "6" },
+      { value: "." },
+      { value: "0" },
+      { value: "2" },
+      EXP,
+      { value: "2" },
+      { value: "3" },
+    ]);
+    assert.equal(result.state.current, "6.02E+23");
+  });
+
+  test("limite de 2^53 ainda é plano: 1 EXP 15 resulta em 1000000000000000 (sem notação científica)", () => {
+    const result = run(initialState(), [{ value: "1" }, EXP, { value: "1" }, { value: "5" }]);
+    assert.equal(result.state.current, "1000000000000000");
+  });
+
+  test("limite pequeno: 1 EXP − 6 resulta em 0.000001, e 1 EXP − 7 resulta em 1E-7", () => {
+    const six = run(initialState(), [{ value: "1" }, EXP, SUB, { value: "6" }]);
+    assert.equal(six.state.current, "0.000001");
+    const seven = run(initialState(), [{ value: "1" }, EXP, SUB, { value: "7" }]);
+    assert.equal(seven.state.current, "1E-7");
+  });
+
+  test("zero continua zero: 0,0 EXP 5 resulta em 0", () => {
+    const result = run(initialState(), [{ value: "0" }, { value: "." }, { value: "0" }, EXP, { value: "5" }]);
+    assert.equal(result.state.current, "0");
+  });
+
+  test("EXP sem número antes é ignorado: EXP com visor 0, depois 5 resulta em 5", () => {
+    const result = run(initialState(), [EXP, { value: "5" }]);
+    assert.equal(result.state.current, "5");
+  });
+
+  test("EXP logo após operador é ignorado: 2 + EXP 3 = resulta em 5", () => {
+    const result = run(initialState(), [{ value: "2" }, { action: "add" }, EXP, { value: "3" }, EQ]);
+    assert.equal(result.state.current, "5");
+    assert.deepEqual(result.history, ["2 + 3 = 5"]);
+  });
+
+  test("EXP logo após o igual é ignorado: 2 + 3 = EXP resulta em 5", () => {
+    const result = run(initialState(), [{ value: "2" }, { action: "add" }, { value: "3" }, EQ, EXP]);
+    assert.equal(result.state.current, "5");
+  });
+
+  test("EXP com Erro no visor é ignorado: 5 ÷ 0 = EXP mantém o Erro", () => {
+    const result = run(initialState(), [{ value: "5" }, { action: "divide" }, { value: "0" }, EQ, EXP]);
+    assert.equal(result.state.current, "Erro");
+  });
+
+  test("EXP com EXP já aberto é ignorado: 1 EXP 2 EXP 3 resulta em 1E+23", () => {
+    const result = run(initialState(), [{ value: "1" }, EXP, { value: "2" }, EXP, { value: "3" }]);
+    assert.equal(result.state.current, "1E+23");
+  });
+
+  test("o expoente tem no máximo 3 algarismos: 1 EXP 1234 resulta em 1E+123", () => {
+    const result = run(initialState(), [
+      { value: "1" },
+      EXP,
+      { value: "1" },
+      { value: "2" },
+      { value: "3" },
+      { value: "4" },
+    ]);
+    assert.equal(result.state.current, "1E+123");
+  });
+
+  test("o ponto é ignorado enquanto o expoente é digitado: 1 EXP 2 . 5 resulta em 1E+25", () => {
+    const result = run(initialState(), [{ value: "1" }, EXP, { value: "2" }, { value: "." }, { value: "5" }]);
+    assert.equal(result.state.current, "1E+25");
+  });
+
+  test("expoente que estoura o double mostra Erro: 1 EXP 4 0 0 resulta em Erro", () => {
+    const result = run(initialState(), [{ value: "1" }, EXP, { value: "4" }, { value: "0" }, { value: "0" }]);
+    assert.equal(result.state.current, "Erro");
+    assert.deepEqual(result.history, []);
+  });
+
+  test("operador fecha o expoente e o próximo dígito começa número novo: 1,5 EXP 3 + 5 = resulta em 1505", () => {
+    const result = run(initialState(), [
+      { value: "1" },
+      { value: "." },
+      { value: "5" },
+      EXP,
+      { value: "3" },
+      { action: "add" },
+      { value: "5" },
+      EQ,
+    ]);
+    assert.equal(result.state.current, "1505");
+    assert.deepEqual(result.history, ["1500 + 5 = 1505"]);
+  });
+
+  test("conta acima de 2^53 com um número de EXP continua Erro: 1,5 EXP 20 + 1 = resulta em Erro", () => {
+    const result = run(initialState(), [
+      { value: "1" },
+      { value: "." },
+      { value: "5" },
+      EXP,
+      { value: "2" },
+      { value: "0" },
+      { action: "add" },
+      { value: "1" },
+      EQ,
+    ]);
+    assert.equal(result.state.current, "Erro");
+  });
+
+  test("backspace apaga o expoente aos poucos: 1,5 EXP 3 4 → 1.5E+34, depois 1500, depois 1.5", () => {
+    let state = run(initialState(), [
+      { value: "1" },
+      { value: "." },
+      { value: "5" },
+      EXP,
+      { value: "3" },
+      { value: "4" },
+    ]).state;
+    assert.equal(state.current, "1.5E+34");
+    state = deleteDigit(state);
+    assert.equal(state.current, "1500");
+    state = deleteDigit(state);
+    assert.equal(state.current, "1.5");
+    assert.equal(state.exponent.digits, "");
+    state = deleteDigit(state);
+    assert.equal(state.exponent, null);
+    assert.equal(state.current, "1.5");
+  });
+
+  test("handleButton com EXP aberto não altera o estado recebido: 1,5 EXP, depois 3 e +/- trabalham numa cópia", () => {
+    const before = run(initialState(), [{ value: "1" }, { value: "." }, { value: "5" }, EXP]).state;
+    const snapshot = JSON.stringify(before);
+    const typed = handleButton(before, { value: "3" });
+    const negated = handleButton(before, NEG);
+    assert.equal(typed.state.current, "1500");
+    assert.equal(negated.state.exponent.sign, -1);
+    assert.equal(JSON.stringify(before), snapshot);
+  });
+});
+
 describe("CALC-67: Ans insere o último resultado calculado", () => {
   test("Ans sem resultado anterior insere 0: Ans resulta em 0 e não grava histórico", () => {
     const result = run(initialState(), [{ action: "ans" }]);
@@ -313,4 +506,5 @@ describe("CALC-67: Ans insere o último resultado calculado", () => {
     ]);
     assert.equal(result.state.current, "5");
     assert.equal(result.state.error, false);
-  });});
+  });
+});
