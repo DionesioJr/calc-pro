@@ -25,22 +25,25 @@ const MAX_EXPONENT_DIGITS = 3;
 const OPEN_PAREN = "(";
 
 // Base negativa com expoente fracionário, ou 0 elevado a negativo, dão NaN ou Infinity: a conta falha como as outras (Erro).
+// root (2nd do xʸ, CALC-71): ʸ√x, com o índice antes e o radicando depois (3 ʸ√x 27 = 3).
 const OPERATIONS = {
   add: (a, b) => a + b,
   subtract: (a, b) => a - b,
   multiply: (a, b) => a * b,
   divide: (a, b) => (b === 0 ? null : a / b),
   power: (a, b) => a ** b,
+  root: (index, radicand) => nthRoot(index, radicand),
 };
 
-// Precedência: xʸ antes de × e ÷, e × e ÷ antes de + e −. Entre operadores de mesma precedência vale a ordem da esquerda para a direita,
-// exceto xʸ, que associa à direita (2 xʸ 3 xʸ 2 = 2 xʸ 9 = 512).
+// Precedência: xʸ e ʸ√x antes de × e ÷, e × e ÷ antes de + e −. Entre operadores de mesma precedência vale a ordem da esquerda para a direita,
+// exceto xʸ, que associa à direita (2 xʸ 3 xʸ 2 = 2 xʸ 9 = 512). ʸ√x associa à esquerda.
 const PRECEDENCE = {
   add: 1,
   subtract: 1,
   multiply: 2,
   divide: 2,
   power: 3,
+  root: 3,
 };
 
 const RIGHT_ASSOCIATIVE = {
@@ -53,7 +56,24 @@ const OPERATOR_SYMBOLS = {
   multiply: "×",
   divide: "÷",
   power: "xʸ",
+  root: "ʸ√x",
 };
+
+// ʸ√x: raiz de índice index do radicando (o número que vem depois). Índice zero não tem raiz: a conta falha (Erro).
+// Radicando negativo só tem raiz real com índice ímpar inteiro (3 ʸ√x −8 = −2); com índice par ou fracionário, a conta falha (Erro).
+// Devolve null nesses casos, como a divisão por zero.
+function nthRoot(index, radicand) {
+  if (index === 0) {
+    return null;
+  }
+  if (radicand >= 0) {
+    return radicand ** (1 / index);
+  }
+  if (!Number.isInteger(index) || index % 2 === 0) {
+    return null;
+  }
+  return -((-radicand) ** (1 / index));
+}
 
 // Estado inicial da calculadora (visor 0, sem conta, memória vazia).
 function initialState() {
@@ -92,8 +112,8 @@ function initialState() {
     exponent: null,
     // Unidade angular do sen, cos e tan: "deg" (padrão ao abrir a página) ou "rad". Trocar a unidade não mexe no visor, na conta nem na memória.
     angleUnit: "deg",
-    // true enquanto a tecla 2nd está ativa: a próxima função (ação unária) roda a função secundária do botão, se ele tiver uma, e a 2nd volta a false.
-    // Dígitos, operadores e o igual não a desligam. AC não a desliga (só uma função a desliga).
+    // true enquanto a tecla 2nd está ativa: a próxima função (ação unária, ou xʸ) roda a função secundária do botão, se ele tiver uma, e a 2nd volta a false.
+    // Dígitos, outros operadores e o igual não a desligam. AC não a desliga (só uma função a desliga).
     secondary: false,
     // Linhas do histórico geradas pela última ação ("12 × 3 = 36"). handleButton as devolve e zera; quem chama as grava.
     pendingHistory: [],
@@ -158,6 +178,7 @@ const ACTIONS = [
     keys: ["^"],
     buttonId: "power-button",
     apply: (s) => inputOperator(s, "power"),
+    secondary: { label: "ʸ√x", ariaLabel: "Raiz de índice y (ʸ√x)", apply: (s) => inputOperator(s, "root") },
   },
   { id: "percent", type: "unary", label: "%", replacesDisplay: true, apply: percent },
   { id: "toggle-sign", type: "unary", label: "+/-", replacesDisplay: true, apply: toggleSign },
@@ -220,7 +241,15 @@ const ACTIONS = [
   // Tecla 2nd (CALC-69): liga e desliga a função secundária. Fica na linha de status, fora da grade, como o DEG/RAD.
   { id: "secondary", type: "control", label: "2nd", buttonId: "secondary-toggle", apply: toggleSecondary },
   { id: "inverse", type: "unary", label: "1/x", buttonId: "inverse-button", replacesDisplay: true, apply: inverse },
-  { id: "sqrt", type: "unary", label: "√x", buttonId: "sqrt-button", replacesDisplay: true, apply: squareRoot },
+  {
+    id: "sqrt",
+    type: "unary",
+    label: "√x",
+    buttonId: "sqrt-button",
+    replacesDisplay: true,
+    apply: squareRoot,
+    secondary: { label: "x³", ariaLabel: "Potência de três (x³)", apply: cube },
+  },
   {
     id: "factorial",
     type: "unary",
@@ -582,6 +611,23 @@ function square(s) {
   recordFunction(s, expression);
 }
 
+// x³ (2nd do √x, CALC-71): cubo do número exibido, com a mesma regra do x². Acima de 2^53 em valor absoluto mostra Erro.
+// Com Erro no visor não calcula e mantém o Erro.
+function cube(s) {
+  if (s.error) {
+    return;
+  }
+  const result = operandValue(s) ** 3;
+  if (!Number.isFinite(result) || Math.abs(result) > MAX_RESULT) {
+    setError(s);
+    return;
+  }
+  const expression = `${operandText(s.current)}³`;
+  setCurrent(s, formatResult(result));
+  s.waitingForOperand = false;
+  recordFunction(s, expression);
+}
+
 // log: logaritmo decimal (base 10) do número exibido, com a mesma regra de segundo operando do % e do x²
 // (o visor mostra o resultado). Valor menor ou igual a zero não tem logaritmo real: mostra Erro.
 // Com Erro no visor não calcula e mantém o Erro.
@@ -880,6 +926,7 @@ function powerOfTen(s) {
 
 // eˣ (2nd do ln): exponencial de e do número exibido, com a mesma regra do 10ˣ. Acima de 2^53 em valor absoluto, ou não finito, mostra Erro.
 // Com Erro no visor não calcula e mantém o Erro.
+// O visor mostra 8 casas, mas o valor completo fica em exact: eˣ(1) é o mesmo e da tecla e, e ln dele volta a 1 (CALC-71).
 function exponentialE(s) {
   if (s.error) {
     return;
@@ -891,6 +938,7 @@ function exponentialE(s) {
   }
   const expression = `e^${operandText(s.current)}`;
   setCurrent(s, formatResult(result));
+  s.exact = result;
   s.waitingForOperand = false;
   recordFunction(s, expression);
 }
@@ -1322,10 +1370,11 @@ function applyButton(s, dataset) {
     dropGroupText(s);
   }
   const hadError = s.error;
-  // Com a 2nd ativa, roda a função secundária do botão (se houver). Qualquer função unária consome a 2nd, com ou sem secundária.
+  // Com a 2nd ativa, roda a função secundária do botão (se houver). Qualquer função unária consome a 2nd, com ou sem secundária;
+  // uma binária (xʸ) só a consome quando roda a secundária (ʸ√x). Dígitos, o igual e as outras binárias não a desligam.
   const runSecondary = s.secondary && action.secondary !== undefined;
   (runSecondary ? action.secondary.apply : action.apply)(s);
-  if (action.type === "unary") {
+  if (action.type === "unary" || runSecondary) {
     s.secondary = false;
   }
   s.functionOnGroup = false;

@@ -101,7 +101,9 @@ function render(state) {
   }
 
   // Operador destacado (aria-pressed="true", estilizado no CSS): só enquanto o segundo número não começou.
-  const selectedOperator = state.waitingForOperand ? trailingOperator(state) : null;
+  // ʸ√x (2nd do xʸ, CALC-71) é o operador pendente da tecla xʸ, então destaca essa tecla.
+  const pendingOperator = state.waitingForOperand ? trailingOperator(state) : null;
+  const selectedOperator = pendingOperator === "root" ? "power" : pendingOperator;
   for (const button of operatorButtons) {
     button.setAttribute("aria-pressed", String(button.dataset.action === selectedOperator));
   }
