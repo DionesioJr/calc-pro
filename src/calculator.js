@@ -67,6 +67,9 @@ function initialState() {
     terms: [],
     // true logo após apertar um operador ou o igual: o próximo dígito começa um novo número.
     waitingForOperand: false,
+    // Quantos caracteres do fim do visor são editáveis pelo ⌫: dígitos e ponto digitados, ou o texto inteiro de π e e.
+    // Um resultado de função, MR, Ans, grupo fechado ou Erro começa com 0, e o ⌫ não mexe nele (nem no que sobrar de um dígito digitado em cima dele).
+    typing: 0,
     // true quando a última operação falhou (divisão por zero).
     error: false,
     // Partes da expressão em curso (ex.: ["12", "×", "3", "="]); viram uma linha do histórico no igual.
@@ -121,9 +124,7 @@ const EXACT_COSINES = [1, 0, -1, 0];
 // Múltiplos de 45° saem exatos (tan 0° = 0, tan 45° = 1, tan 135° = -1); 90° (e 90° + 180°·k) é indefinida: null.
 const EXACT_TANGENTS = [0, 1, null, -1];
 
-// Backspace (teclado): apaga o último caractere do número em edição.
-// Sem número em edição (após operador ou igual) não faz nada. Após erro, reinicia a calculadora.
-// Se sobrar algo que não é um número válido (ex.: "-" ou notação científica), volta para 0.
+// Texto que sobra ao apagar um caractere do número em edição: se não for um número válido (ex.: "-"), volta para 0.
 const VALID_ENTRY = /^-?\d+(\.\d*)?$/;
 
 // Registro único das ações da calculadora (CALC-53): os botões e os atalhos de teclado derivam daqui.
@@ -291,6 +292,14 @@ const ACTIONS = [
     apply: insertAnswer,
   },
   { id: "all-clear", type: "control", label: "AC", keys: ["Escape"], apply: reset },
+  {
+    id: "backspace",
+    type: "control",
+    label: "⌫",
+    keys: ["Backspace"],
+    // deleteDigit devolve um estado novo; applyButton não usa o retorno, então o resultado é copiado para s.
+    apply: (s) => Object.assign(s, deleteDigit(s)),
+  },
   { id: "equals", type: "control", label: "=", keys: ["=", "Enter"], apply: inputEquals },
   {
     id: "open-paren",
@@ -345,9 +354,11 @@ function reset(s) {
 }
 
 // Troca o texto do visor e descarta o valor completo de uma constante (e), se havia um.
-function setCurrent(s, text) {
+// editable é quantos caracteres do fim do texto o ⌫ pode apagar (ver typing em initialState); 0 para qualquer valor que não é entrada.
+function setCurrent(s, text, editable = 0) {
   s.current = text;
   s.exact = null;
+  s.typing = editable;
 }
 
 // Número usado nas contas: o valor completo da constante, se o visor mostra uma; senão, o número do visor.
@@ -404,7 +415,7 @@ function inputDigit(s, digit) {
     return;
   }
   if (s.waitingForOperand || isScientific(s.current)) {
-    setCurrent(s, digit);
+    setCurrent(s, digit, 1);
     s.waitingForOperand = false;
     return;
   }
@@ -412,8 +423,12 @@ function inputDigit(s, digit) {
   if (countDigits(s.current) >= MAX_DIGITS) {
     return;
   }
-  // O "0" inicial é substituído pelo primeiro dígito digitado.
-  setCurrent(s, s.current === "0" ? digit : s.current + digit);
+  // O "0" inicial é substituído pelo primeiro dígito digitado; senão o dígito soma ao que já é editável.
+  if (s.current === "0") {
+    setCurrent(s, digit, 1);
+  } else {
+    setCurrent(s, s.current + digit, s.typing + 1);
+  }
 }
 
 function inputDecimal(s) {
@@ -425,7 +440,7 @@ function inputDecimal(s) {
     return;
   }
   if (s.waitingForOperand || isScientific(s.current)) {
-    setCurrent(s, "0.");
+    setCurrent(s, "0.", 2);
     s.waitingForOperand = false;
     return;
   }
@@ -433,7 +448,7 @@ function inputDecimal(s) {
   if (s.current.includes(".")) {
     return;
   }
-  setCurrent(s, s.current + ".");
+  setCurrent(s, s.current + ".", s.typing + 1);
 }
 
 // +/-: inverte o sinal do número exibido. Com o zero não há sinal a inverter.
@@ -454,8 +469,10 @@ function toggleSign(s) {
     return;
   }
   // Com a constante, o sinal inverte também o valor completo (−e continua exato).
+  // O sinal de um número digitado continua digitado (5, +/- ainda deixa o ⌫ apagar); o de um resultado não vira digitado.
   const exact = s.exact;
-  setCurrent(s, s.current.startsWith("-") ? s.current.slice(1) : "-" + s.current);
+  const editable = s.typing;
+  setCurrent(s, s.current.startsWith("-") ? s.current.slice(1) : "-" + s.current, editable);
   s.exact = exact === null ? null : -exact;
   s.waitingForOperand = false;
 }
@@ -653,7 +670,9 @@ function insertPi(s) {
   if (s.error) {
     reset(s);
   }
-  setCurrent(s, formatResult(Math.PI));
+  // Como o e, o π entra no visor como número editável: o ⌫ apaga dígitos dele, então todo o texto é editável.
+  const text = formatResult(Math.PI);
+  setCurrent(s, text, text.length);
   s.waitingForOperand = false;
 }
 
@@ -664,7 +683,9 @@ function insertEuler(s) {
   if (s.error) {
     reset(s);
   }
-  setCurrent(s, formatResult(Math.E));
+  // Todo o texto é editável: o ⌫ pode apagar dígitos do e (e então o valor completo sai, ver setCurrent).
+  const text = formatResult(Math.E);
+  setCurrent(s, text, text.length);
   s.exact = Math.E;
   s.waitingForOperand = false;
 }
@@ -731,6 +752,7 @@ function factorial(s) {
   }
   const expression = `${s.current}!`;
   s.current = Math.abs(result) > MAX_RESULT ? toScientific(result) : formatResult(result);
+  s.typing = 0;
   s.waitingForOperand = false;
   recordFunction(s, expression);
 }
@@ -763,9 +785,10 @@ function startExponent(s) {
   if (s.exponent !== null || s.waitingForOperand || s.valueIsGroup || s.current === "0" || isScientific(s.current)) {
     return;
   }
-  s.exponent = { mantissa: s.current, sign: 1, digits: "" };
+  // typing guarda os caracteres editáveis da mantissa, para o ⌫ voltar a apagá-los quando o EXP fecha.
+  s.exponent = { mantissa: s.current, sign: 1, digits: "", typing: s.typing };
   // O número em edição passa a ser o texto do visor, mesmo se era uma constante (e): a conta usa o que o visor mostra.
-  setCurrent(s, s.current);
+  setCurrent(s, s.current, s.typing);
 }
 
 // Recalcula o visor com o expoente em curso: mantissa × 10^(sign × digits). Escrito como texto ("1.5e3") para não somar ruído de ponto flutuante.
@@ -933,28 +956,36 @@ function toggleSecondary(s) {
   s.secondary = !s.secondary;
 }
 
-// Apaga o último caractere do número em edição (Backspace do teclado). Devolve o estado novo.
+// ⌫ (botão e Backspace): apaga o último caractere do número em edição. Devolve o estado novo (quem chama copia para o estado em curso).
+// Erro não muda (a mensagem fica), e nada mexe em resultado de função, MR, Ans, grupo fechado, notação científica ou no operador pendente:
+// só age sobre os caracteres editáveis no fim do visor (s.typing > 0), ou sobre o expoente de um EXP em digitação.
 function deleteDigit(state) {
   const s = cloneState(state);
   if (s.error) {
-    reset(s);
     return s;
   }
-  // Com EXP aberto, apaga o último algarismo do expoente; sem algarismo, fecha o EXP e o número volta a ser a mantissa.
+  // Com EXP aberto, apaga o último algarismo do expoente; sem algarismo, fecha o EXP e o número volta a ser a mantissa,
+  // com os caracteres editáveis que tinha antes do EXP.
   if (s.exponent !== null) {
     if (s.exponent.digits === "") {
+      const { mantissa, typing } = s.exponent;
       s.exponent = null;
+      setCurrent(s, mantissa, typing);
     } else {
       s.exponent.digits = s.exponent.digits.slice(0, -1);
       refreshExponent(s);
     }
     return s;
   }
-  if (s.waitingForOperand) {
+  if (s.typing === 0 || s.waitingForOperand || s.valueIsGroup || isScientific(s.current)) {
     return s;
   }
   const remaining = s.current.slice(0, -1);
-  setCurrent(s, VALID_ENTRY.test(remaining) ? remaining : "0");
+  if (VALID_ENTRY.test(remaining)) {
+    setCurrent(s, remaining, s.typing - 1);
+  } else {
+    setCurrent(s, "0");
+  }
   return s;
 }
 
@@ -1089,6 +1120,7 @@ function inputOpenParen(s) {
   s.terms.push(OPEN_PAREN);
   s.expression.push("(");
   s.current = "0";
+  s.typing = 0;
   s.waitingForOperand = true;
   refreshStack(s);
 }
@@ -1123,6 +1155,7 @@ function closeGroup(s) {
     return;
   }
   s.current = formatResult(value);
+  s.typing = 0;
   s.waitingForOperand = false;
   s.valueIsGroup = true;
   refreshStack(s);

@@ -43,7 +43,6 @@ export default [
     files: ["src/main.js"],
     languageOptions: {
       globals: {
-        deleteDigit: "readonly",
         handleButton: "readonly",
         initialState: "readonly",
         showResult: "readonly",

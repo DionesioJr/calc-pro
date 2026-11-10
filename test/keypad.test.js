@@ -71,9 +71,9 @@ describe("CALC-59: a linha de funções vem do registro, na ordem da tela", () =
 });
 
 describe("CALC-59: o teclado numérico e a linha de funções cobrem o registro sem repetição", () => {
-  test("o teclado tem 19 botões e a linha de funções 20: 39 no total, um por ação do registro exceto angle-unit e secondary", () => {
+  test("o teclado tem 20 botões (com ⌫) e a linha de funções 20 (com EXP e Ans): 40 no total, um por ação do registro exceto angle-unit e secondary", () => {
     const { scientific, keypad } = keypadMarkup();
-    assert.equal((keypad.match(/<button /g) ?? []).length, 19);
+    assert.equal((keypad.match(/<button /g) ?? []).length, 20);
     assert.equal((scientific.match(/<button /g) ?? []).length, 20);
     const generated = buttonValues(scientific + keypad).sort();
     const generatedActions = ACTIONS.map((action) => action.id)
@@ -94,6 +94,14 @@ describe("CALC-59: o teclado numérico e a linha de funções cobrem o registro 
     const { keypad } = keypadMarkup();
     assert.ok(keypad.includes('<button type="button" class="btn btn-digit btn-zero" data-value="0">0</button>'));
     assert.ok(keypad.includes('<button type="button" class="btn btn-digit" data-value="7">7</button>'));
+  });
+
+  test("⌫ sai no teclado com data-action backspace, classe de função e aria-label que diz o que faz (CALC-65)", () => {
+    assert.ok(
+      keypadMarkup().keypad.includes(
+        '<button type="button" class="btn btn-function" data-action="backspace" aria-label="Apagar último dígito (Backspace)">⌫</button>',
+      ),
+    );
   });
 
   test("Ans da linha de funções sai com id, classe, data-action, aria-label e o rótulo do registro (CALC-67)", () => {

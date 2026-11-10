@@ -29,7 +29,7 @@ const FUNCTION_ROW = [
   { id: "ans", className: "ans-add", ariaLabel: "Último resultado (Ans)" },
 ];
 
-// Teclado numérico, linha a linha (4 colunas no CSS): 19 botões.
+// Teclado numérico, linha a linha (4 colunas no CSS): 20 botões. O ⌫ fica no fim, para não deslocar os demais.
 const KEYPAD = [
   { id: "all-clear", className: "btn btn-function", ariaLabel: "Limpar" },
   { id: "toggle-sign", className: "btn btn-function", ariaLabel: "Inverter sinal" },
@@ -50,6 +50,7 @@ const KEYPAD = [
   { id: "0", className: "btn btn-digit btn-zero" },
   { id: ".", className: DIGIT_CLASS, ariaLabel: "Ponto decimal" },
   { id: "equals", className: "btn btn-operator", ariaLabel: "Igual" },
+  { id: "backspace", className: "btn btn-function", ariaLabel: "Apagar último dígito (Backspace)" },
 ];
 
 // Marcação de um botão: type, id (só se a ação tem buttonId), class, data-value ou data-action, aria-label (se houver), e o rótulo do registro.
