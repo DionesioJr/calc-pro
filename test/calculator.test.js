@@ -150,3 +150,110 @@ describe("CALC-53: o registro de ações é a única fonte de botões e teclas",
     assert.deepEqual(result.history, []);
   });
 });
+
+describe("CALC-67: Ans insere o último resultado calculado", () => {
+  test("Ans sem resultado anterior insere 0: Ans resulta em 0 e não grava histórico", () => {
+    const result = run(initialState(), [{ action: "ans" }]);
+    assert.equal(result.state.current, "0");
+    assert.deepEqual(result.history, []);
+  });
+
+  test("Ans depois de = insere o resultado: 2 + 3 =, Ans resulta em 5", () => {
+    const result = run(initialState(), [
+      { value: "2" },
+      { action: "add" },
+      { value: "3" },
+      { action: "equals" },
+      { action: "ans" },
+    ]);
+    assert.equal(result.state.current, "5");
+  });
+
+  test("Ans como operando: 2 + 3 =, + Ans = resulta em 10 e grava 5 + 5 = 10", () => {
+    const result = run(initialState(), [
+      { value: "2" },
+      { action: "add" },
+      { value: "3" },
+      { action: "equals" },
+      { action: "add" },
+      { action: "ans" },
+      { action: "equals" },
+    ]);
+    assert.equal(result.state.current, "10");
+    assert.deepEqual(result.history, ["2 + 3 = 5", "5 + 5 = 10"]);
+  });
+
+  test("Ans substitui o número digitado: 2 + 3 =, 7, Ans resulta em 5", () => {
+    const result = run(initialState(), [
+      { value: "2" },
+      { action: "add" },
+      { value: "3" },
+      { action: "equals" },
+      { value: "7" },
+      { action: "ans" },
+    ]);
+    assert.equal(result.state.current, "5");
+  });
+
+  test("resultado de função unária conta como último resultado: 16, √x, Ans resulta em 4", () => {
+    const result = run(showResult(initialState(), "16"), [{ action: "sqrt" }, { value: "9" }, { action: "ans" }]);
+    assert.equal(result.state.current, "4");
+    assert.deepEqual(result.history, ["√16 = 4"]);
+  });
+
+  test("Erro não substitui o último resultado: 2 + 3 =, 5 ÷ 0 =, Ans resulta em 5", () => {
+    const result = run(initialState(), [
+      { value: "2" },
+      { action: "add" },
+      { value: "3" },
+      { action: "equals" },
+      { value: "5" },
+      { action: "divide" },
+      { value: "0" },
+      { action: "equals" },
+      { action: "ans" },
+    ]);
+    assert.equal(result.state.current, "5");
+    assert.equal(result.state.error, false);
+  });
+
+  test("= sem conta depois de AC não sobrescreve o último resultado: 2 + 3 =, AC, =, Ans resulta em 5", () => {
+    const result = run(initialState(), [
+      { value: "2" },
+      { action: "add" },
+      { value: "3" },
+      { action: "equals" },
+      { action: "all-clear" },
+      { action: "equals" },
+      { action: "ans" },
+    ]);
+    assert.equal(result.state.current, "5");
+  });
+
+  test("AC não apaga o último resultado: 2 + 3 =, AC, Ans resulta em 5", () => {
+    const result = run(initialState(), [
+      { value: "2" },
+      { action: "add" },
+      { value: "3" },
+      { action: "equals" },
+      { action: "all-clear" },
+      { action: "ans" },
+    ]);
+    assert.equal(result.state.current, "5");
+  });
+
+  test("Ans sobre Erro começa uma calculadora nova com o último resultado: 2 + 3 =, 5 ÷ 0 =, Ans resulta em 5 sem Erro", () => {
+    const result = run(initialState(), [
+      { value: "2" },
+      { action: "add" },
+      { value: "3" },
+      { action: "equals" },
+      { value: "5" },
+      { action: "divide" },
+      { value: "0" },
+      { action: "equals" },
+      { action: "ans" },
+    ]);
+    assert.equal(result.state.current, "5");
+    assert.equal(result.state.error, false);
+  });});
