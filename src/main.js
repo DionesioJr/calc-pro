@@ -78,6 +78,7 @@ function start(doc, win, storage) {
   bindHistory(doc, storage, recallFromHistory);
   bindUi(doc, win);
   bindKeyboard(doc, win, { press });
+  bindClipboard(doc, win);
 
   const keypad = doc.querySelector(".keypad");
   if (keypad) {
@@ -102,6 +103,39 @@ function start(doc, win, storage) {
 
   render(state);
   return { getState: () => state };
+}
+
+// Área de transferência (CALC-72): Ctrl+C copia o visor e Ctrl+V cola um número. Chegam pelos eventos copy e paste do documento,
+// não pelo keydown (que ignora teclas com Ctrl), e o texto colado vem do próprio evento, sem pedir permissão ao navegador.
+function bindClipboard(doc, win) {
+  doc.addEventListener("copy", (event) => {
+    // Texto selecionado na página (ex.: um item do histórico) segue o comportamento do navegador.
+    const selection = win && typeof win.getSelection === "function" ? win.getSelection() : null;
+    if (selection && selection.toString() !== "") {
+      return;
+    }
+    if (!event.clipboardData || state.current === "") {
+      return;
+    }
+    // O que está no visor, como aparece (inclusive "Erro" e notação científica).
+    event.clipboardData.setData("text/plain", state.current);
+    event.preventDefault();
+  });
+
+  doc.addEventListener("paste", (event) => {
+    // Com o painel do histórico aberto (mobile) a calculadora está inerte, então o texto colado não chega a ela.
+    if (isHistoryPanelShown() || !event.clipboardData) {
+      return;
+    }
+    const next = pasteNumber(state, event.clipboardData.getData("text/plain"));
+    // Texto que não é número válido: o estado volta igual, sem erro e sem mudança no visor.
+    if (next === state) {
+      return;
+    }
+    event.preventDefault();
+    state = next;
+    render(state);
+  });
 }
 
 // No navegador, o localStorage pode estar bloqueado (ex.: cookies desligados): o histórico então vale só nesta página.

@@ -28,7 +28,8 @@
 // e do histórico das funções avançadas (CALC-43: cada função aplicada ao visor vira uma linha, como √16 = 4 ou sen(30) = 0.5),
 // e dos atalhos de teclado das funções avançadas (CALC-42: ^ xʸ, p π, ! x!, r MR, c MC, _ M-, e a lista de atalhos na tela),
 // e do botão ⌫ e da tecla Backspace (CALC-65: apaga o último dígito; Erro, resultado e notação científica não mudam),
-// e da memória e da unidade DEG/RAD guardadas entre sessões, com armazenamento indisponível tratado sem erro (CALC-73).
+// e da memória e da unidade DEG/RAD guardadas entre sessões, com armazenamento indisponível tratado sem erro (CALC-73),
+// e da cópia e colagem do visor (CALC-72: Ctrl+C copia o visor, Ctrl+V cola um número válido e ignora o resto).
 // Monta os módulos reais de src/ (start de src/main.js) sobre um DOM mínimo, e aperta
 // os botões pelo mesmo caminho de clique que o navegador usa; o teclado usa o mesmo
 // caminho de keydown.
@@ -244,6 +245,10 @@ function createCalculator({ storage = {} } = {}) {
   let onKeyDown = null;
   let onKeyUp = null;
   let onBlur = null;
+  let onCopy = null;
+  let onPaste = null;
+  // Texto selecionado na página (window.getSelection), vazio por padrão.
+  let selectedText = "";
 
   // Um botão por tecla de KEY_DATASET; o mesmo objeto é usado pelo clique e pelo querySelectorAll do keypad.
   const buttonByKey = {};
@@ -329,6 +334,10 @@ function createCalculator({ storage = {} } = {}) {
         onKeyDown = listener;
       } else if (type === "keyup") {
         onKeyUp = listener;
+      } else if (type === "copy") {
+        onCopy = listener;
+      } else if (type === "paste") {
+        onPaste = listener;
       }
     },
   };
@@ -339,6 +348,7 @@ function createCalculator({ storage = {} } = {}) {
         onBlur = listener;
       }
     },
+    getSelection: () => ({ toString: () => selectedText }),
   };
 
   const localStorage = createLocalStorage(storage);
@@ -459,6 +469,35 @@ function createCalculator({ storage = {} } = {}) {
     onBlur();
   }
 
+  // Ctrl+C: dispara o evento copy do documento (com um texto selecionado, se for dado) e devolve o texto copiado, ou null se o navegador copiou por conta própria.
+  function copy(selection = "") {
+    selectedText = selection;
+    const clipboard = {};
+    const event = {
+      clipboardData: { setData: (type, value) => (clipboard[type] = value) },
+      defaultPrevented: false,
+      preventDefault() {
+        this.defaultPrevented = true;
+      },
+    };
+    onCopy(event);
+    selectedText = "";
+    return event.defaultPrevented ? clipboard["text/plain"] : null;
+  }
+
+  // Ctrl+V: dispara o evento paste com o texto colado e devolve o texto do visor. Devolve também se o evento foi cancelado.
+  function paste(text) {
+    const event = {
+      clipboardData: { getData: (type) => (type === "text/plain" ? text : "") },
+      defaultPrevented: false,
+      preventDefault() {
+        this.defaultPrevented = true;
+      },
+    };
+    onPaste(event);
+    return { display: display.textContent, handled: event.defaultPrevented };
+  }
+
   // Classe de tamanho de fonte que o display tem agora (uma só).
   function fontSizeClass() {
     const active = DISPLAY_SIZE_CLASSES.filter((name) => display.classList.contains(name));
@@ -558,6 +597,8 @@ function createCalculator({ storage = {} } = {}) {
     keyUp,
     blur,
     type,
+    copy,
+    paste,
     fontSizeClass,
     buttonFor,
     selectedOperator,
@@ -4830,5 +4871,169 @@ describe("CALC-73: casos de borda da memória e da unidade guardadas", () => {
     const calc = createCalculator({ storage });
     assert.equal(calc.memoryValue(), 4);
     assert.equal(calc.angleUnitLabel(), "DEG");
+  });
+});
+
+describe("CALC-72: critérios de aceite de copiar e colar o visor", () => {
+  test("Ctrl+C copia o valor exibido: 1, 2, 3 copia 123", () => {
+    const calc = createCalculator();
+    calc.press("1", "2", "3");
+    assert.equal(calc.copy(), "123");
+  });
+
+  test("Ctrl+C copia o resultado de uma conta: 2 + 3 = copia 5", () => {
+    const calc = createCalculator();
+    calc.press("2", "+", "3", "=");
+    assert.equal(calc.copy(), "5");
+  });
+
+  test("Ctrl+V insere número válido no display: 7 e colar 42 mostra 42", () => {
+    const calc = createCalculator();
+    calc.press("7");
+    assert.deepEqual(calc.paste("42"), { display: "42", handled: true });
+  });
+
+  test("Ctrl+V aceita sinal e vírgula ou ponto como separador: -3,5 vira -3.5 e +2.25 vira 2.25", () => {
+    assert.equal(createCalculator().paste("-3,5").display, "-3.5");
+    assert.equal(createCalculator().paste("+2.25").display, "2.25");
+  });
+
+  test("texto inválido é ignorado sem erro: colar abc com o visor em 7 deixa 7, sem cancelar o evento", () => {
+    const calc = createCalculator();
+    calc.press("7");
+    assert.deepEqual(calc.paste("abc"), { display: "7", handled: false });
+  });
+
+  test("copiar numa calculadora e colar em outra leva o número: 4, 5, 6 copia 456 e a outra mostra 456", () => {
+    const origem = createCalculator();
+    origem.press("4", "5", "6");
+    // Copia antes de criar a segunda calculadora: o harness compartilha o estado de src/main.js entre instâncias, e start() zera esse estado.
+    const copiado = origem.copy();
+    const destino = createCalculator();
+    assert.equal(destino.paste(copiado).display, "456");
+  });
+});
+
+describe("CALC-72: casos de borda de copiar e colar o visor", () => {
+  test("texto que não é número válido é ignorado, um a um, e o visor segue em 7", () => {
+    const calc = createCalculator();
+    calc.press("7");
+    const invalidos = [
+      "",
+      "   ",
+      "abc",
+      "12abc",
+      "1 2",
+      "1.2.3",
+      "--1",
+      "1e5",
+      "Infinity",
+      "NaN",
+      "1,000.5",
+      "+",
+      ".",
+      "-",
+      "2 + 3",
+    ];
+    for (const texto of invalidos) {
+      assert.deepEqual(calc.paste(texto), { display: "7", handled: false }, `texto colado: "${texto}"`);
+    }
+  });
+
+  test("mais de 9 algarismos é ignorado, e 9 é aceito: 1234567890 não entra, 123456789 entra", () => {
+    const calc = createCalculator();
+    calc.press("7");
+    assert.equal(calc.paste("1234567890").display, "7");
+    assert.equal(calc.paste("1.2345678901").display, "7");
+    assert.equal(calc.paste("123456789").display, "123456789");
+  });
+
+  test("zeros à esquerda saem e o zero com sinal vira 0: 007 vira 7, .5 vira 0.5, -0,0 vira 0, 5. vira 5", () => {
+    assert.equal(createCalculator().paste("007").display, "7");
+    assert.equal(createCalculator().paste(".5").display, "0.5");
+    assert.equal(createCalculator().paste("-0,0").display, "0");
+    assert.equal(createCalculator().paste("5.").display, "5");
+  });
+
+  test("com Erro no visor, colar não faz nada: 5 ÷ 0 = e colar 3 mantém Erro, e depois de AC o colar volta a valer", () => {
+    const calc = createCalculator();
+    assert.equal(calc.press("5", "÷", "0", "="), "Erro");
+    assert.equal(calc.paste("3").display, "Erro");
+    calc.press("AC");
+    assert.equal(calc.paste("3").display, "3");
+  });
+
+  test("colar depois de operador é o segundo número: 2 +, colar 3 e = dão 5", () => {
+    const calc = createCalculator();
+    calc.press("2", "+");
+    assert.equal(calc.paste("3").display, "3");
+    assert.equal(calc.press("="), "5");
+  });
+
+  test("colar depois de = começa um número novo: 2 + 3 = mostra 5, colar 9 mostra 9 e + 1 = dá 10", () => {
+    const calc = createCalculator();
+    calc.press("2", "+", "3", "=");
+    assert.equal(calc.paste("9").display, "9");
+    assert.equal(calc.press("+", "1", "="), "10");
+  });
+
+  test("o número colado pode ser apagado com ⌫, como um número digitado: colar 123 e ⌫ mostra 12", () => {
+    const calc = createCalculator();
+    calc.paste("123");
+    assert.equal(calc.press("⌫"), "12");
+  });
+
+  test("colar troca o visor de um grupo fechado e o texto do grupo sai: (2 + 3) colar 7 e = mostram 7", () => {
+    const calc = createCalculator();
+    calc.press("(", "2", "+", "3", ")");
+    assert.equal(calc.paste("7").display, "7");
+    assert.equal(calc.press("="), "7");
+  });
+
+  test("colar fecha a edição de expoente (EXP): 1 E, colar 5 mostra 5, e o próximo dígito começa um número novo: 52", () => {
+    const calc = createCalculator();
+    calc.type("1", "E");
+    assert.equal(calc.paste("5").display, "5");
+    assert.equal(calc.type("2"), "52");
+  });
+
+  test("com o painel do histórico aberto (mobile), colar não chega à calculadora", () => {
+    const calc = createCalculator();
+    calc.tapHistoryOpen();
+    assert.deepEqual(calc.paste("9"), { display: "0", handled: false });
+    calc.tapHistoryClose();
+    assert.equal(calc.display(), "0");
+  });
+
+  test("com texto selecionado na página (ex.: um item do histórico), Ctrl+C deixa o navegador copiar", () => {
+    const calc = createCalculator();
+    calc.press("7");
+    assert.equal(calc.copy("texto selecionado"), null);
+  });
+
+  test("Ctrl+C com Erro no visor copia o que está exibido: 5 ÷ 0 = copia Erro", () => {
+    const calc = createCalculator();
+    calc.press("5", "÷", "0", "=");
+    assert.equal(calc.copy(), "Erro");
+  });
+
+  test("Ctrl+C não mexe na conta em curso: 2 + 3, copiar, = ainda dá 5", () => {
+    const calc = createCalculator();
+    calc.press("2", "+", "3");
+    calc.copy();
+    assert.equal(calc.press("="), "5");
+  });
+
+  test("resultado em notação científica é copiado como exibido, mas não volta a ser colado (texto inválido): 20! copia 2.4329020081766E+18", () => {
+    const calc = createCalculator();
+    calc.press("2", "0", "x!");
+    assert.equal(calc.copy(), "2.4329020081766E+18");
+    assert.equal(createCalculator().paste("2.4329020081766E+18").display, "0");
+  });
+
+  test("colar não grava nada no armazenamento: colar 9 não cria as preferências", () => {
+    const storage = {};
+    createCalculator({ storage }).paste("9");
+    assert.equal(PREFERENCES_KEY in storage, false);
   });
 });
