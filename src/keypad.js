@@ -30,27 +30,28 @@ const FUNCTION_ROW = [
 ];
 
 // Teclado numérico, linha a linha (4 colunas no CSS): 20 botões. O ⌫ fica no fim, para não deslocar os demais.
+// O aria-label contém o símbolo visível (WCAG 2.5.3): quem usa controle por voz fala o que está escrito no botão.
 const KEYPAD = [
-  { id: "all-clear", className: "btn btn-function", ariaLabel: "Limpar" },
-  { id: "toggle-sign", className: "btn btn-function", ariaLabel: "Inverter sinal" },
-  { id: "percent", className: "btn btn-function", ariaLabel: "Porcentagem" },
-  { id: "divide", className: "btn btn-operator", ariaLabel: "Dividir" },
+  { id: "all-clear", className: "btn btn-function", ariaLabel: "Limpar (AC)" },
+  { id: "toggle-sign", className: "btn btn-function", ariaLabel: "Inverter sinal (+/-)" },
+  { id: "percent", className: "btn btn-function", ariaLabel: "Porcentagem (%)" },
+  { id: "divide", className: "btn btn-operator", ariaLabel: "Dividir (÷)" },
   { id: "7", className: DIGIT_CLASS },
   { id: "8", className: DIGIT_CLASS },
   { id: "9", className: DIGIT_CLASS },
-  { id: "multiply", className: "btn btn-operator", ariaLabel: "Multiplicar" },
+  { id: "multiply", className: "btn btn-operator", ariaLabel: "Multiplicar (×)" },
   { id: "4", className: DIGIT_CLASS },
   { id: "5", className: DIGIT_CLASS },
   { id: "6", className: DIGIT_CLASS },
-  { id: "subtract", className: "btn btn-operator", ariaLabel: "Subtrair" },
+  { id: "subtract", className: "btn btn-operator", ariaLabel: "Subtrair (−)" },
   { id: "1", className: DIGIT_CLASS },
   { id: "2", className: DIGIT_CLASS },
   { id: "3", className: DIGIT_CLASS },
-  { id: "add", className: "btn btn-operator", ariaLabel: "Somar" },
+  { id: "add", className: "btn btn-operator", ariaLabel: "Somar (+)" },
   { id: "0", className: "btn btn-digit btn-zero" },
-  { id: ".", className: DIGIT_CLASS, ariaLabel: "Ponto decimal" },
-  { id: "equals", className: "btn btn-operator", ariaLabel: "Igual" },
-  { id: "backspace", className: "btn btn-function", ariaLabel: "Apagar último dígito (Backspace)" },
+  { id: ".", className: DIGIT_CLASS, ariaLabel: "Ponto decimal (.)" },
+  { id: "equals", className: "btn btn-operator", ariaLabel: "Igual (=)" },
+  { id: "backspace", className: "btn btn-function", ariaLabel: "Apagar último dígito (⌫, Backspace)" },
 ];
 
 // Marcação de um botão: type, id (só se a ação tem buttonId), class, data-value ou data-action, aria-label (se houver), e o rótulo do registro.
