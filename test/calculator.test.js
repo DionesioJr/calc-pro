@@ -212,6 +212,126 @@ describe("CALC-69: a tecla 2nd alterna a função secundária do botão", () => 
   });
 });
 
+describe("CALC-69: log, ln, sen, cos e tan têm função secundária na 2nd", () => {
+  test("cada função científica do registro tem a secundária certa: log → 10ˣ, ln → eˣ, sen → asen, cos → acos, tan → atan", () => {
+    const expected = { log: "10ˣ", ln: "eˣ", sine: "asen", cos: "acos", tan: "atan" };
+    for (const [id, label] of Object.entries(expected)) {
+      const action = ACTIONS.find((item) => item.id === id);
+      assert.equal(action.secondary.label, label, id);
+      assert.ok(action.secondary.ariaLabel.length > 0, `${id} sem aria-label`);
+    }
+  });
+
+  test("log sem a 2nd continua calculando log10: 100, log resulta em 2", () => {
+    const result = run(showResult(initialState(), "100"), [{ action: "log" }]);
+    assert.equal(result.state.current, "2");
+    assert.deepEqual(result.history, ["log(100) = 2"]);
+  });
+
+  test("2nd + log roda 10ˣ: 2, 2nd, log resulta em 100 e a linha 10^2 = 100", () => {
+    const result = run(showResult(initialState(), "2"), [{ action: "secondary" }, { action: "log" }]);
+    assert.equal(result.state.current, "100");
+    assert.equal(result.state.secondary, false);
+    assert.deepEqual(result.history, ["10^2 = 100"]);
+  });
+
+  test("10ˣ de negativo usa parênteses na linha: -2, 2nd, log resulta em 0.01 e a linha 10^(-2) = 0.01", () => {
+    const result = run(showResult(initialState(), "-2"), [{ action: "secondary" }, { action: "log" }]);
+    assert.equal(result.state.current, "0.01");
+    assert.deepEqual(result.history, ["10^(-2) = 0.01"]);
+  });
+
+  test("10ˣ que passa de 2^53 mostra Erro e não grava histórico: 400, 2nd, log resulta em Erro", () => {
+    const result = run(showResult(initialState(), "400"), [{ action: "secondary" }, { action: "log" }]);
+    assert.equal(result.state.current, "Erro");
+    assert.deepEqual(result.history, []);
+  });
+
+  test("2nd + ln roda eˣ: 1, 2nd, ln resulta em 2.71828183 e a linha e^1 = 2.71828183", () => {
+    const result = run(showResult(initialState(), "1"), [{ action: "secondary" }, { action: "ln" }]);
+    assert.equal(result.state.current, "2.71828183");
+    assert.deepEqual(result.history, ["e^1 = 2.71828183"]);
+  });
+
+  test("eˣ de 1000 passa de 2^53 e mostra Erro: 1000, 2nd, ln resulta em Erro", () => {
+    const result = run(showResult(initialState(), "1000"), [{ action: "secondary" }, { action: "ln" }]);
+    assert.equal(result.state.current, "Erro");
+    assert.deepEqual(result.history, []);
+  });
+
+  test("ln sem a 2nd continua calculando logaritmo natural: 1, ln resulta em 0", () => {
+    const result = run(showResult(initialState(), "1"), [{ action: "ln" }]);
+    assert.equal(result.state.current, "0");
+    assert.deepEqual(result.history, ["ln(1) = 0"]);
+  });
+
+  test("2nd + sen roda asen em graus: 1, 2nd, sen resulta em 90 e a linha asen(1) = 90", () => {
+    const result = run(showResult(initialState(), "1"), [{ action: "secondary" }, { action: "sine" }]);
+    assert.equal(result.state.current, "90");
+    assert.equal(result.state.secondary, false);
+    assert.deepEqual(result.history, ["asen(1) = 90"]);
+  });
+
+  test("asen em radianos devolve radianos: DEG→RAD, 1, 2nd, sen resulta em 1.57079633", () => {
+    const result = run(showResult(initialState(), "1"), [
+      { action: "angle-unit" },
+      { action: "secondary" },
+      { action: "sine" },
+    ]);
+    assert.equal(result.state.current, "1.57079633");
+    assert.deepEqual(result.history, ["asen(1) = 1.57079633"]);
+  });
+
+  test("asen fora de −1 a 1 mostra Erro e não grava histórico: 2, 2nd, sen resulta em Erro", () => {
+    const result = run(showResult(initialState(), "2"), [{ action: "secondary" }, { action: "sine" }]);
+    assert.equal(result.state.current, "Erro");
+    assert.deepEqual(result.history, []);
+  });
+
+  test("sen sem a 2nd continua calculando o seno em graus: 30, sen resulta em 0.5", () => {
+    const result = run(showResult(initialState(), "30"), [{ action: "sine" }]);
+    assert.equal(result.state.current, "0.5");
+    assert.deepEqual(result.history, ["sen(30) = 0.5"]);
+  });
+
+  test("2nd + cos roda acos em graus: 0, 2nd, cos resulta em 90 e a linha acos(0) = 90", () => {
+    const result = run(showResult(initialState(), "0"), [{ action: "secondary" }, { action: "cos" }]);
+    assert.equal(result.state.current, "90");
+    assert.equal(result.state.secondary, false);
+    assert.deepEqual(result.history, ["acos(0) = 90"]);
+  });
+
+  test("acos fora de −1 a 1 mostra Erro: 1,5, 2nd, cos resulta em Erro", () => {
+    const result = run(showResult(initialState(), "1.5"), [{ action: "secondary" }, { action: "cos" }]);
+    assert.equal(result.state.current, "Erro");
+    assert.deepEqual(result.history, []);
+  });
+
+  test("2nd + tan roda atan em graus: 1, 2nd, tan resulta em 45 e a linha atan(1) = 45", () => {
+    const result = run(showResult(initialState(), "1"), [{ action: "secondary" }, { action: "tan" }]);
+    assert.equal(result.state.current, "45");
+    assert.equal(result.state.secondary, false);
+    assert.deepEqual(result.history, ["atan(1) = 45"]);
+  });
+
+  test("atan aceita qualquer número, inclusive negativo: -1, 2nd, tan resulta em -45", () => {
+    const result = run(showResult(initialState(), "-1"), [{ action: "secondary" }, { action: "tan" }]);
+    assert.equal(result.state.current, "-45");
+    assert.deepEqual(result.history, ["atan(-1) = -45"]);
+  });
+
+  test("a 2nd é consumida por log: 2, 2nd, log, log resulta em 2 (10ˣ e depois log de 100)", () => {
+    const result = run(showResult(initialState(), "2"), [
+      { action: "secondary" },
+      { action: "log" },
+      { action: "log" },
+    ]);
+    assert.equal(result.state.current, "2");
+    assert.equal(result.state.secondary, false);
+    assert.deepEqual(result.history, ["10^2 = 100", "log(100) = 2"]);
+  });
+});
+
 describe("CALC-53: o registro de ações é a única fonte de botões e teclas", () => {
   test("cada id e cada tecla aparecem em uma só entrada", () => {
     const ids = ACTIONS.map((action) => action.id);

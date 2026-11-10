@@ -159,11 +159,51 @@ const ACTIONS = [
     apply: square,
     secondary: { label: "√x", ariaLabel: "Raiz quadrada (√x)", apply: squareRoot },
   },
-  { id: "log", type: "unary", label: "log", buttonId: "log-button", replacesDisplay: true, apply: logarithm },
-  { id: "ln", type: "unary", label: "ln", buttonId: "ln-button", replacesDisplay: true, apply: naturalLogarithm },
-  { id: "sine", type: "unary", label: "sen", buttonId: "sine-button", replacesDisplay: true, apply: sine },
-  { id: "cos", type: "unary", label: "cos", buttonId: "cos-button", replacesDisplay: true, apply: cosine },
-  { id: "tan", type: "unary", label: "tan", buttonId: "tan-button", replacesDisplay: true, apply: tangent },
+  {
+    id: "log",
+    type: "unary",
+    label: "log",
+    buttonId: "log-button",
+    replacesDisplay: true,
+    apply: logarithm,
+    secondary: { label: "10ˣ", ariaLabel: "Potência de base 10 (10ˣ)", apply: powerOfTen },
+  },
+  {
+    id: "ln",
+    type: "unary",
+    label: "ln",
+    buttonId: "ln-button",
+    replacesDisplay: true,
+    apply: naturalLogarithm,
+    secondary: { label: "eˣ", ariaLabel: "Exponencial de base e (eˣ)", apply: exponentialE },
+  },
+  {
+    id: "sine",
+    type: "unary",
+    label: "sen",
+    buttonId: "sine-button",
+    replacesDisplay: true,
+    apply: sine,
+    secondary: { label: "asen", ariaLabel: "Arco-seno (asen)", apply: arcSine },
+  },
+  {
+    id: "cos",
+    type: "unary",
+    label: "cos",
+    buttonId: "cos-button",
+    replacesDisplay: true,
+    apply: cosine,
+    secondary: { label: "acos", ariaLabel: "Arco-cosseno (acos)", apply: arcCosine },
+  },
+  {
+    id: "tan",
+    type: "unary",
+    label: "tan",
+    buttonId: "tan-button",
+    replacesDisplay: true,
+    apply: tangent,
+    secondary: { label: "atan", ariaLabel: "Arco-tangente (atan)", apply: arcTangent },
+  },
   // Unidade do sen, cos e tan (DEG/RAD): não mexe no visor, na conta pendente, na memória nem no Erro, por isso não tem replacesDisplay.
   { id: "angle-unit", type: "control", label: "DEG", buttonId: "angle-unit", apply: toggleAngleUnit },
   // Tecla 2nd (CALC-69): liga e desliga a função secundária. Fica na linha de status, fora da grade, como o DEG/RAD.
@@ -712,6 +752,91 @@ function tangent(s) {
   }
   const expression = `tan(${s.current})`;
   setCurrent(s, formatResult(result));
+  s.waitingForOperand = false;
+  recordFunction(s, expression);
+}
+
+// 10ˣ (2nd do log): potência de 10 do número exibido, com a mesma regra de segundo operando do x². Acima de 2^53 em valor absoluto,
+// ou não finito (10^400), mostra Erro. Com Erro no visor não calcula e mantém o Erro.
+function powerOfTen(s) {
+  if (s.error) {
+    return;
+  }
+  const result = 10 ** operandValue(s);
+  if (!Number.isFinite(result) || Math.abs(result) > MAX_RESULT) {
+    setError(s);
+    return;
+  }
+  const expression = `10^${operandText(s.current)}`;
+  setCurrent(s, formatResult(result));
+  s.waitingForOperand = false;
+  recordFunction(s, expression);
+}
+
+// eˣ (2nd do ln): exponencial de e do número exibido, com a mesma regra do 10ˣ. Acima de 2^53 em valor absoluto, ou não finito, mostra Erro.
+// Com Erro no visor não calcula e mantém o Erro.
+function exponentialE(s) {
+  if (s.error) {
+    return;
+  }
+  const result = Math.exp(operandValue(s));
+  if (!Number.isFinite(result) || Math.abs(result) > MAX_RESULT) {
+    setError(s);
+    return;
+  }
+  const expression = `e^${operandText(s.current)}`;
+  setCurrent(s, formatResult(result));
+  s.waitingForOperand = false;
+  recordFunction(s, expression);
+}
+
+// Radianos para a unidade do visor (s.angleUnit): em radianos devolve o próprio valor; em graus converte.
+function angleFromRadians(s, radians) {
+  return s.angleUnit === "rad" ? radians : (radians * 180) / Math.PI;
+}
+
+// asen (2nd do sen): arco-seno do número exibido, na unidade do visor. Fora do intervalo de −1 a 1 não há ângulo real: mostra Erro.
+// Com Erro no visor não calcula e mantém o Erro.
+function arcSine(s) {
+  if (s.error) {
+    return;
+  }
+  const value = operandValue(s);
+  if (value < -1 || value > 1) {
+    setError(s);
+    return;
+  }
+  const expression = `asen(${s.current})`;
+  setCurrent(s, formatResult(angleFromRadians(s, Math.asin(value))));
+  s.waitingForOperand = false;
+  recordFunction(s, expression);
+}
+
+// acos (2nd do cos): arco-cosseno do número exibido, na unidade do visor, com a mesma regra de domínio do asen.
+// Com Erro no visor não calcula e mantém o Erro.
+function arcCosine(s) {
+  if (s.error) {
+    return;
+  }
+  const value = operandValue(s);
+  if (value < -1 || value > 1) {
+    setError(s);
+    return;
+  }
+  const expression = `acos(${s.current})`;
+  setCurrent(s, formatResult(angleFromRadians(s, Math.acos(value))));
+  s.waitingForOperand = false;
+  recordFunction(s, expression);
+}
+
+// atan (2nd do tan): arco-tangente do número exibido, na unidade do visor. Todo número tem arco-tangente real, então não há Erro de domínio.
+// Com Erro no visor não calcula e mantém o Erro.
+function arcTangent(s) {
+  if (s.error) {
+    return;
+  }
+  const expression = `atan(${s.current})`;
+  setCurrent(s, formatResult(angleFromRadians(s, Math.atan(operandValue(s)))));
   s.waitingForOperand = false;
   recordFunction(s, expression);
 }
