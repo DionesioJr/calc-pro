@@ -1403,3 +1403,35 @@ function showResult(state, text) {
   s.waitingForOperand = true;
   return s;
 }
+
+// Número colado (Ctrl+V, CALC-72): o texto inteiro tem de ser um número, com sinal opcional, dígitos e um separador decimal ("." ou ",").
+const PASTED_NUMBER = /^([+-]?)(\d+(?:[.,]\d*)?|[.,]\d+)$/;
+
+// Colar número: o número vira o operando em edição, como o π e a MR, e substitui o visor (e o grupo fechado, se era o visor).
+// Texto que não é número, ou com mais de MAX_DIGITS algarismos, é ignorado: devolve o próprio estado, sem erro.
+// Com Erro no visor também não faz nada. Não gera linha de histórico.
+function pasteNumber(state, text) {
+  const match = PASTED_NUMBER.exec(text.trim());
+  if (state.error || match === null) {
+    return state;
+  }
+  const [, sign, body] = match;
+  const normalized = body.replace(",", ".");
+  if (countDigits(normalized) > MAX_DIGITS) {
+    return state;
+  }
+  // Zeros à esquerda da parte inteira saem ("007" vira 7; ".5" vira 0.5), como na digitação.
+  const [integerPart, fractionPart = ""] = normalized.split(".");
+  const integer = integerPart.replace(/^0+(?=\d)/, "") || "0";
+  const magnitude = fractionPart === "" ? integer : `${integer}.${fractionPart}`;
+  const value = Number(magnitude) === 0 ? "0" : sign === "-" ? `-${magnitude}` : magnitude;
+
+  const s = cloneState(state);
+  s.exponent = null;
+  if (s.valueIsGroup) {
+    dropGroupText(s);
+  }
+  setCurrent(s, value, value.length);
+  s.waitingForOperand = false;
+  return s;
+}
