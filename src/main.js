@@ -11,12 +11,47 @@ const FUNCTION_BUTTON_IDS = ACTIONS.filter((action) => action.buttonId).map((act
 // Estado da calculadora na tela. Só este módulo o troca; os demais recebem o estado como parâmetro.
 let state = initialState();
 
+// Preferências que sobrevivem ao recarregar a página (CALC-73): a memória e a unidade DEG/RAD. Ficam num único registro JSON.
+const PREFERENCES_KEY = "calc-pro:preferencias";
+// Valores de fábrica: memória vazia e graus, como ao abrir a página pela primeira vez.
+const DEFAULT_PREFERENCES = { memory: 0, angleUnit: "deg" };
+// Armazenamento usado para gravar as preferências (o mesmo que o histórico recebe em start).
+let preferencesStorage = null;
+
+// Lê as preferências salvas. Sem armazenamento, com dado corrompido ou com valor fora do esperado, volta ao padrão, sem erro.
+function loadPreferences(storage) {
+  try {
+    const saved = JSON.parse(storage.getItem(PREFERENCES_KEY));
+    const memory = saved.memory;
+    return {
+      memory: Number.isFinite(memory) && Math.abs(memory) <= MAX_RESULT ? memory : DEFAULT_PREFERENCES.memory,
+      angleUnit: saved.angleUnit === "rad" ? "rad" : DEFAULT_PREFERENCES.angleUnit,
+    };
+  } catch {
+    return { ...DEFAULT_PREFERENCES };
+  }
+}
+
+// Grava a memória e a unidade. Sem armazenamento (ou com cota cheia), a calculadora segue igual; só não lembra ao recarregar.
+function savePreferences(storage, s) {
+  try {
+    storage.setItem(PREFERENCES_KEY, JSON.stringify({ memory: s.memory, angleUnit: s.angleUnit }));
+  } catch {
+    // Sem armazenamento: as preferências valem só até fechar a página.
+  }
+}
+
 // Uma ação de botão (data-value ou data-action): o motor devolve o estado novo e as linhas do histórico, que são gravadas antes de desenhar.
 function press(dataset) {
+  const previous = state;
   const result = handleButton(state, dataset);
   state = result.state;
   for (const entry of result.history) {
     addCalculation(entry);
+  }
+  // Só M+, M-, MC e DEG/RAD mudam o que fica guardado: grava nesses casos, não a cada tecla.
+  if (state.memory !== previous.memory || state.angleUnit !== previous.angleUnit) {
+    savePreferences(preferencesStorage, state);
   }
   render(state);
 }
@@ -36,7 +71,8 @@ function recallResult(result) {
 // Monta a calculadora sobre o documento dado. Chamado uma vez no navegador; os testes chamam de novo para começar do zero.
 // Devolve um acesso de leitura ao estado atual (os testes usam para conferir a memória).
 function start(doc, win, storage) {
-  state = initialState();
+  preferencesStorage = storage;
+  state = { ...initialState(), ...loadPreferences(storage) };
   // Botões primeiro: o teclado e a ligação de eventos abaixo procuram os botões no documento.
   renderKeypad(doc);
   bindHistory(doc, storage, recallFromHistory);

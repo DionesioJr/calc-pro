@@ -25,6 +25,7 @@ const FUNCTION_ROW = [
   { id: "sqrt", className: "sqrt-add", ariaLabel: "Raiz quadrada (√x)" },
   { id: "open-paren", className: "paren-add", ariaLabel: "Abrir parêntese (" },
   { id: "close-paren", className: "paren-add", ariaLabel: "Fechar parêntese )" },
+  { id: "ans", className: "ans-add", ariaLabel: "Último resultado (Ans)" },
 ];
 
 // Teclado numérico, linha a linha (4 colunas no CSS): 20 botões. O ⌫ fica no fim, para não deslocar os demais.

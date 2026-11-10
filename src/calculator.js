@@ -61,6 +61,9 @@ function initialState() {
     terms: [],
     // true logo após apertar um operador ou o igual: o próximo dígito começa um novo número.
     waitingForOperand: false,
+    // Quantos caracteres do fim do visor são editáveis pelo ⌫: dígitos e ponto digitados, ou o texto inteiro de π e e.
+    // Um resultado de função, MR, Ans, grupo fechado ou Erro começa com 0, e o ⌫ não mexe nele (nem no que sobrar de um dígito digitado em cima dele).
+    typing: 0,
     // true quando a última operação falhou (divisão por zero).
     error: false,
     // Partes da expressão em curso (ex.: ["12", "×", "3", "="]); viram uma linha do histórico no igual.
@@ -72,6 +75,9 @@ function initialState() {
     functionOnGroup: false,
     // Registrador da memória (M+): soma dos valores do visor. Começa em 0; AC não o apaga, só MC.
     memory: 0,
+    // Último resultado calculado com sucesso (Ans), como texto do visor: vem de = e das funções unárias que deram certo.
+    // Erro, AC e a própria tecla Ans não o substituem. null até a primeira conta: Ans então insere 0.
+    lastResult: null,
     // Valor completo do visor quando ele é uma constante (e): o visor mostra 8 casas, o cálculo usa o número inteiro.
     // Qualquer outra mudança no visor passa por setCurrent, que zera este campo.
     exact: null,
@@ -217,6 +223,15 @@ const ACTIONS = [
     replacesDisplay: true,
     apply: memoryRecall,
   },
+  // Ans: insere o último resultado calculado (ou 0, sem resultado ainda), substituindo o número em curso, como a MR.
+  {
+    id: "ans",
+    type: "constant",
+    label: "Ans",
+    buttonId: "ans-button",
+    replacesDisplay: true,
+    apply: insertAnswer,
+  },
   { id: "all-clear", type: "control", label: "AC", keys: ["Escape"], apply: reset },
   { id: "backspace", type: "control", label: "⌫", keys: ["Backspace"], apply: deleteDigit },
   { id: "equals", type: "control", label: "=", keys: ["=", "Enter"], apply: inputEquals },
@@ -272,9 +287,11 @@ function reset(s) {
 }
 
 // Troca o texto do visor e descarta o valor completo de uma constante (e), se havia um.
-function setCurrent(s, text) {
+// editable é quantos caracteres do fim do texto o ⌫ pode apagar (ver typing em initialState); 0 para qualquer valor que não é entrada.
+function setCurrent(s, text, editable = 0) {
   s.current = text;
   s.exact = null;
+  s.typing = editable;
 }
 
 // Número usado nas contas: o valor completo da constante, se o visor mostra uma; senão, o número do visor.
@@ -326,7 +343,7 @@ function inputDigit(s, digit) {
     reset(s);
   }
   if (s.waitingForOperand || isScientific(s.current)) {
-    setCurrent(s, digit);
+    setCurrent(s, digit, 1);
     s.waitingForOperand = false;
     return;
   }
@@ -334,8 +351,12 @@ function inputDigit(s, digit) {
   if (countDigits(s.current) >= MAX_DIGITS) {
     return;
   }
-  // O "0" inicial é substituído pelo primeiro dígito digitado.
-  setCurrent(s, s.current === "0" ? digit : s.current + digit);
+  // O "0" inicial é substituído pelo primeiro dígito digitado; senão o dígito soma ao que já é editável.
+  if (s.current === "0") {
+    setCurrent(s, digit, 1);
+  } else {
+    setCurrent(s, s.current + digit, s.typing + 1);
+  }
 }
 
 function inputDecimal(s) {
@@ -343,7 +364,7 @@ function inputDecimal(s) {
     reset(s);
   }
   if (s.waitingForOperand || isScientific(s.current)) {
-    setCurrent(s, "0.");
+    setCurrent(s, "0.", 2);
     s.waitingForOperand = false;
     return;
   }
@@ -351,7 +372,7 @@ function inputDecimal(s) {
   if (s.current.includes(".")) {
     return;
   }
-  setCurrent(s, s.current + ".");
+  setCurrent(s, s.current + ".", s.typing + 1);
 }
 
 // +/-: inverte o sinal do número exibido. Com o zero não há sinal a inverter.
@@ -366,8 +387,10 @@ function toggleSign(s) {
     return;
   }
   // Com a constante, o sinal inverte também o valor completo (−e continua exato).
+  // O sinal de um número digitado continua digitado (5, +/- ainda deixa o ⌫ apagar); o de um resultado não vira digitado.
   const exact = s.exact;
-  setCurrent(s, s.current.startsWith("-") ? s.current.slice(1) : "-" + s.current);
+  const editable = s.typing;
+  setCurrent(s, s.current.startsWith("-") ? s.current.slice(1) : "-" + s.current, editable);
   s.exact = exact === null ? null : -exact;
   s.waitingForOperand = false;
 }
@@ -433,6 +456,16 @@ function memoryRecall(s) {
     reset(s);
   }
   setCurrent(s, formatResult(s.memory));
+  s.waitingForOperand = false;
+}
+
+// Ans: copia o último resultado calculado para o visor como operando atual, substituindo o número em curso, como a MR.
+// Sem resultado ainda, insere 0. Após Erro, começa uma calculadora nova, como um dígito; o Erro não entra no lugar do resultado.
+function insertAnswer(s) {
+  if (s.error) {
+    reset(s);
+  }
+  setCurrent(s, s.lastResult ?? "0");
   s.waitingForOperand = false;
 }
 
@@ -555,7 +588,9 @@ function insertPi(s) {
   if (s.error) {
     reset(s);
   }
-  setCurrent(s, formatResult(Math.PI));
+  // Como o e, o π entra no visor como número editável: o ⌫ apaga dígitos dele, então todo o texto é editável.
+  const text = formatResult(Math.PI);
+  setCurrent(s, text, text.length);
   s.waitingForOperand = false;
 }
 
@@ -566,7 +601,9 @@ function insertEuler(s) {
   if (s.error) {
     reset(s);
   }
-  setCurrent(s, formatResult(Math.E));
+  // Todo o texto é editável: o ⌫ pode apagar dígitos do e (e então o valor completo sai, ver setCurrent).
+  const text = formatResult(Math.E);
+  setCurrent(s, text, text.length);
   s.exact = Math.E;
   s.waitingForOperand = false;
 }
@@ -633,6 +670,7 @@ function factorial(s) {
   }
   const expression = `${s.current}!`;
   s.current = Math.abs(result) > MAX_RESULT ? toScientific(result) : formatResult(result);
+  s.typing = 0;
   s.waitingForOperand = false;
   recordFunction(s, expression);
 }
@@ -691,15 +729,19 @@ function toggleAngleUnit(s) {
   s.angleUnit = s.angleUnit === "deg" ? "rad" : "deg";
 }
 
-// ⌫ (botão e Backspace): apaga o último caractere do número em edição, no estado s (uma cópia).
-// Não mexe em nada que não seja número em edição, para não alterar resultado nem mensagem de erro: com Erro, após = ou operador
-// (waitingForOperand), num grupo fechado (valueIsGroup) ou em notação científica (não dá para apagar pedaços dela) não faz nada.
+// ⌫ (botão e Backspace): apaga o último caractere do número digitado, no estado s (uma cópia).
+// Só age se há caracteres editáveis no fim do visor (s.typing > 0): resultado de função, MR, Ans, grupo fechado, notação científica
+// e Erro não mudam, e o operador pendente (waitingForOperand) também não.
 function deleteDigit(s) {
-  if (s.error || s.waitingForOperand || s.valueIsGroup || isScientific(s.current)) {
+  if (s.error || s.typing === 0 || s.waitingForOperand || s.valueIsGroup || isScientific(s.current)) {
     return;
   }
   const remaining = s.current.slice(0, -1);
-  setCurrent(s, VALID_ENTRY.test(remaining) ? remaining : "0");
+  if (VALID_ENTRY.test(remaining)) {
+    setCurrent(s, remaining, s.typing - 1);
+  } else {
+    setCurrent(s, "0");
+  }
 }
 
 // Calcula a pilha de trás para a frente enquanto o operador logo antes do último número tiver precedência >= minPrecedence.
@@ -833,6 +875,7 @@ function inputOpenParen(s) {
   s.terms.push(OPEN_PAREN);
   s.expression.push("(");
   s.current = "0";
+  s.typing = 0;
   s.waitingForOperand = true;
   refreshStack(s);
 }
@@ -867,6 +910,7 @@ function closeGroup(s) {
     return;
   }
   s.current = formatResult(value);
+  s.typing = 0;
   s.waitingForOperand = false;
   s.valueIsGroup = true;
   refreshStack(s);
@@ -1025,8 +1069,15 @@ function applyButton(s, dataset) {
   if (s.functionOnGroup) {
     dropGroupText(s);
   }
+  const hadError = s.error;
   action.apply(s);
   s.functionOnGroup = false;
+  // Último resultado (Ans): o visor depois de uma conta fechada (= que gravou linha) ou de uma função unária que deu certo.
+  // Ação sobre Erro (que reinicia) não conta, e o = sem conta (ex.: depois de AC) não sobrescreve o resultado anterior.
+  const calculated = action.type === "unary" || (action.id === "equals" && s.pendingHistory.length > 0);
+  if (!hadError && !s.error && calculated) {
+    s.lastResult = s.current;
+  }
 }
 
 // Ação de um botão. Devolve { state, history }: o estado novo e as linhas do histórico que a ação gerou (quem chama grava e redesenha).
