@@ -4207,6 +4207,43 @@ describe("CALC-29: teclado, foco e estrutura do xʸ", () => {
   });
 });
 
+// CALC-68: EXP (×10ˣ). O motor é testado em calculator.test.js; aqui, a tecla E do teclado físico, o botão na linha de funções e o CSS.
+describe("CALC-68: EXP no teclado físico, na tela e no CSS", () => {
+  test("1,5 EXP 3 pelo teclado resulta em 1500: 1, ., 5, E, 3", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.type("1", ".", "5", "E", "3"), "1500");
+  });
+
+  test("expoente negativo pelo teclado: 1,5 E − 3 resulta em 0.0015", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.type("1", ".", "5", "E", "-", "3"), "0.0015");
+  });
+
+  test("resultado fora da faixa aparece em notação científica pelo teclado: 1 E 20 resulta em 1E+20", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.type("1", "E", "2", "0"), "1E+20");
+  });
+
+  test("a tecla e minúscula não abre EXP nem vira Euler no teclado: 5, depois e, continua 5", () => {
+    const calc = createCalculator({ storage: {} });
+    calc.press("5");
+    assert.equal(calc.type("e"), "5");
+  });
+
+  test("index.html tem o botão EXP na linha de funções, logo depois do e, com rótulo que anuncia a operação", () => {
+    assert.match(
+      HTML_SOURCE,
+      /<div class="scientific">[\s\S]*?<button type="button" id="e-button"[^>]*>e<\/button>\s*<button type="button" id="exp-button" class="exp-add" data-action="exp" aria-label="Expoente de base 10 \(EXP, ×10ˣ\)">EXP<\/button>[\s\S]*?<\/div>\s*<div class="keypad">/,
+    );
+  });
+
+  test("o EXP tem contorno cinza como o e, cor branca ao passar o mouse e foco visível com contorno branco", () => {
+    assert.match(CSS_SOURCE, /\.exp-add\s*\{[^}]*border-radius:\s*999px;[^}]*color:\s*#a5a5a5;[^}]*\}/);
+    assert.match(CSS_SOURCE, /\.exp-add:hover\s*\{[^}]*color:\s*#ffffff;[^}]*\}/);
+    assert.match(CSS_SOURCE, /\.exp-add:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
+  });
+});
+
 // CALC-35: ln (logaritmo natural). ln(e) é conferido tanto com o número digitado 2,71828182 (arredonda para 1 nas 8 casas)
 // quanto com a tecla e, que usa o valor completo da constante (CALC-37).
 describe("CALC-35: critérios de aceite do ln (logaritmo natural)", () => {

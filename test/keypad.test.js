@@ -31,7 +31,7 @@ function buttonValues(markup) {
 }
 
 describe("CALC-59: a linha de funções vem do registro, na ordem da tela", () => {
-  test("os 18 botões com buttonId aparecem na ordem MC, MR, M+, M-, x², log, ln, sen, cos, tan, xʸ, π, e, 1/x, x!, √x, (, )", () => {
+  test("os 19 botões com buttonId aparecem na ordem MC, MR, M+, M-, x², log, ln, sen, cos, tan, xʸ, π, e, EXP, 1/x, x!, √x, (, )", () => {
     assert.deepEqual(buttonIds(keypadMarkup().scientific), [
       "memory-clear",
       "memory-recall",
@@ -46,6 +46,7 @@ describe("CALC-59: a linha de funções vem do registro, na ordem da tela", () =
       "power-button",
       "pi-button",
       "e-button",
+      "exp-button",
       "inverse-button",
       "factorial-button",
       "sqrt-button",
@@ -69,10 +70,10 @@ describe("CALC-59: a linha de funções vem do registro, na ordem da tela", () =
 });
 
 describe("CALC-59: o teclado numérico e a linha de funções cobrem o registro sem repetição", () => {
-  test("o teclado tem 19 botões e a linha de funções 18: 37 no total, um por ação do registro exceto angle-unit", () => {
+  test("o teclado tem 19 botões e a linha de funções 19: 38 no total, um por ação do registro exceto angle-unit", () => {
     const { scientific, keypad } = keypadMarkup();
     assert.equal((keypad.match(/<button /g) ?? []).length, 19);
-    assert.equal((scientific.match(/<button /g) ?? []).length, 18);
+    assert.equal((scientific.match(/<button /g) ?? []).length, 19);
     const generated = buttonValues(scientific + keypad).sort();
     const generatedActions = ACTIONS.map((action) => action.id)
       .filter((id) => !STATIC_IN_STATUS_BAR.includes(id))
