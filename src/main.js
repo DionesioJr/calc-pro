@@ -21,12 +21,6 @@ function press(dataset) {
   render(state);
 }
 
-// Backspace do teclado: apaga o último caractere do número em edição.
-function backspace() {
-  state = deleteDigit(state);
-  render(state);
-}
-
 // Usar um item do histórico: o resultado vai para o visor, como um dígito novo, e o painel do mobile fecha.
 function recallFromHistory(result) {
   recallResult(result);
@@ -47,7 +41,7 @@ function start(doc, win, storage) {
   renderKeypad(doc);
   bindHistory(doc, storage, recallFromHistory);
   bindUi(doc, win);
-  bindKeyboard(doc, win, { press, backspace });
+  bindKeyboard(doc, win, { press });
 
   const keypad = doc.querySelector(".keypad");
   if (keypad) {

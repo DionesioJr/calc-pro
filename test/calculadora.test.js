@@ -26,7 +26,8 @@
 // e do valor completo de e em √x e cos (CALC-49),
 // e dos botões ( e ) (CALC-30: agrupamento com aninhamento, multiplicação implícita e indicador de parênteses abertos),
 // e do histórico das funções avançadas (CALC-43: cada função aplicada ao visor vira uma linha, como √16 = 4 ou sen(30) = 0.5),
-// e dos atalhos de teclado das funções avançadas (CALC-42: ^ xʸ, p π, ! x!, r MR, c MC, _ M-, e a lista de atalhos na tela).
+// e dos atalhos de teclado das funções avançadas (CALC-42: ^ xʸ, p π, ! x!, r MR, c MC, _ M-, e a lista de atalhos na tela),
+// e do botão ⌫ e da tecla Backspace (CALC-65: apaga o último dígito; Erro, resultado e notação científica não mudam).
 // Monta os módulos reais de src/ (start de src/main.js) sobre um DOM mínimo, e aperta
 // os botões pelo mesmo caminho de clique que o navegador usa; o teclado usa o mesmo
 // caminho de keydown.
@@ -75,6 +76,7 @@ const KEY_DATASET = {
   9: { value: "9" },
   ".": { value: "." },
   AC: { action: "all-clear" },
+  "⌫": { action: "backspace" },
   "+/-": { action: "toggle-sign" },
   "%": { action: "percent" },
   "+": { action: "add" },
@@ -966,9 +968,9 @@ describe("CALC-8: casos de borda do teclado físico", () => {
     assert.equal(calc.type("2", "+", "3", "=", "Backspace"), "5");
   });
 
-  test("Backspace após erro reinicia a calculadora: 5, ÷, 0, =, Backspace resulta em 0", () => {
+  test("Backspace após erro mantém a mensagem de erro (CALC-65): 5, ÷, 0, =, Backspace resulta em Erro", () => {
     const calc = createCalculator();
-    assert.equal(calc.type("5", "/", "0", "=", "Backspace"), "0");
+    assert.equal(calc.type("5", "/", "0", "=", "Backspace"), "Erro");
   });
 
   test(
@@ -1351,6 +1353,60 @@ describe("CALC-9: casos de borda do destaque do operador", () => {
   });
 });
 
+describe("CALC-65: botão ⌫ na tela", () => {
+  test("⌫ apaga o último dígito pelo clique: 7, 8, ⌫ resulta em 7", () => {
+    const calc = createCalculator();
+    assert.equal(calc.press("7", "8", "⌫"), "7");
+  });
+
+  test("⌫ com um único dígito volta para 0: 7, ⌫ resulta em 0", () => {
+    const calc = createCalculator();
+    assert.equal(calc.press("7", "⌫"), "0");
+  });
+
+  test("⌫ no zero não faz nada: 0, ⌫ resulta em 0", () => {
+    const calc = createCalculator();
+    assert.equal(calc.press("⌫"), "0");
+  });
+
+  test("⌫ e Backspace apagam o mesmo dígito: 1, 2, 3, ⌫, Backspace resulta em 1", () => {
+    const calc = createCalculator();
+    assert.equal(calc.press("1", "2", "3", "⌫"), "12");
+    assert.equal(calc.type("Backspace"), "1");
+  });
+
+  test("⌫ no meio de uma conta corrige o segundo número: 2, +, 3, ⌫, 4, = resulta em 6", () => {
+    const calc = createCalculator();
+    assert.equal(calc.press("2", "+", "3", "⌫", "4", "="), "6");
+  });
+
+  test("⌫ depois de operador não apaga o primeiro operando: 2, +, ⌫, 3, = resulta em 5", () => {
+    const calc = createCalculator();
+    assert.equal(calc.press("2", "+", "⌫", "3", "="), "5");
+  });
+
+  test("⌫ após = não altera o resultado: 2, +, 3, =, ⌫ resulta em 5", () => {
+    const calc = createCalculator();
+    assert.equal(calc.press("2", "+", "3", "=", "⌫"), "5");
+  });
+
+  test("⌫ com Erro no visor mantém o Erro: 5, ÷, 0, =, ⌫ resulta em Erro", () => {
+    const calc = createCalculator();
+    assert.equal(calc.press("5", "÷", "0", "=", "⌫"), "Erro");
+  });
+
+  test("⌫ sobre o valor de um grupo fechado não altera o valor: (2 + 3), ⌫, = resulta em 5", () => {
+    const calc = createCalculator();
+    assert.equal(calc.press("(", "2", "+", "3", ")", "⌫", "="), "5");
+  });
+
+  test("⌫ não grava linha no histórico: 7, 8, ⌫ deixa o histórico vazio", () => {
+    const calc = createCalculator();
+    calc.press("7", "8", "⌫");
+    assert.deepEqual(calc.historyItems(), []);
+  });
+});
+
 describe("CALC-9: critérios de aceite do efeito ao pressionar", () => {
   test("tecla física pressionada escurece o botão até soltar: 7 baixada marca o botão 7 e soltar tira a marca", () => {
     const calc = createCalculator();
@@ -1384,13 +1440,13 @@ describe("CALC-9: critérios de aceite do efeito ao pressionar", () => {
     assert.equal(calc.buttonFor("+").classList.contains("is-pressed"), false);
   });
 
-  test("Backspace não tem botão e não marca nenhum: 7, Backspace baixado não escurece botão algum e apaga o 7", () => {
+  test("Backspace escurece o botão ⌫ até soltar (CALC-65): 7, Backspace baixado marca ⌫, soltar tira a marca e apaga o 7", () => {
     const calc = createCalculator();
     calc.press("7");
     assert.equal(calc.keyDown("Backspace", { code: "Backspace" }).key, "Backspace");
-    for (const key of Object.keys(KEY_DATASET)) {
-      assert.equal(calc.buttonFor(key).classList.contains("is-pressed"), false, `botão ${key}`);
-    }
+    assert.equal(calc.buttonFor("⌫").classList.contains("is-pressed"), true);
+    calc.keyUp("Backspace", "Backspace");
+    assert.equal(calc.buttonFor("⌫").classList.contains("is-pressed"), false);
     assert.equal(calc.type(), "0");
   });
 
@@ -3996,10 +4052,10 @@ describe("CALC-39: casos de borda do x!", () => {
     assert.equal(calc.press("2", "0", "x!", "."), "0.");
   });
 
-  test("Backspace sobre notação científica volta para 0 (e não apaga pedaços do número): 20 x!, Backspace resulta em 0", () => {
+  test("Backspace sobre notação científica não altera o resultado (CALC-65): 20 x!, Backspace mantém 2.4329020081766E+18", () => {
     const calc = createCalculator({ storage: {} });
     calc.press("2", "0", "x!");
-    assert.equal(calc.type("Backspace"), "0");
+    assert.equal(calc.type("Backspace"), "2.4329020081766E+18");
   });
 
   test("x! grava a própria linha no histórico (CALC-43): 5 x! grava 5! = 120", () => {

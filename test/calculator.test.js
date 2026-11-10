@@ -14,9 +14,9 @@ function carregarScripts(arquivos, nomes) {
   const codigo = arquivos.map((arquivo) => fs.readFileSync(path.join(SRC_DIR, arquivo), "utf8")).join("\n;\n");
   return new Function(`${codigo}\nreturn { ${nomes.join(", ")} };`)();
 }
-const { ACTIONS, deleteDigit, handleButton, initialState, showResult, fillKeypadMarkup } = carregarScripts(
+const { ACTIONS, handleButton, initialState, showResult, fillKeypadMarkup } = carregarScripts(
   ["calculator.js", "keypad.js"],
-  ["ACTIONS", "deleteDigit", "handleButton", "initialState", "showResult", "fillKeypadMarkup"],
+  ["ACTIONS", "handleButton", "initialState", "showResult", "fillKeypadMarkup"],
 );
 // HTML final: index.html com os botões gerados a partir do registro (CALC-59).
 const INDEX_HTML = fillKeypadMarkup(fs.readFileSync(path.join(SRC_DIR, "..", "index.html"), "utf8"));
@@ -78,16 +78,72 @@ describe("CALC-52: o motor recebe e devolve estado", () => {
     assert.equal(result.state.current, "5");
   });
 
-  test("deleteDigit devolve um estado novo e apaga o último dígito do estado recebido", () => {
+  test("⌫ devolve um estado novo e apaga o último dígito do estado recebido: 12 vira 1", () => {
     const before = { ...initialState(), current: "12" };
-    const after = deleteDigit(before);
-    assert.equal(after.current, "1");
+    const result = handleButton(before, { action: "backspace" });
+    assert.equal(result.state.current, "1");
     assert.equal(before.current, "12");
   });
 
   test("M+ grava o visor na memória do estado devolvido: 5, M+ resulta em memória 5", () => {
     const result = run(initialState(), [{ value: "5" }, { action: "memory-add" }]);
     assert.equal(result.state.memory, 5);
+  });
+});
+
+describe("CALC-65: ⌫ apaga o último dígito e não mexe em resultado nem em erro", () => {
+  test("⌫ está no registro com a tecla Backspace e o rótulo ⌫", () => {
+    const action = ACTIONS.find((item) => item.id === "backspace");
+    assert.equal(action.label, "⌫");
+    assert.deepEqual(action.keys, ["Backspace"]);
+  });
+
+  test("⌫ com um único dígito volta para 0, e com negativo de um dígito também: 5, ⌫ resulta em 0; -5, ⌫ resulta em 0", () => {
+    const digit = run(initialState(), [{ value: "5" }, { action: "backspace" }]);
+    assert.equal(digit.state.current, "0");
+    const negative = run(initialState(), [{ value: "5" }, { action: "toggle-sign" }, { action: "backspace" }]);
+    assert.equal(negative.state.current, "0");
+  });
+
+  test("⌫ com Erro no visor mantém o Erro: 5, ÷, 0, = e depois ⌫ resulta em Erro", () => {
+    const result = run(initialState(), [
+      { value: "5" },
+      { action: "divide" },
+      { value: "0" },
+      { action: "equals" },
+      { action: "backspace" },
+    ]);
+    assert.equal(result.state.current, "Erro");
+    assert.equal(result.state.error, true);
+  });
+
+  test("⌫ sobre notação científica não muda o resultado: 20 x! e depois ⌫ mantém 2.4329020081766E+18", () => {
+    const result = run(initialState(), [{ value: "2" }, { value: "0" }, { action: "factorial" }, { action: "backspace" }]);
+    assert.equal(result.state.current, "2.4329020081766E+18");
+  });
+
+  test("⌫ sobre o valor de um grupo fechado não muda o valor: (2 + 3) e depois ⌫ mantém 5", () => {
+    const result = run(initialState(), [
+      { action: "open-paren" },
+      { value: "2" },
+      { action: "add" },
+      { value: "3" },
+      { action: "close-paren" },
+      { action: "backspace" },
+    ]);
+    assert.equal(result.state.current, "5");
+    assert.equal(result.state.valueIsGroup, true);
+  });
+
+  test("⌫ após = não altera o resultado: 2 + 3 = e depois ⌫ mantém 5", () => {
+    const result = run(initialState(), [
+      { value: "2" },
+      { action: "add" },
+      { value: "3" },
+      { action: "equals" },
+      { action: "backspace" },
+    ]);
+    assert.equal(result.state.current, "5");
   });
 });
 

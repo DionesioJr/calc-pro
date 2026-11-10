@@ -105,9 +105,7 @@ const EXACT_COSINES = [1, 0, -1, 0];
 // Múltiplos de 45° saem exatos (tan 0° = 0, tan 45° = 1, tan 135° = -1); 90° (e 90° + 180°·k) é indefinida: null.
 const EXACT_TANGENTS = [0, 1, null, -1];
 
-// Backspace (teclado): apaga o último caractere do número em edição.
-// Sem número em edição (após operador ou igual) não faz nada. Após erro, reinicia a calculadora.
-// Se sobrar algo que não é um número válido (ex.: "-" ou notação científica), volta para 0.
+// Texto que sobra ao apagar um caractere do número em edição: se não for um número válido (ex.: "-"), volta para 0.
 const VALID_ENTRY = /^-?\d+(\.\d*)?$/;
 
 // Registro único das ações da calculadora (CALC-53): os botões e os atalhos de teclado derivam daqui.
@@ -220,6 +218,7 @@ const ACTIONS = [
     apply: memoryRecall,
   },
   { id: "all-clear", type: "control", label: "AC", keys: ["Escape"], apply: reset },
+  { id: "backspace", type: "control", label: "⌫", keys: ["Backspace"], apply: deleteDigit },
   { id: "equals", type: "control", label: "=", keys: ["=", "Enter"], apply: inputEquals },
   {
     id: "open-paren",
@@ -692,19 +691,15 @@ function toggleAngleUnit(s) {
   s.angleUnit = s.angleUnit === "deg" ? "rad" : "deg";
 }
 
-// Apaga o último caractere do número em edição (Backspace do teclado). Devolve o estado novo.
-function deleteDigit(state) {
-  const s = cloneState(state);
-  if (s.error) {
-    reset(s);
-    return s;
-  }
-  if (s.waitingForOperand) {
-    return s;
+// ⌫ (botão e Backspace): apaga o último caractere do número em edição, no estado s (uma cópia).
+// Não mexe em nada que não seja número em edição, para não alterar resultado nem mensagem de erro: com Erro, após = ou operador
+// (waitingForOperand), num grupo fechado (valueIsGroup) ou em notação científica (não dá para apagar pedaços dela) não faz nada.
+function deleteDigit(s) {
+  if (s.error || s.waitingForOperand || s.valueIsGroup || isScientific(s.current)) {
+    return;
   }
   const remaining = s.current.slice(0, -1);
   setCurrent(s, VALID_ENTRY.test(remaining) ? remaining : "0");
-  return s;
 }
 
 // Calcula a pilha de trás para a frente enquanto o operador logo antes do último número tiver precedência >= minPrecedence.
