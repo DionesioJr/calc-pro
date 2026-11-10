@@ -18,7 +18,7 @@
 // e do botão xʸ (CALC-29: potência binária com precedência sobre × e ÷, associação à direita e Erro para resultado não real),
 // e do botão M- (CALC-23: subtrai o visor da memória),
 // e do botão MR (CALC-24: copia a memória para o visor como operando),
-// e do botão MC (CALC-25: zera a memória e o indicador),
+// e do botão MC (CALC-25: zera a memória e o indicador), e do indicador M no display, no desktop e no mobile (CALC-66),
 // e do botão ln (CALC-35: logaritmo natural do visor, com Erro para valor menor ou igual a zero),
 // e do botão x! (CALC-39: fatorial do visor, com notação científica acima de 2^53 e Erro para negativo, decimal e overflow),
 // e do botão cos (CALC-32: cosseno do visor em graus, sem ruído de ponto flutuante).
@@ -2071,6 +2071,48 @@ describe("CALC-22: estrutura e estilo do M+ e do indicador", () => {
 
   test("no mobile a grade científica e o teclado não encolhem com o visor: .panel com flex: none", () => {
     assert.match(MOBILE_CSS, /\.panel\s*\{\s*flex:\s*none;/);
+  });
+});
+
+describe("CALC-66: critérios de aceite do indicador M no display", () => {
+  test("M aparece após M+ e após M- com valor diferente de zero, e some após MC: 5, M+, 8, M- mostra o M com memória -3; MC esconde", () => {
+    const calc = createCalculator({ storage: {} });
+    calc.press("5", "M+", "AC");
+    assert.equal(calc.memoryIndicatorHidden(), false);
+    calc.press("AC", "8", "M-");
+    assert.equal(calc.memoryValue(), -3);
+    assert.equal(calc.memoryIndicatorHidden(), false);
+    calc.press("MC");
+    assert.equal(calc.memoryValue(), 0);
+    assert.equal(calc.memoryIndicatorHidden(), true);
+  });
+
+  test("M- com resultado zero não acende o M: 5, M+, AC, 5, M- deixa o indicador escondido", () => {
+    const calc = createCalculator({ storage: {} });
+    calc.press("5", "M+", "AC", "5", "M-");
+    assert.equal(calc.memoryIndicatorHidden(), true);
+  });
+
+  test("o M é texto visível no indicador, e o leitor de tela ouve 'Memória com valor guardado' em vez de 'M' sozinho", () => {
+    assert.match(
+      HTML_SOURCE,
+      /<span id="memory-indicator" class="memory-indicator" hidden><span aria-hidden="true">M<\/span><span class="sr-only">Memória com valor guardado<\/span><\/span>/,
+    );
+  });
+
+  test("o indicador fica na linha de status acima do visor, antes do display no HTML", () => {
+    assert.ok(HTML_SOURCE.indexOf('id="memory-indicator"') < HTML_SOURCE.indexOf('id="display"'));
+    assert.ok(HTML_SOURCE.indexOf('class="status"') < HTML_SOURCE.indexOf('id="memory-indicator"'));
+  });
+
+  test("no desktop o indicador aparece: .status é flex na base e nenhuma regra do desktop esconde .status ou .memory-indicator", () => {
+    assert.match(CSS_BASE, /\.status\s*\{[^}]*display:\s*flex;[^}]*\}/);
+    assert.doesNotMatch(CSS_DESKTOP, /\.(status|memory-indicator)\s*\{[^}]*display:\s*none/);
+  });
+
+  test("no mobile o indicador aparece: a linha de status não encolhe (flex: none) e nenhuma regra do mobile esconde .status ou .memory-indicator", () => {
+    assert.match(MOBILE_CSS, /\.status\s*\{\s*flex:\s*none;\s*min-height:\s*var\(--status-height\);\s*\}/);
+    assert.doesNotMatch(MOBILE_CSS, /\.(status|memory-indicator)\s*\{[^}]*display:\s*none/);
   });
 });
 
