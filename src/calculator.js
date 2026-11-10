@@ -77,6 +77,9 @@ function initialState() {
     exact: null,
     // Unidade angular do sen, cos e tan: "deg" (padrão ao abrir a página) ou "rad". Trocar a unidade não mexe no visor, na conta nem na memória.
     angleUnit: "deg",
+    // true enquanto a tecla 2nd está ativa: a próxima função (ação unária) roda a função secundária do botão, se ele tiver uma, e a 2nd volta a false.
+    // Dígitos, operadores e o igual não a desligam. AC não a desliga (só uma função a desliga).
+    secondary: false,
     // Linhas do histórico geradas pela última ação ("12 × 3 = 36"). handleButton as devolve e zera; quem chama as grava.
     pendingHistory: [],
   };
@@ -115,6 +118,7 @@ const VALID_ENTRY = /^-?\d+(\.\d*)?$/;
 // type: digit, binary, unary, constant, memory ou control.
 // label: símbolo do botão. keys: teclas do teclado físico que disparam a ação. buttonId: id do botão fora do teclado numérico.
 // replacesDisplay: true quando a ação troca o número do visor; aplicada a um grupo fechado, o texto do grupo sai da expressão (ver dropGroupText).
+// secondary: função da tecla 2nd ({ label, ariaLabel, apply }), quando o botão tem uma. Com a 2nd ativa, apply dá lugar a ela.
 // apply(s): age na cópia s do estado.
 // Para uma função unária nova: uma entrada aqui, com a função em apply, e uma linha em FUNCTION_ROW (src/keypad.js), que gera o botão. handleButton não muda.
 const ACTIONS = [
@@ -150,6 +154,7 @@ const ACTIONS = [
     buttonId: "square-button",
     replacesDisplay: true,
     apply: square,
+    secondary: { label: "√x", ariaLabel: "Raiz quadrada (√x)", apply: squareRoot },
   },
   { id: "log", type: "unary", label: "log", buttonId: "log-button", replacesDisplay: true, apply: logarithm },
   { id: "ln", type: "unary", label: "ln", buttonId: "ln-button", replacesDisplay: true, apply: naturalLogarithm },
@@ -158,6 +163,8 @@ const ACTIONS = [
   { id: "tan", type: "unary", label: "tan", buttonId: "tan-button", replacesDisplay: true, apply: tangent },
   // Unidade do sen, cos e tan (DEG/RAD): não mexe no visor, na conta pendente, na memória nem no Erro, por isso não tem replacesDisplay.
   { id: "angle-unit", type: "control", label: "DEG", buttonId: "angle-unit", apply: toggleAngleUnit },
+  // Tecla 2nd (CALC-69): liga e desliga a função secundária. Fica na linha de status, fora da grade, como o DEG/RAD.
+  { id: "secondary", type: "control", label: "2nd", buttonId: "secondary-toggle", apply: toggleSecondary },
   { id: "inverse", type: "unary", label: "1/x", buttonId: "inverse-button", replacesDisplay: true, apply: inverse },
   { id: "sqrt", type: "unary", label: "√x", buttonId: "sqrt-button", replacesDisplay: true, apply: squareRoot },
   {
@@ -692,6 +699,11 @@ function toggleAngleUnit(s) {
   s.angleUnit = s.angleUnit === "deg" ? "rad" : "deg";
 }
 
+// Tecla 2nd (CALC-69): liga ou desliga a função secundária. Não mexe no visor, na conta, na memória, no histórico nem no Erro.
+function toggleSecondary(s) {
+  s.secondary = !s.secondary;
+}
+
 // Apaga o último caractere do número em edição (Backspace do teclado). Devolve o estado novo.
 function deleteDigit(state) {
   const s = cloneState(state);
@@ -1030,7 +1042,12 @@ function applyButton(s, dataset) {
   if (s.functionOnGroup) {
     dropGroupText(s);
   }
-  action.apply(s);
+  // Com a 2nd ativa, roda a função secundária do botão (se houver). Qualquer função unária consome a 2nd, com ou sem secundária.
+  const runSecondary = s.secondary && action.secondary !== undefined;
+  (runSecondary ? action.secondary.apply : action.apply)(s);
+  if (action.type === "unary") {
+    s.secondary = false;
+  }
   s.functionOnGroup = false;
 }
 

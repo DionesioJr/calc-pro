@@ -114,6 +114,104 @@ describe("CALC-57: o % em soma e subtração usa o operando anterior como base",
   });
 });
 
+describe("CALC-69: a tecla 2nd alterna a função secundária do botão", () => {
+  test("2nd liga e desliga: o estado começa sem 2nd, 2nd liga, 2nd de novo desliga", () => {
+    assert.equal(initialState().secondary, false);
+    const on = run(initialState(), [{ action: "secondary" }]);
+    assert.equal(on.state.secondary, true);
+    const off = run(initialState(), [{ action: "secondary" }, { action: "secondary" }]);
+    assert.equal(off.state.secondary, false);
+  });
+
+  test("2nd não mexe no visor, na memória nem no histórico: 16, 2nd resulta em 16 sem linha", () => {
+    const result = run(showResult(initialState(), "16"), [{ action: "secondary" }]);
+    assert.equal(result.state.current, "16");
+    assert.equal(result.state.memory, 0);
+    assert.deepEqual(result.history, []);
+  });
+
+  test("2nd + x² roda a função secundária, √x: 16, 2nd, x² resulta em 4 e a linha do histórico √16 = 4", () => {
+    const result = run(showResult(initialState(), "16"), [{ action: "secondary" }, { action: "square" }]);
+    assert.equal(result.state.current, "4");
+    assert.deepEqual(result.history, ["√16 = 4"]);
+  });
+
+  test("x² sem a 2nd continua elevando ao quadrado: 3, x² resulta em 9", () => {
+    const result = run(showResult(initialState(), "3"), [{ action: "square" }]);
+    assert.equal(result.state.current, "9");
+    assert.deepEqual(result.history, ["3² = 9"]);
+  });
+
+  test("a 2nd é consumida pela função: 2nd, 16, x² (√x) e depois x² de novo eleva 4 ao quadrado", () => {
+    const result = run(showResult(initialState(), "16"), [
+      { action: "secondary" },
+      { action: "square" },
+      { action: "square" },
+    ]);
+    assert.equal(result.state.current, "16");
+    assert.equal(result.state.secondary, false);
+    assert.deepEqual(result.history, ["√16 = 4", "4² = 16"]);
+  });
+
+  test("a 2nd continua ativa através de dígitos: 2nd, 2, 5, x² resulta em √25 = 5", () => {
+    const result = run(initialState(), [
+      { action: "secondary" },
+      { value: "2" },
+      { value: "5" },
+      { action: "square" },
+    ]);
+    assert.equal(result.state.current, "5");
+    assert.equal(result.state.secondary, false);
+    assert.deepEqual(result.history, ["√25 = 5"]);
+  });
+
+  test("a 2nd não é consumida por operador: 2nd, 2, +, 9, x² roda √x sobre o 9 (√9 = 3)", () => {
+    const result = run(initialState(), [
+      { action: "secondary" },
+      { value: "2" },
+      { action: "add" },
+      { value: "9" },
+      { action: "square" },
+    ]);
+    assert.equal(result.state.current, "3");
+    assert.equal(result.state.secondary, false);
+    assert.deepEqual(result.history, ["√9 = 3"]);
+  });
+
+  test("função sem secundária usa a primária e ainda consome a 2nd: 4, 2nd, 1/x resulta em 0.25", () => {
+    const result = run(showResult(initialState(), "4"), [{ action: "secondary" }, { action: "inverse" }]);
+    assert.equal(result.state.current, "0.25");
+    assert.equal(result.state.secondary, false);
+    assert.deepEqual(result.history, ["1/4 = 0.25"]);
+  });
+
+  test("secundária com erro mostra Erro e não grava histórico: -4, 2nd, x² resulta em Erro", () => {
+    const result = run(showResult(initialState(), "-4"), [{ action: "secondary" }, { action: "square" }]);
+    assert.equal(result.state.current, "Erro");
+    assert.deepEqual(result.history, []);
+  });
+
+  test("AC não desliga a 2nd: 2nd, AC, 16, x² ainda roda √x", () => {
+    const result = run(initialState(), [
+      { action: "secondary" },
+      { action: "all-clear" },
+      { value: "1" },
+      { value: "6" },
+      { action: "square" },
+    ]);
+    assert.equal(result.state.current, "4");
+    assert.deepEqual(result.history, ["√16 = 4"]);
+  });
+
+  test("o botão 2nd está no registro com buttonId secondary-toggle, e a tecla x² tem a secundária √x", () => {
+    const secondaryAction = ACTIONS.find((action) => action.id === "secondary");
+    assert.equal(secondaryAction.buttonId, "secondary-toggle");
+    assert.match(INDEX_HTML, /<button[^>]*id="secondary-toggle"[^>]*data-action="secondary"/);
+    const square = ACTIONS.find((action) => action.id === "square");
+    assert.equal(square.secondary.label, "√x");
+  });
+});
+
 describe("CALC-53: o registro de ações é a única fonte de botões e teclas", () => {
   test("cada id e cada tecla aparecem em uma só entrada", () => {
     const ids = ACTIONS.map((action) => action.id);

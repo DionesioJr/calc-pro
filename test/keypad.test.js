@@ -17,8 +17,8 @@ const { ACTIONS, fillKeypadMarkup, keypadMarkup, renderKeypad } = carregarScript
   ["ACTIONS", "fillKeypadMarkup", "keypadMarkup", "renderKeypad"],
 );
 
-// angle-unit (DEG) fica estático na barra de status de index.html, fora dos dois contêineres gerados.
-const STATIC_IN_STATUS_BAR = ["angle-unit"];
+// angle-unit (DEG) e secondary (2nd, CALC-69) ficam estáticos na barra de status de index.html, fora dos dois contêineres gerados.
+const STATIC_IN_STATUS_BAR = ["angle-unit", "secondary"];
 
 // Ids (id="...") de todos os botões de um trecho de HTML, na ordem em que aparecem.
 function buttonIds(markup) {
@@ -69,7 +69,7 @@ describe("CALC-59: a linha de funções vem do registro, na ordem da tela", () =
 });
 
 describe("CALC-59: o teclado numérico e a linha de funções cobrem o registro sem repetição", () => {
-  test("o teclado tem 19 botões e a linha de funções 18: 37 no total, um por ação do registro exceto angle-unit", () => {
+  test("o teclado tem 19 botões e a linha de funções 18: 37 no total, um por ação do registro exceto angle-unit e secondary", () => {
     const { scientific, keypad } = keypadMarkup();
     assert.equal((keypad.match(/<button /g) ?? []).length, 19);
     assert.equal((scientific.match(/<button /g) ?? []).length, 18);

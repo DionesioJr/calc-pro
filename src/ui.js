@@ -21,6 +21,9 @@ let parenIndicator = null;
 let parenSymbols = null;
 let parenText = null;
 let angleUnitButton = null;
+// Tecla 2nd (CALC-69) e os botões que têm função secundária: rótulo e nome acessível trocam enquanto a 2nd estiver ativa.
+let secondaryToggle = null;
+let secondaryButtons = [];
 // Texto visível e nome do botão DEG/RAD: o rótulo acessível diz a unidade atual e a próxima.
 const ANGLE_UNITS = {
   deg: { label: "DEG", name: "graus", next: "radianos" },
@@ -41,6 +44,15 @@ function bindUi(doc, win) {
   parenSymbols = doc.getElementById("paren-symbols");
   parenText = doc.getElementById("paren-text");
   angleUnitButton = doc.getElementById("angle-unit");
+  secondaryToggle = doc.getElementById("secondary-toggle");
+
+  // Nome primário de cada botão com função secundária: o aria-label que keypad.js gerou (ou o rótulo visível, se não houver).
+  secondaryButtons = ACTIONS.filter((action) => action.secondary !== undefined)
+    .map((action) => {
+      const button = doc.getElementById(action.buttonId);
+      return button ? { action, button, primaryAriaLabel: button.getAttribute("aria-label") } : null;
+    })
+    .filter((item) => item !== null);
 
   // Botões do teclado numérico, mais o xʸ (que fica fora do teclado): operadores binários com destaque pendente.
   const keypad = doc.querySelector(".keypad");
@@ -92,6 +104,17 @@ function render(state) {
   const selectedOperator = state.waitingForOperand ? trailingOperator(state) : null;
   for (const button of operatorButtons) {
     button.setAttribute("aria-pressed", String(button.dataset.action === selectedOperator));
+  }
+
+  // Tecla 2nd: aria-pressed="true" (estilizado no CSS) enquanto ativa. Os botões com função secundária mostram o rótulo dela nesse caso.
+  if (secondaryToggle) {
+    secondaryToggle.setAttribute("aria-pressed", String(state.secondary));
+  }
+  for (const { action, button, primaryAriaLabel } of secondaryButtons) {
+    const label = state.secondary ? action.secondary.label : action.label;
+    const name = state.secondary ? action.secondary.ariaLabel : (primaryAriaLabel ?? action.label);
+    button.textContent = label;
+    button.setAttribute("aria-label", name);
   }
 
   // Indicador de memória: visível só enquanto houver valor guardado.
