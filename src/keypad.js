@@ -20,6 +20,7 @@ const FUNCTION_ROW = [
   { id: "power", className: "power-add", ariaLabel: "Elevar à potência (xʸ)" },
   { id: "pi", className: "pi-add", ariaLabel: "Inserir pi (π)" },
   { id: "euler", className: "e-add", ariaLabel: "Inserir número de Euler (e)" },
+  { id: "exp", className: "exp-add", ariaLabel: "Expoente de base 10 (EXP, ×10ˣ)" },
   { id: "inverse", className: "inverse-add", ariaLabel: "Inverso (1/x)" },
   { id: "factorial", className: "factorial-add", ariaLabel: "Fatorial (x!)" },
   { id: "sqrt", className: "sqrt-add", ariaLabel: "Raiz quadrada (√x)" },

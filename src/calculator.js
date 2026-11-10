@@ -15,6 +15,12 @@ const DECIMAL_PLACES = 8;
 // Resultado com valor absoluto acima de 2^53 não é exato em double (ex.: 999999999 × 999999999 perderia algarismos): mostra Erro.
 const MAX_RESULT = 2 ** 53;
 
+// Número digitado com EXP (×10ˣ) fora da faixa do visor vai para notação científica: abaixo de 1e-6 (e diferente de zero) ou acima de 2^53.
+const SMALL_ENTRY = 1e-6;
+
+// Expoente digitado depois de EXP tem no máximo 3 algarismos. Expoente que estoura o double (ex.: 1 EXP 400) mostra Erro.
+const MAX_EXPONENT_DIGITS = 3;
+
 // Marcador de grupo aberto dentro de terms e da pilha. Um ")" nunca fica guardado: ao fechar, o grupo vira número.
 const OPEN_PAREN = "(";
 
@@ -78,6 +84,9 @@ function initialState() {
     // Valor completo do visor quando ele é uma constante (e): o visor mostra 8 casas, o cálculo usa o número inteiro.
     // Qualquer outra mudança no visor passa por setCurrent, que zera este campo.
     exact: null,
+    // Expoente sendo digitado depois de EXP (×10ˣ), ou null. mantissa é o número do visor antes do EXP; sign é 1 ou -1; digits são os algarismos do expoente.
+    // Enquanto ele existe, o visor mostra o valor (1,5 EXP 3 mostra 1500). Qualquer tecla que não seja de expoente o fecha.
+    exponent: null,
     // Unidade angular do sen, cos e tan: "deg" (padrão ao abrir a página) ou "rad". Trocar a unidade não mexe no visor, na conta nem na memória.
     angleUnit: "deg",
     // true enquanto a tecla 2nd está ativa: a próxima função (ação unária) roda a função secundária do botão, se ele tiver uma, e a 2nd volta a false.
@@ -95,6 +104,7 @@ function cloneState(state) {
     stack: [...state.stack],
     terms: [...state.terms],
     expression: [...state.expression],
+    exponent: state.exponent === null ? null : { ...state.exponent },
     pendingHistory: [],
   };
 }
@@ -137,7 +147,7 @@ const ACTIONS = [
     },
   },
   { id: "add", type: "binary", label: "+", keys: ["+"], apply: (s) => inputOperator(s, "add") },
-  { id: "subtract", type: "binary", label: "−", keys: ["-"], apply: (s) => inputOperator(s, "subtract") },
+  { id: "subtract", type: "binary", label: "−", keys: ["-"], apply: subtractOrExponentSign },
   { id: "multiply", type: "binary", label: "×", keys: ["*"], apply: (s) => inputOperator(s, "multiply") },
   { id: "divide", type: "binary", label: "÷", keys: ["/"], apply: (s) => inputOperator(s, "divide") },
   {
@@ -236,6 +246,8 @@ const ACTIONS = [
     replacesDisplay: true,
     apply: insertEuler,
   },
+  // EXP (×10ˣ): tecla E do teclado. Fica na linha de funções (src/keypad.js), não no teclado numérico.
+  { id: "exp", type: "control", label: "EXP", keys: ["E"], buttonId: "exp-button", apply: startExponent },
   {
     id: "memory-add",
     type: "memory",
@@ -329,6 +341,7 @@ function reset(s) {
   s.error = false;
   s.expression = [];
   s.valueIsGroup = false;
+  s.exponent = null;
 }
 
 // Troca o texto do visor e descarta o valor completo de uma constante (e), se havia um.
@@ -355,6 +368,7 @@ function setError(s) {
   s.error = true;
   s.expression = [];
   s.valueIsGroup = false;
+  s.exponent = null;
 }
 
 // Operador pendente (está no fim da pilha), ou null se a pilha termina em número. "(" não é operador.
@@ -385,6 +399,10 @@ function inputDigit(s, digit) {
   if (s.error) {
     reset(s);
   }
+  if (s.exponent !== null) {
+    appendExponentDigit(s, digit);
+    return;
+  }
   if (s.waitingForOperand || isScientific(s.current)) {
     setCurrent(s, digit);
     s.waitingForOperand = false;
@@ -401,6 +419,10 @@ function inputDigit(s, digit) {
 function inputDecimal(s) {
   if (s.error) {
     reset(s);
+  }
+  // Expoente de EXP é inteiro: o ponto é ignorado enquanto ele é digitado.
+  if (s.exponent !== null) {
+    return;
   }
   if (s.waitingForOperand || isScientific(s.current)) {
     setCurrent(s, "0.");
@@ -420,6 +442,12 @@ function inputDecimal(s) {
 function toggleSign(s) {
   if (s.error) {
     reset(s);
+    return;
+  }
+  // Com EXP aberto, o sinal inverte o expoente (1,5 EXP 3 +/- resulta em 0.0015), não a mantissa.
+  if (s.exponent !== null) {
+    s.exponent.sign = -s.exponent.sign;
+    refreshExponent(s);
     return;
   }
   if (s.current === "0") {
@@ -713,9 +741,63 @@ function toScientific(value) {
   return `${mantissa.replace(/\.?0+$/, "")}E${exponent}`;
 }
 
-// Resultado em notação científica não é um número em edição: o próximo dígito ou ponto começa um número novo.
+// Resultado (ou número de EXP) em notação científica não é um número em edição: o próximo dígito ou ponto começa um número novo.
 function isScientific(text) {
-  return /E\+\d+$/.test(text);
+  return /E[+-]\d+$/.test(text);
+}
+
+// Número digitado com EXP no visor: o valor completo, em notação científica quando sai da faixa (abaixo de SMALL_ENTRY ou acima de 2^53).
+// Dentro da faixa, segue o formato de sempre (até 8 casas), então 1500 sai como 1500 e 0.0015 como 0.0015.
+function entryText(value) {
+  const magnitude = Math.abs(value);
+  if (magnitude !== 0 && (magnitude < SMALL_ENTRY || magnitude > MAX_RESULT)) {
+    return toScientific(value);
+  }
+  return formatResult(value);
+}
+
+// EXP (×10ˣ): abre o expoente do número em edição (1,5 EXP 3 → 1500). Sem número digitado antes, o toque é ignorado:
+// visor 0, depois de operador ou igual, com Erro, com grupo fechado ou com resultado em notação científica.
+// Com o expoente já aberto, outro EXP também é ignorado.
+function startExponent(s) {
+  if (s.exponent !== null || s.waitingForOperand || s.valueIsGroup || s.current === "0" || isScientific(s.current)) {
+    return;
+  }
+  s.exponent = { mantissa: s.current, sign: 1, digits: "" };
+  // O número em edição passa a ser o texto do visor, mesmo se era uma constante (e): a conta usa o que o visor mostra.
+  setCurrent(s, s.current);
+}
+
+// Recalcula o visor com o expoente em curso: mantissa × 10^(sign × digits). Escrito como texto ("1.5e3") para não somar ruído de ponto flutuante.
+// Expoente que estoura o double (ex.: 1 EXP 400) mostra Erro e fecha o expoente.
+function refreshExponent(s) {
+  const { mantissa, sign, digits } = s.exponent;
+  const value = Number(`${mantissa}e${sign * Number(digits || "0")}`);
+  if (!Number.isFinite(value)) {
+    setError(s);
+    return;
+  }
+  setCurrent(s, entryText(value));
+}
+
+// Algarismo do expoente (até MAX_EXPONENT_DIGITS); o que passar do limite é ignorado.
+function appendExponentDigit(s, digit) {
+  if (s.exponent.digits.length >= MAX_EXPONENT_DIGITS) {
+    return;
+  }
+  s.exponent.digits += digit;
+  refreshExponent(s);
+}
+
+// −: com EXP aberto e sem algarismo no expoente, o sinal é do expoente (1,5 EXP − 3 → 0.0015). Em qualquer outro caso é a subtração,
+// e a subtração fecha o EXP.
+function subtractOrExponentSign(s) {
+  if (s.exponent !== null && s.exponent.digits === "") {
+    s.exponent.sign = -1;
+    return;
+  }
+  s.exponent = null;
+  inputOperator(s, "subtract");
 }
 
 function tangentDegrees(degrees) {
@@ -856,6 +938,16 @@ function deleteDigit(state) {
   const s = cloneState(state);
   if (s.error) {
     reset(s);
+    return s;
+  }
+  // Com EXP aberto, apaga o último algarismo do expoente; sem algarismo, fecha o EXP e o número volta a ser a mantissa.
+  if (s.exponent !== null) {
+    if (s.exponent.digits === "") {
+      s.exponent = null;
+    } else {
+      s.exponent.digits = s.exponent.digits.slice(0, -1);
+      refreshExponent(s);
+    }
     return s;
   }
   if (s.waitingForOperand) {
@@ -1176,6 +1268,9 @@ function inputEquals(s) {
   finishCalculation(s);
 }
 
+// Ações que não fecham um expoente em digitação: dígitos, ponto, EXP, +/- e − (este último fecha só quando vira subtração).
+const EXPONENT_KEEPING_IDS = new Set([..."0123456789", ".", "exp", "toggle-sign", "subtract"]);
+
 // Aplica uma ação ao estado s (uma cópia, que pode ser alterada). dataset é o data-value (dígitos e ponto) ou o data-action do botão.
 function applyButton(s, dataset) {
   // data-value identifica dígitos e ponto; data-action, o resto. Um botão com o atributo do tipo errado não faz nada.
@@ -1183,6 +1278,10 @@ function applyButton(s, dataset) {
   const action = ACTION_BY_ID.get(isDigit ? dataset.value : dataset.action);
   if (action === undefined || (action.type === "digit") !== isDigit) {
     return;
+  }
+  // Qualquer outra ação fecha o expoente em digitação: o visor já mostra o valor, e a ação usa esse número.
+  if (s.exponent !== null && !EXPONENT_KEEPING_IDS.has(action.id)) {
+    s.exponent = null;
   }
 
   s.functionOnGroup = action.replacesDisplay === true && s.valueIsGroup;
