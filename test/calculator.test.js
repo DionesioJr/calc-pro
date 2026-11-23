@@ -1003,3 +1003,65 @@ describe("CALC-71: 10ˣ, eˣ, x³ e ʸ√x como funções secundárias", () => {
     assert.deepEqual(result.history, ["(3 ʸ√x 27) + 1 = 4"]);
   });
 });
+
+describe("CALC-1: closeGroup, dropDanglingOperator e x! passam por setCurrent e usam o valor completo de e", () => {
+  test("e dentro de um grupo fechado não fica preso no visor: (2 + e) × 1 = dá 4.71828183, não o e inteiro", () => {
+    const result = run(initialState(), [
+      { action: "open-paren" },
+      { value: "2" },
+      { action: "add" },
+      { action: "euler" },
+      { action: "close-paren" },
+      { action: "multiply" },
+      { value: "1" },
+      EQ,
+    ]);
+    assert.equal(result.state.current, "4.71828183");
+    assert.equal(result.state.exact, null);
+    assert.deepEqual(result.history, ["(2 + 2.71828183) × 1 = 4.71828183"]);
+  });
+
+  test("closeGroup usa o valor completo de e dentro do grupo, não a versão arredondada do visor: (10000 × e) = dá 27182.81828459", () => {
+    const result = run(initialState(), [
+      { action: "open-paren" },
+      { value: "1" },
+      { value: "0" },
+      { value: "0" },
+      { value: "0" },
+      { value: "0" },
+      { action: "multiply" },
+      { action: "euler" },
+      { action: "close-paren" },
+      EQ,
+    ]);
+    assert.equal(result.state.current, "27182.81828459");
+    assert.deepEqual(result.history, ["(10000 × 2.71828183) = 27182.81828459"]);
+  });
+
+  test("dropDanglingOperator restaura o e pendente sem deixar exact preso: (e + = dá 2.71828183 e não reaparece em e2.718281828459045e × 3", () => {
+    const danglingClose = run(initialState(), [
+      { action: "open-paren" },
+      { action: "euler" },
+      { action: "add" },
+      EQ,
+    ]);
+    assert.equal(danglingClose.state.current, "2.71828183");
+    assert.equal(danglingClose.state.exact, null);
+    assert.deepEqual(danglingClose.history, ["(2.71828183) = 2.71828183"]);
+
+    const chained = run(danglingClose.state, [{ action: "multiply" }, { value: "3" }, EQ]);
+    assert.equal(chained.state.current, "8.15484549");
+    assert.deepEqual(chained.history, ["2.71828183 × 3 = 8.15484549"]);
+  });
+
+  test("x! limpa o valor completo (exact) do visor em vez de deixá-lo preso: e⁰ = 1 (exact 1), x! resulta em 1 com exact nulo", () => {
+    const before = run(initialState(), [{ value: "0" }, { action: "secondary" }, { action: "ln" }]);
+    assert.equal(before.state.current, "1");
+    assert.equal(before.state.exact, 1);
+
+    const result = run(before.state, [{ action: "factorial" }]);
+    assert.equal(result.state.current, "1");
+    assert.equal(result.state.exact, null);
+    assert.deepEqual(result.history, ["1! = 1"]);
+  });
+});

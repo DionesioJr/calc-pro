@@ -797,8 +797,7 @@ function factorial(s) {
     return;
   }
   const expression = `${s.current}!`;
-  s.current = Math.abs(result) > MAX_RESULT ? toScientific(result) : formatResult(result);
-  s.typing = 0;
+  setCurrent(s, Math.abs(result) > MAX_RESULT ? toScientific(result) : formatResult(result));
   s.waitingForOperand = false;
   recordFunction(s, expression);
 }
@@ -1190,7 +1189,7 @@ function inputCloseParen(s) {
 function closeGroup(s) {
   const start = s.terms.lastIndexOf(OPEN_PAREN);
   const body = s.terms.slice(start + 1);
-  body.push(s.current);
+  body.push(closedNumber(s));
   if (!s.valueIsGroup) {
     s.expression.push(s.current);
   }
@@ -1202,8 +1201,7 @@ function closeGroup(s) {
     setError(s);
     return;
   }
-  s.current = formatResult(value);
-  s.typing = 0;
+  setCurrent(s, formatResult(value));
   s.waitingForOperand = false;
   s.valueIsGroup = true;
   refreshStack(s);
@@ -1217,7 +1215,8 @@ function dropDanglingOperator(s) {
   }
   s.terms.pop();
   s.expression.pop();
-  s.current = s.terms.pop();
+  const value = Number(s.terms.pop());
+  setCurrent(s, formatResult(value));
   if (s.expression[s.expression.length - 1] === ")") {
     // O número era o valor de um grupo fechado: o texto do grupo continua na expressão.
     s.valueIsGroup = true;
