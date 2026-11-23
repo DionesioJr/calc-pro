@@ -221,3 +221,56 @@ describe("CALC-54: confirmação de Limpar histórico", () => {
     assert.equal(els["history-empty"].focused, true);
   });
 });
+
+describe("CALC-14: cálculos idênticos consecutivos não se repetem no histórico", () => {
+  test("repetir o mesmo cálculo em sequência não cria nova entrada (nem nova gravação)", () => {
+    const storage = createFakeStorage();
+    const { items } = mount(storage);
+    addCalculation("100 − 0.1 = 99.9");
+    const gravado = storage.data[HISTORY_KEY];
+    addCalculation("100 − 0.1 = 99.9");
+    assert.deepEqual(items(), ["100 − 0.1 = 99.9"]);
+    assert.equal(storage.data[HISTORY_KEY], gravado);
+    assert.deepEqual(JSON.parse(storage.data[HISTORY_KEY]), ["100 − 0.1 = 99.9"]);
+  });
+
+  test("cálculos iguais não consecutivos continuam registrados", () => {
+    const storage = createFakeStorage();
+    const { items } = mount(storage);
+    addCalculation("100 − 0.1 = 99.9");
+    addCalculation("2 + 3 = 5");
+    addCalculation("100 − 0.1 = 99.9");
+    assert.deepEqual(items(), ["100 − 0.1 = 99.9", "2 + 3 = 5", "100 − 0.1 = 99.9"]);
+    assert.deepEqual(JSON.parse(storage.data[HISTORY_KEY]), [
+      "100 − 0.1 = 99.9",
+      "2 + 3 = 5",
+      "100 − 0.1 = 99.9",
+    ]);
+  });
+
+  test("a repetição é checada só contra o último item: A, A, B, A deixa A, B, A", () => {
+    const storage = createFakeStorage();
+    const { items } = mount(storage);
+    addCalculation("2 + 3 = 5");
+    addCalculation("2 + 3 = 5");
+    addCalculation("5 × 2 = 10");
+    addCalculation("2 + 3 = 5");
+    assert.deepEqual(items(), ["2 + 3 = 5", "5 × 2 = 10", "2 + 3 = 5"]);
+  });
+
+  test("o mesmo texto repetido depois de Apagar o histórico volta a ser gravado", () => {
+    const storage = createFakeStorage({ [HISTORY_KEY]: JSON.stringify(["2 + 3 = 5"]) });
+    const { els, items } = mount(storage);
+    els["history-clear"].dispatch("click");
+    els["history-confirm-yes"].dispatch("click");
+    addCalculation("2 + 3 = 5");
+    assert.deepEqual(items(), ["2 + 3 = 5"]);
+  });
+
+  test("o último item salvo conta como anterior: recarregar a página não duplica a última conta", () => {
+    const storage = createFakeStorage({ [HISTORY_KEY]: JSON.stringify(["2 + 3 = 5"]) });
+    const { items } = mount(storage);
+    addCalculation("2 + 3 = 5");
+    assert.deepEqual(items(), ["2 + 3 = 5"]);
+  });
+});

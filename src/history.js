@@ -123,7 +123,12 @@ function renderHistory() {
 }
 
 // Grava um cálculo no fim do histórico e redesenha a lista. Chamado pela calculadora ao fechar uma conta ou função.
+// Se for igual ao último item (mesma expressão e mesmo resultado, como "100 − 0.1 = 99.9" duas vezes seguidas), não grava de novo.
+// Repetições não consecutivas continuam entrando.
 function addCalculation(text) {
+  if (calculationHistory[calculationHistory.length - 1] === text) {
+    return;
+  }
   calculationHistory.push(text);
   saveHistory();
   renderHistory();
