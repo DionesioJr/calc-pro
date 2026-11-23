@@ -117,3 +117,156 @@ body {
     border-radius: 0;
   }
 }
+
+/*
+ * Tema escuro é o padrão (cores das regras acima). Tema claro (CALC-8): o <html> recebe data-theme="light" de src/main.js,
+ * seja pela escolha manual salva em calc-pro:preferencias, seja por prefers-color-scheme sem escolha.
+ * As regras abaixo sobrescrevem só as cores, com seletor de maior especificidade (:root[data-theme="light"] vale (0,2,0)),
+ * para vencer as regras do mobile e do histórico que vêm depois. Contrastes WCAG (fundo indicado):
+ * texto #000 sobre #fff e #e5e5ea (16:1 ou mais); cinza #5a5a5a sobre #fff (6,9:1) e #e5e5ea (5,5:1);
+ * laranja escuro #b35c00 sobre #fff (4,7:1); laranja #ff9f0a sobre #000 (10:1); foco #000 sobre #fff.
+ */
+:root {
+  color-scheme: dark;
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+}
+
+:root[data-theme="light"] body {
+  background: #d1d1d6;
+  color: #000000;
+}
+
+:root[data-theme="light"] .calculator,
+:root[data-theme="light"] .history {
+  background: #ffffff;
+}
+
+:root[data-theme="light"] .display {
+  color: #000000;
+}
+
+/* Indicadores e título do histórico: laranja escuro, que tem contraste sobre branco (o #ff9f0a não tem). */
+:root[data-theme="light"] .memory-indicator,
+:root[data-theme="light"] .paren-indicator,
+:root[data-theme="light"] .history-title {
+  color: #b35c00;
+}
+
+/* Dígitos e teclas científicas: cinza claro com texto preto (as funções e operadores já têm texto preto em ambos os temas). */
+:root[data-theme="light"] .btn-digit,
+:root[data-theme="light"] .scientific > button {
+  background: #e5e5ea;
+  color: #000000;
+}
+
+/* Pílulas com contorno, 2nd, DEG/RAD, tema e o Histórico do mobile: cinza escuro em repouso, preto ao passar o mouse. */
+:root[data-theme="light"] :is(
+    .angle-unit,
+    .theme-toggle,
+    .secondary-toggle,
+    .memory-recall,
+    .memory-add,
+    .memory-subtract,
+    .square-add,
+    .log-button,
+    .ln-add,
+    .sine-add,
+    .cos-add,
+    .tan-add,
+    .pi-add,
+    .e-add,
+    .exp-add,
+    .ans-add,
+    .inverse-add,
+    .factorial-add,
+    .sqrt-add,
+    .power-add,
+    .paren-add,
+    .history-open,
+    .history-clear,
+    .history-cancel
+  ) {
+  border-color: #5a5a5a;
+  color: #5a5a5a;
+}
+
+:root[data-theme="light"] :is(
+    .angle-unit,
+    .theme-toggle,
+    .secondary-toggle,
+    .memory-recall,
+    .memory-add,
+    .memory-subtract,
+    .square-add,
+    .log-button,
+    .ln-add,
+    .sine-add,
+    .cos-add,
+    .tan-add,
+    .pi-add,
+    .e-add,
+    .exp-add,
+    .ans-add,
+    .inverse-add,
+    .factorial-add,
+    .sqrt-add,
+    .power-add,
+    .paren-add,
+    .history-open,
+    .history-clear,
+    .history-cancel
+  ):hover {
+  border-color: #000000;
+  color: #000000;
+}
+
+/* Estados pendentes (2nd ativa, xʸ e operador à espera do segundo número): preto com laranja, como o branco com laranja do escuro. */
+:root[data-theme="light"] :is(.secondary-toggle, .power-add, .btn-operator)[aria-pressed="true"] {
+  background: #000000;
+  border-color: #000000;
+  color: #ff9f0a;
+}
+
+/* Foco: contorno preto, que aparece sobre o fundo branco (o branco do tema escuro não aparece aqui). */
+:root[data-theme="light"] :focus-visible {
+  outline-color: #000000;
+}
+
+:root[data-theme="light"] .shortcuts {
+  color: #5a5a5a;
+}
+
+:root[data-theme="light"] .shortcuts kbd {
+  border-color: #5a5a5a;
+  color: #000000;
+}
+
+/* Histórico: itens cinza claro, expressão em cinza escuro, resultado preto; confirmação com botão preto. */
+:root[data-theme="light"] .history-item {
+  background: #e5e5ea;
+  color: #000000;
+}
+
+:root[data-theme="light"] .history-expression,
+:root[data-theme="light"] .history-empty {
+  color: #5a5a5a;
+}
+
+:root[data-theme="light"] .history-result,
+:root[data-theme="light"] .history-confirm-text {
+  color: #000000;
+}
+
+:root[data-theme="light"] .history-confirm-yes {
+  background: #000000;
+  color: #ffffff;
+}
+
+/* × do painel do mobile: o mesmo cinza claro das teclas, com o × preto (o seletor de .history vence o .history.is-open de historico.css). */
+:root[data-theme="light"] .history .history-close {
+  background: #e5e5ea;
+  color: #000000;
+}

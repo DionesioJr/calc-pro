@@ -11,12 +11,14 @@ const FUNCTION_BUTTON_IDS = ACTIONS.filter((action) => action.buttonId).map((act
 // Estado da calculadora na tela. Só este módulo o troca; os demais recebem o estado como parâmetro.
 let state = initialState();
 
-// Preferências que sobrevivem ao recarregar a página (CALC-73): a memória e a unidade DEG/RAD. Ficam num único registro JSON.
+// Preferências que sobrevivem ao recarregar a página (CALC-73): a memória e a unidade DEG/RAD, e o tema (CALC-8). Ficam num único registro JSON.
 const PREFERENCES_KEY = "calc-pro:preferencias";
-// Valores de fábrica: memória vazia e graus, como ao abrir a página pela primeira vez.
-const DEFAULT_PREFERENCES = { memory: 0, angleUnit: "deg" };
+// Valores de fábrica: memória vazia, graus e tema do sistema, como ao abrir a página pela primeira vez.
+const DEFAULT_PREFERENCES = { memory: 0, angleUnit: "deg", theme: "system" };
 // Armazenamento usado para gravar as preferências (o mesmo que o histórico recebe em start).
 let preferencesStorage = null;
+// Tema escolhido: "system" segue prefers-color-scheme; "light" e "dark" são escolha manual (CALC-8).
+let themeChoice = DEFAULT_PREFERENCES.theme;
 
 // Lê as preferências salvas. Sem armazenamento, com dado corrompido ou com valor fora do esperado, volta ao padrão, sem erro.
 function loadPreferences(storage) {
@@ -26,18 +28,62 @@ function loadPreferences(storage) {
     return {
       memory: Number.isFinite(memory) && Math.abs(memory) <= MAX_RESULT ? memory : DEFAULT_PREFERENCES.memory,
       angleUnit: saved.angleUnit === "rad" ? "rad" : DEFAULT_PREFERENCES.angleUnit,
+      theme: saved.theme === "light" || saved.theme === "dark" ? saved.theme : DEFAULT_PREFERENCES.theme,
     };
   } catch {
     return { ...DEFAULT_PREFERENCES };
   }
 }
 
-// Grava a memória e a unidade. Sem armazenamento (ou com cota cheia), a calculadora segue igual; só não lembra ao recarregar.
-function savePreferences(storage, s) {
+// Grava a memória, a unidade e o tema. Sem armazenamento (ou com cota cheia), a calculadora segue igual; só não lembra ao recarregar.
+function savePreferences(storage, s, theme) {
   try {
-    storage.setItem(PREFERENCES_KEY, JSON.stringify({ memory: s.memory, angleUnit: s.angleUnit }));
+    storage.setItem(PREFERENCES_KEY, JSON.stringify({ memory: s.memory, angleUnit: s.angleUnit, theme }));
   } catch {
     // Sem armazenamento: as preferências valem só até fechar a página.
+  }
+}
+
+// Tema que está na tela: a escolha manual, ou o que o sistema pede (claro só se prefers-color-scheme: light; sem matchMedia, escuro, que é o tema original).
+function currentTheme(win) {
+  if (themeChoice === "light" || themeChoice === "dark") {
+    return themeChoice;
+  }
+  const systemLight =
+    win && typeof win.matchMedia === "function" && win.matchMedia("(prefers-color-scheme: light)").matches;
+  return systemLight ? "light" : "dark";
+}
+
+// Põe o tema na página (data-theme no <html>, que tema.css usa) e atualiza o botão: o nome acessível diz o tema atual e o próximo, como o botão DEG.
+function applyTheme(doc, win) {
+  const theme = currentTheme(win);
+  if (doc.documentElement) {
+    doc.documentElement.setAttribute("data-theme", theme);
+  }
+  const button = doc.getElementById("theme-toggle");
+  if (button) {
+    const light = theme === "light";
+    button.textContent = light ? "☀" : "☾";
+    button.setAttribute(
+      "aria-label",
+      light ? "Tema claro, trocar para tema escuro" : "Tema escuro, trocar para tema claro",
+    );
+  }
+}
+
+// Botão de tema: troca para o tema oposto ao da tela e grava essa escolha. Com o sistema mudando de tema enquanto a página está aberta, sem escolha manual, o tema acompanha.
+function bindTheme(doc, win, storage) {
+  const button = doc.getElementById("theme-toggle");
+  if (button) {
+    button.addEventListener("click", () => {
+      themeChoice = currentTheme(win) === "light" ? "dark" : "light";
+      savePreferences(storage, state, themeChoice);
+      applyTheme(doc, win);
+    });
+  }
+  const query = win && typeof win.matchMedia === "function" ? win.matchMedia("(prefers-color-scheme: light)") : null;
+  if (query && typeof query.addEventListener === "function") {
+    query.addEventListener("change", () => applyTheme(doc, win));
   }
 }
 
@@ -51,7 +97,7 @@ function press(dataset) {
   }
   // Só M+, M-, MC e DEG/RAD mudam o que fica guardado: grava nesses casos, não a cada tecla.
   if (state.memory !== previous.memory || state.angleUnit !== previous.angleUnit) {
-    savePreferences(preferencesStorage, state);
+    savePreferences(preferencesStorage, state, themeChoice);
   }
   render(state);
 }
@@ -72,13 +118,16 @@ function recallResult(result) {
 // Devolve um acesso de leitura ao estado atual (os testes usam para conferir a memória).
 function start(doc, win, storage) {
   preferencesStorage = storage;
-  state = { ...initialState(), ...loadPreferences(storage) };
+  const preferences = loadPreferences(storage);
+  state = { ...initialState(), memory: preferences.memory, angleUnit: preferences.angleUnit };
+  themeChoice = preferences.theme;
   // Botões primeiro: o teclado e a ligação de eventos abaixo procuram os botões no documento.
   renderKeypad(doc);
   bindHistory(doc, storage, recallFromHistory);
   bindUi(doc, win);
   bindKeyboard(doc, win, { press });
   bindClipboard(doc, win);
+  bindTheme(doc, win, storage);
 
   const keypad = doc.querySelector(".keypad");
   if (keypad) {
@@ -101,6 +150,7 @@ function start(doc, win, storage) {
     }
   }
 
+  applyTheme(doc, win);
   render(state);
   return { getState: () => state };
 }

@@ -29,7 +29,8 @@
 // e dos atalhos de teclado das funções avançadas (CALC-42: ^ xʸ, p π, ! x!, r MR, c MC, _ M-, e a lista de atalhos na tela),
 // e do botão ⌫ e da tecla Backspace (CALC-65: apaga o último dígito; Erro, resultado e notação científica não mudam),
 // e da memória e da unidade DEG/RAD guardadas entre sessões, com armazenamento indisponível tratado sem erro (CALC-73),
-// e da cópia e colagem do visor (CALC-72: Ctrl+C copia o visor, Ctrl+V cola um número válido e ignora o resto).
+// e da cópia e colagem do visor (CALC-72: Ctrl+C copia o visor, Ctrl+V cola um número válido e ignora o resto),
+// e do tema claro com alternância e prefers-color-scheme (CALC-8: escolha salva em calc-pro:preferencias, botão com nome acessível).
 // Monta os módulos reais de src/ (start de src/main.js) sobre um DOM mínimo, e aperta
 // os botões pelo mesmo caminho de clique que o navegador usa; o teclado usa o mesmo
 // caminho de keydown.
@@ -161,7 +162,8 @@ function createLocalStorage(storage) {
 }
 
 // storage: objeto que faz o papel do localStorage; passe o mesmo objeto para simular recarregar a página.
-function createCalculator({ storage = {} } = {}) {
+// systemLight: o sistema pede tema claro (prefers-color-scheme: light), para o tema seguir o sistema (CALC-8).
+function createCalculator({ storage = {}, systemLight = false } = {}) {
   const display = { textContent: "", classList: createClassList() };
   const historyList = createElementMock("ol");
   const historyEmpty = createElementMock("p");
@@ -241,6 +243,9 @@ function createCalculator({ storage = {} } = {}) {
   // xʸ também fica fora do teclado, na linha da memória, como em index.html.
   const powerElement = createElementMock("button");
   powerElement.dataset = { action: "power" };
+  // Botão de tema (CALC-8) fica na linha de status, antes do 2nd, como em index.html; o <html> recebe data-theme.
+  const themeToggleElement = createElementMock("button");
+  const htmlElement = createElementMock("html");
   let onKeypadClick = null;
   let onKeyDown = null;
   let onKeyUp = null;
@@ -323,9 +328,11 @@ function createCalculator({ storage = {} } = {}) {
     "paren-symbols": parenSymbolsElement,
     "paren-text": parenTextElement,
     "power-button": powerElement,
+    "theme-toggle": themeToggleElement,
   };
 
   const document = {
+    documentElement: htmlElement,
     getElementById: (id) => elementsById[id] ?? null,
     querySelector: (selector) => (selector === ".keypad" ? keypad : null),
     createElement: (tagName) => createElementMock(tagName),
@@ -349,6 +356,7 @@ function createCalculator({ storage = {} } = {}) {
       }
     },
     getSelection: () => ({ toString: () => selectedText }),
+    matchMedia: (query) => ({ matches: systemLight && query.includes("light"), addEventListener: () => {} }),
   };
 
   const localStorage = createLocalStorage(storage);
@@ -637,6 +645,11 @@ function createCalculator({ storage = {} } = {}) {
     parenSymbols: () => parenSymbolsElement.textContent,
     parenText: () => parenTextElement.textContent,
     parenIndicatorHidden: () => parenIndicatorElement.hidden,
+    // CALC-8: texto do botão de tema, rótulo acessível, tema aplicado no <html> e o clique no botão.
+    themeGlyph: () => themeToggleElement.textContent,
+    themeName: () => themeToggleElement.getAttribute("aria-label"),
+    htmlTheme: () => htmlElement.getAttribute("data-theme"),
+    clickTheme: () => themeToggleElement.dispatch("click"),
   };
 }
 
@@ -4820,7 +4833,7 @@ describe("CALC-73: critérios de aceite da memória e da unidade guardadas entre
   test("M+, M- e a unidade atualizam o que está guardado: 5 M+, AC, 3 M- e unidade gravam memória 2 e RAD", () => {
     const storage = {};
     createCalculator({ storage }).press("5", "M+", "AC", "3", "M-", "unidade");
-    assert.deepEqual(JSON.parse(storage[PREFERENCES_KEY]), { memory: 2, angleUnit: "rad" });
+    assert.deepEqual(JSON.parse(storage[PREFERENCES_KEY]), { memory: 2, angleUnit: "rad", theme: "system" });
   });
 
   test("MC limpa também o valor guardado: 5 M+, MC grava memória 0 e a calculadora reaberta mostra memória 0 e indicador escondido", () => {
@@ -4899,6 +4912,160 @@ describe("CALC-73: casos de borda da memória e da unidade guardadas", () => {
     const calc = createCalculator({ storage });
     assert.equal(calc.memoryValue(), 4);
     assert.equal(calc.angleUnitLabel(), "DEG");
+  });
+});
+
+// CALC-8: tema claro com alternância. O padrão segue prefers-color-scheme; o botão grava a escolha em calc-pro:preferencias.
+describe("CALC-8: critérios de aceite do tema claro", () => {
+  test("tema claro disponível: com o tema escuro, o botão troca para claro e o <html> recebe data-theme=\"light\"", () => {
+    const calc = createCalculator();
+    assert.equal(calc.htmlTheme(), "dark");
+    calc.clickTheme();
+    assert.equal(calc.htmlTheme(), "light");
+  });
+
+  test("padrão segue prefers-color-scheme: sistema claro abre em claro, sistema escuro abre em escuro", () => {
+    assert.equal(createCalculator({ systemLight: true }).htmlTheme(), "light");
+    assert.equal(createCalculator({ systemLight: false }).htmlTheme(), "dark");
+  });
+
+  test("a escolha manual vence o sistema: sistema claro, clique (vai para escuro) e reabrir continua escuro", () => {
+    const storage = {};
+    createCalculator({ storage, systemLight: true }).clickTheme();
+    assert.equal(createCalculator({ storage, systemLight: true }).htmlTheme(), "dark");
+  });
+
+  test("a escolha manual persiste ao recarregar: o clique grava theme light e a calculadora reaberta abre em claro, mesmo com sistema escuro", () => {
+    const storage = {};
+    createCalculator({ storage }).clickTheme();
+    assert.equal(JSON.parse(storage[PREFERENCES_KEY]).theme, "light");
+    assert.equal(createCalculator({ storage }).htmlTheme(), "light");
+  });
+
+  test("botão com nome acessível: diz o tema atual e o próximo, e o símbolo acompanha (escuro, claro, escuro)", () => {
+    const calc = createCalculator();
+    assert.equal(calc.themeName(), "Tema escuro, trocar para tema claro");
+    assert.equal(calc.themeGlyph(), "☾");
+    calc.clickTheme();
+    assert.equal(calc.themeName(), "Tema claro, trocar para tema escuro");
+    assert.equal(calc.themeGlyph(), "☀");
+    calc.clickTheme();
+    assert.equal(calc.themeName(), "Tema escuro, trocar para tema claro");
+  });
+
+  test("o botão de tema existe em index.html, na linha de status antes do 2nd", () => {
+    assert.match(
+      HTML_SOURCE,
+      /<button type="button" id="theme-toggle" class="theme-toggle" aria-label="Tema escuro, trocar para tema claro">/,
+    );
+    assert.ok(HTML_SOURCE.indexOf('id="theme-toggle"') < HTML_SOURCE.indexOf('id="secondary-toggle"'));
+  });
+});
+
+describe("CALC-8: casos de borda do tema guardado", () => {
+  test("valor inválido salvo no tema (\"neon\") vira o padrão do sistema, sem erro: sistema claro abre em claro, escuro abre em escuro", () => {
+    const storage = { [PREFERENCES_KEY]: JSON.stringify({ memory: 0, angleUnit: "deg", theme: "neon" }) };
+    assert.equal(createCalculator({ storage, systemLight: true }).htmlTheme(), "light");
+    assert.equal(createCalculator({ storage, systemLight: false }).htmlTheme(), "dark");
+  });
+
+  test("preferências de antes do CALC-8 (sem campo theme) abrem no padrão do sistema e mantêm memória e unidade", () => {
+    const storage = { [PREFERENCES_KEY]: JSON.stringify({ memory: 3, angleUnit: "rad" }) };
+    const calc = createCalculator({ storage, systemLight: true });
+    assert.equal(calc.htmlTheme(), "light");
+    assert.equal(calc.memoryValue(), 3);
+    assert.equal(calc.angleUnitLabel(), "RAD");
+  });
+
+  test("o clique no tema não mexe na conta: 2 + 3, clique no tema e = dá 5", () => {
+    const calc = createCalculator();
+    calc.press("2", "+", "3");
+    calc.clickTheme();
+    assert.equal(calc.press("="), "5");
+  });
+
+  test("tema e memória se guardam juntos: 5 M+, clique no tema e reabrir mantém memória 5, unidade RAD e tema claro", () => {
+    const storage = {};
+    const calc = createCalculator({ storage });
+    calc.press("5", "M+", "unidade");
+    calc.clickTheme();
+    const reopened = createCalculator({ storage });
+    assert.equal(reopened.memoryValue(), 5);
+    assert.equal(reopened.angleUnitLabel(), "RAD");
+    assert.equal(reopened.htmlTheme(), "light");
+  });
+
+  test("depois de escolher o tema, M+ grava a memória e mantém o tema: clique no tema, 5 M+ e reabrir mostra memória 5 e tema claro", () => {
+    const storage = {};
+    const calc = createCalculator({ storage });
+    calc.clickTheme();
+    calc.press("5", "M+");
+    const reopened = createCalculator({ storage });
+    assert.equal(reopened.memoryValue(), 5);
+    assert.equal(reopened.htmlTheme(), "light");
+  });
+
+  test("armazenamento bloqueado não quebra o tema: o clique troca o tema na sessão, sem erro", () => {
+    const calc = createCalculator({ storage: blockedStorage() });
+    calc.clickTheme();
+    assert.equal(calc.htmlTheme(), "light");
+    assert.equal(calc.themeName(), "Tema claro, trocar para tema escuro");
+  });
+});
+
+// Contraste WCAG: razão entre as luminâncias relativas das duas cores (texto sobre fundo, ou não-texto sobre fundo).
+function luminancia(hex) {
+  const [r, g, b] = [1, 3, 5].map((i) => {
+    const canal = parseInt(hex.slice(i, i + 2), 16) / 255;
+    return canal <= 0.03928 ? canal / 12.92 : ((canal + 0.055) / 1.055) ** 2.4;
+  });
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+function contraste(a, b) {
+  const [clara, escura] = [luminancia(a), luminancia(b)].sort((x, y) => y - x);
+  return (clara + 0.05) / (escura + 0.05);
+}
+
+describe("CALC-8: cores do tema claro", () => {
+  const TEMA_CSS = fs.readFileSync(path.join(ROOT, "css", "tema.css"), "utf8");
+  // Pares de texto (ou contorno) e fundo que o tema claro usa, com o mínimo de 4,5:1 (texto) ou 3:1 (foco e contorno).
+  const PARES_CLARO = [
+    { texto: "#000000", fundo: "#ffffff", minimo: 4.5 },
+    { texto: "#000000", fundo: "#e5e5ea", minimo: 4.5 },
+    { texto: "#5a5a5a", fundo: "#ffffff", minimo: 4.5 },
+    { texto: "#5a5a5a", fundo: "#e5e5ea", minimo: 4.5 },
+    { texto: "#b35c00", fundo: "#ffffff", minimo: 4.5 },
+    { texto: "#ff9f0a", fundo: "#000000", minimo: 4.5 },
+    { texto: "#ffffff", fundo: "#000000", minimo: 4.5 },
+    { texto: "#000000", fundo: "#ffffff", minimo: 3 },
+  ];
+
+  test("cada par de cor do tema claro tem contraste mínimo (texto 4,5:1, foco e contorno 3:1)", () => {
+    for (const { texto, fundo, minimo } of PARES_CLARO) {
+      assert.ok(contraste(texto, fundo) >= minimo, `${texto} sobre ${fundo}: ${contraste(texto, fundo).toFixed(2)}:1`);
+    }
+  });
+
+  test("as cores testadas são as que tema.css usa no tema claro", () => {
+    for (const cor of ["#5a5a5a", "#e5e5ea", "#b35c00", "#ff9f0a"]) {
+      assert.ok(TEMA_CSS.includes(cor), `${cor} não está em tema.css`);
+    }
+  });
+
+  test("o tema claro é uma camada sobre o escuro: :root[data-theme=\"light\"] existe e o escuro segue como padrão no body", () => {
+    assert.match(TEMA_CSS, /:root\[data-theme="light"\]\s*\{\s*color-scheme:\s*light;\s*\}/);
+    assert.match(TEMA_CSS, /body\s*\{[^}]*background:\s*#686868;[^}]*\}/);
+  });
+
+  test("o contorno de foco é preto no tema claro, para aparecer sobre o fundo branco", () => {
+    assert.match(TEMA_CSS, /:root\[data-theme="light"\] :focus-visible\s*\{\s*outline-color:\s*#000000;\s*\}/);
+  });
+
+  test("o estado pendente (2nd, xʸ e operador) no tema claro é preto com laranja, com contraste", () => {
+    assert.match(
+      TEMA_CSS,
+      /:root\[data-theme="light"\] :is\(\.secondary-toggle, \.power-add, \.btn-operator\)\[aria-pressed="true"\]\s*\{\s*background:\s*#000000;[^}]*color:\s*#ff9f0a;/,
+    );
   });
 });
 
