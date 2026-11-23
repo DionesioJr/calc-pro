@@ -1965,7 +1965,7 @@ describe("CALC-20: estilo e estrutura do histórico reformulado", () => {
 const MOBILE_CSS = CSS_FILES.map((css) => (css.match(/@media \(max-width: 767px\) \{[\s\S]*$/) || [""])[0]).join("\n");
 
 // Lado do botão no mobile, como o tema.css calcula em --cell: o menor entre a largura (7 colunas, com 6 espaços)
-// e a altura (5 linhas, com o visor com pelo menos --display-min e a linha de status). Em px, com 1rem = 16px:
+// e a altura (7 linhas da grade científica, com o visor com pelo menos --display-min e a linha de status). Em px, com 1rem = 16px:
 // --pad 14, --gap 4, --display-min 72, --status-height 24.
 function mobileButtonSide(width, height) {
   const pad = 14;
@@ -1973,8 +1973,13 @@ function mobileButtonSide(width, height) {
   const displayMin = 72;
   const statusHeight = 24;
   const byWidth = (width - 2 * pad - 6 * gap) / 7;
-  const byHeight = (height - 2 * pad - 4 * gap - displayMin - statusHeight) / 5;
+  const byHeight = (height - 2 * pad - 6 * gap - displayMin - statusHeight) / 7;
   return Math.min(byWidth, byHeight);
+}
+
+// Altura de uma coluna do painel com n linhas de botões quadrados de lado `cell` e --gap de 4px entre elas.
+function panelHeight(cell, rows) {
+  return rows * cell + (rows - 1) * 4;
 }
 
 describe("CALC-21: critérios de aceite do layout mobile", () => {
@@ -1994,19 +1999,30 @@ describe("CALC-21: critérios de aceite do layout mobile", () => {
     assert.match(CSS_SOURCE, /\.btn-zero\s*\{[^}]*grid-column:\s*span 2;[^}]*\}/);
   });
 
-  test("em 360x640, 390x844, 414x896 e na paisagem 844x390, o teclado cabe na tela e os botões têm pelo menos 44px", () => {
+  test("em 360x640, 390x844 e 414x896 (retrato), o painel cabe na tela e os botões têm pelo menos 44px", () => {
+    // Fórmula de --cell no CSS mobile: o teste confere o texto do tema.css, para não medir uma cópia que já divergiu.
+    assert.match(MOBILE_CSS, /100dvh - 2 \* var\(--pad\) - 6 \* var\(--gap\) - var\(--display-min\) - var\(--status-height\)\) \/ 7\)/);
     for (const [width, height] of [
       [360, 640],
       [390, 844],
       [414, 896],
-      [844, 390],
     ]) {
       const side = mobileButtonSide(width, height);
-      const keypadHeight = 5 * side + 4 * 4;
+      // O painel é o maior dos dois contêineres: grade científica (7 linhas) e teclado (5 linhas).
+      const panel = Math.max(panelHeight(side, 7), panelHeight(side, 5));
       assert.ok(side >= 44, `${width}x${height}: botão de ${side}px`);
-      // Padding 14 nos dois lados, linha de status 24, visor mínimo 72 e o teclado (5 linhas).
-      assert.ok(2 * 14 + 24 + 72 + keypadHeight <= height, `${width}x${height}: teclado não cabe na altura`);
+      // Padding 14 nos dois lados, linha de status 24, visor mínimo 72 e o painel.
+      assert.ok(2 * 14 + 24 + 72 + panel <= height, `${width}x${height}: painel não cabe na altura`);
     }
+  });
+
+  test("na paisagem 844x390 (acima de 767px, sem o bloco mobile), o botão é o --cell de :root (44px) e o painel tem no máximo 390px", () => {
+    // Em 844px de largura o bloco @media (max-width: 767px) não vale: o --cell é o de :root, 2.75rem.
+    const cell = 2.75 * 16;
+    const panel = Math.max(panelHeight(cell, 7), panelHeight(cell, 5));
+    assert.ok(cell >= 44, `844x390: botão de ${cell}px`);
+    assert.ok(panel <= 390, `844x390: painel de ${panel}px`);
+    assert.match(CSS_SOURCE, /:root\s*\{[^}]*--cell:\s*2\.75rem;[^}]*\}/);
   });
 
   test("o botão Histórico aparece só no mobile: escondido na base e visível no bloco mobile", () => {

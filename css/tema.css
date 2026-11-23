@@ -85,8 +85,8 @@ body {
 /*
  * Mobile (até 767px). Fica no fim deste arquivo para vencer as regras base de mesma especificidade.
  * A calculadora ocupa a viewport inteira. Cada botão é um quadrado de lado --cell, que é o menor entre:
- * a largura (7 colunas, com 6 espaços entre elas) e a altura (5 linhas, com o visor com pelo menos --display-min
- * e a linha de status acima dele). Assim os botões não distorcem, ficam com pelo menos 44px em 360px de largura,
+ * a largura (7 colunas, com 6 espaços entre elas) e a altura (7 linhas da grade científica, a coluna mais alta do painel,
+ * com o visor com pelo menos --display-min e a linha de status acima dele). Assim os botões não distorcem, ficam com pelo menos 44px em 360px de largura,
  * e o visor recebe o que sobra.
  */
 @media (max-width: 767px) {
@@ -103,10 +103,11 @@ body {
   .calculator {
     --display-min: 4.5rem;
     --status-height: 1.5rem;
-    /* Largura: 7 colunas e 6 espaços. Altura: 5 linhas, 4 espaços, visor mínimo e status. */
+    /* Largura: 7 colunas e 6 espaços. Altura: a grade científica tem 7 linhas e 6 espaços (é a coluna mais alta
+     * do painel; o teclado de 5 linhas cabe nela), somados ao visor mínimo e à linha de status. */
     --cell: min(
       calc((100vw - 2 * var(--pad) - 6 * var(--gap)) / 7),
-      calc((100dvh - 2 * var(--pad) - 4 * var(--gap) - var(--display-min) - var(--status-height)) / 5)
+      calc((100dvh - 2 * var(--pad) - 6 * var(--gap) - var(--display-min) - var(--status-height)) / 7)
     );
     position: relative;
     display: flex;
