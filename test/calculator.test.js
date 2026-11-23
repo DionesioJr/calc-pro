@@ -118,9 +118,10 @@ describe("CALC-65: ⌫ apaga o último dígito e não mexe em resultado nem em e
     assert.equal(result.state.error, true);
   });
 
-  test("⌫ sobre notação científica não muda o resultado: 20 x! e depois ⌫ mantém 2.4329020081766E+18", () => {
+  test("⌫ sobre o Erro de x! não muda nada: 20 x! e depois ⌫ mantém Erro", () => {
     const result = run(initialState(), [{ value: "2" }, { value: "0" }, { action: "factorial" }, { action: "backspace" }]);
-    assert.equal(result.state.current, "2.4329020081766E+18");
+    assert.equal(result.state.current, "Erro");
+    assert.equal(result.state.error, true);
   });
 
   test("⌫ sobre o valor de um grupo fechado não muda o valor: (2 + 3) e depois ⌫ mantém 5", () => {
@@ -496,6 +497,76 @@ describe("CALC-70: sen⁻¹, cos⁻¹ e tan⁻¹ (asen, acos, atan) respeitam DE
     const depois = run(erro.state, [{ action: "secondary" }, { action: "cos" }]);
     assert.equal(depois.state.current, "Erro");
     assert.deepEqual(depois.history, []);
+  });
+});
+
+// CALC-3: regra única de limite. Resultado com valor absoluto acima de 2^53 mostra Erro em todas as funções (x! não vai mais para notação científica).
+// O próprio 2^53 ainda é aceito. Entrada com EXP fora da faixa do visor é só texto (ver "CALC-68"); o que é checado é o resultado.
+describe("CALC-3: o limite de 2^53 é o mesmo em todas as funções", () => {
+  const keysOf = (text) => [...text].map((value) => ({ value }));
+  const SECOND = { action: "secondary" };
+  const EXP = { action: "exp" };
+  const TOGGLE = { action: "toggle-sign" };
+  const EQUALS = { action: "equals" };
+
+  test("xʸ: 2 xʸ 53 = 9007199254740992 (exatamente 2^53 é aceito) e 2 xʸ 54 mostra Erro", () => {
+    const ok = run(initialState(), [...keysOf("2"), { action: "power" }, ...keysOf("53"), EQUALS]);
+    assert.equal(ok.state.current, "9007199254740992");
+    assert.equal(ok.state.error, false);
+    const erro = run(initialState(), [...keysOf("2"), { action: "power" }, ...keysOf("54"), EQUALS]);
+    assert.equal(erro.state.current, "Erro");
+    assert.deepEqual(erro.history, []);
+  });
+
+  test("x²: 94906265 x² = 9007199136250225 é aceito; 94906266 x² mostra Erro; 1 EXP 16 x² (1e32) também", () => {
+    assert.equal(run(showResult(initialState(), "94906265"), [{ action: "square" }]).state.current, "9007199136250225");
+    assert.equal(run(showResult(initialState(), "94906266"), [{ action: "square" }]).state.current, "Erro");
+    assert.equal(run(initialState(), [...keysOf("1"), EXP, ...keysOf("16"), { action: "square" }]).state.current, "Erro");
+  });
+
+  test("x³: 200000 x³ = 8000000000000000 é aceito; 210000 x³ (9.261e15) mostra Erro", () => {
+    assert.equal(run(showResult(initialState(), "200000"), [SECOND, { action: "sqrt" }]).state.current, "8000000000000000");
+    assert.equal(run(showResult(initialState(), "210000"), [SECOND, { action: "sqrt" }]).state.current, "Erro");
+  });
+
+  test("10ˣ: 10 elevado a 15 = 1000000000000000 é aceito; 10 elevado a 16 (1e16) mostra Erro", () => {
+    assert.equal(run(showResult(initialState(), "15"), [SECOND, { action: "log" }]).state.current, "1000000000000000");
+    assert.equal(run(showResult(initialState(), "16"), [SECOND, { action: "log" }]).state.current, "Erro");
+  });
+
+  test("eˣ: e elevado a 36 (≈ 4.3e15) continua aceito; e elevado a 37 (≈ 1.2e16) mostra Erro", () => {
+    assert.equal(run(showResult(initialState(), "36"), [SECOND, { action: "ln" }]).state.error, false);
+    assert.equal(run(showResult(initialState(), "37"), [SECOND, { action: "ln" }]).state.current, "Erro");
+  });
+
+  test("1/x: 1 EXP 15 +/- (1e-15) não dá Erro; 1 EXP 16 +/- (1e-16) dá 1/x = 1e16 e mostra Erro", () => {
+    assert.equal(run(initialState(), [...keysOf("1"), EXP, ...keysOf("15"), TOGGLE, { action: "inverse" }]).state.error, false);
+    assert.equal(run(initialState(), [...keysOf("1"), EXP, ...keysOf("16"), TOGGLE, { action: "inverse" }]).state.current, "Erro");
+  });
+
+  test("%: 1 EXP 15 + 100 % (base 1e15, parcela 1e15) = 1000000000000000 é aceito; 1 EXP 15 + 10000 % (parcela 1e17) mostra Erro", () => {
+    const ok = run(initialState(), [...keysOf("1"), EXP, ...keysOf("15"), { action: "add" }, ...keysOf("100"), { action: "percent" }]);
+    assert.equal(ok.state.current, "1000000000000000");
+    const erro = run(initialState(), [...keysOf("1"), EXP, ...keysOf("15"), { action: "add" }, ...keysOf("10000"), { action: "percent" }]);
+    assert.equal(erro.state.current, "Erro");
+  });
+
+  test("√x: 1 EXP 14 (1e14) → raiz 10000000 é aceita; 1 EXP 300 → raiz 1e150 mostra Erro, mesmo sendo o caso de entrada grande", () => {
+    assert.equal(run(initialState(), [...keysOf("1"), EXP, ...keysOf("14"), { action: "sqrt" }]).state.current, "10000000");
+    assert.equal(run(initialState(), [...keysOf("1"), EXP, ...keysOf("300"), { action: "sqrt" }]).state.current, "Erro");
+  });
+
+  test("x!: 18 → 6402373705728000 é aceito; 19 → Erro (antes ia para notação científica)", () => {
+    assert.equal(run(showResult(initialState(), "18"), [{ action: "factorial" }]).state.current, "6402373705728000");
+    assert.equal(run(showResult(initialState(), "19"), [{ action: "factorial" }]).state.current, "Erro");
+  });
+
+  test("log, ln, sen e cos não têm como passar de 2^53, mesmo com 1 EXP 300: o resultado é pequeno e não dá Erro", () => {
+    for (const action of ["log", "ln", "sine", "cos"]) {
+      const result = run(initialState(), [...keysOf("1"), EXP, ...keysOf("300"), { action }]);
+      assert.equal(result.state.error, false, action);
+      assert.ok(Math.abs(Number(result.state.current)) <= 2 ** 53, action);
+    }
   });
 });
 

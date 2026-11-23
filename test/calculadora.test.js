@@ -20,7 +20,7 @@
 // e do botão MR (CALC-24: copia a memória para o visor como operando),
 // e do botão MC (CALC-25: zera a memória e o indicador), e do indicador M no display, no desktop e no mobile (CALC-66),
 // e do botão ln (CALC-35: logaritmo natural do visor, com Erro para valor menor ou igual a zero),
-// e do botão x! (CALC-39: fatorial do visor, com notação científica acima de 2^53 e Erro para negativo, decimal e overflow),
+// e do botão x! (CALC-39: fatorial do visor, com Erro acima de 2^53 (regra única do CALC-3), para negativo, decimal e overflow),
 // e do botão cos (CALC-32: cosseno do visor em graus, sem ruído de ponto flutuante).
 // e do botão √x (CALC-27: raiz quadrada do visor, com Erro para negativos),
 // e do valor completo de e em √x e cos (CALC-49),
@@ -4172,14 +4172,14 @@ describe("CALC-39: critérios de aceite do x! (fatorial)", () => {
     assert.equal(calc.press("2", ".", "5", "x!"), "Erro");
   });
 
-  test("20 x! mostra notação científica: 2.4329020081766E+18", () => {
+  test("20 x! passa de 2^53 e mostra Erro (não notação científica): 2, 0, x! resulta em Erro", () => {
     const calc = createCalculator({ storage: {} });
-    assert.equal(calc.press("2", "0", "x!"), "2.4329020081766E+18");
+    assert.equal(calc.press("2", "0", "x!"), "Erro");
   });
 
-  test("170 x! mostra um resultado válido em notação científica (≈ 7,257E+306)", () => {
+  test("170 x! passa de 2^53 e mostra Erro: 1, 7, 0, x! resulta em Erro", () => {
     const calc = createCalculator({ storage: {} });
-    assert.match(calc.press("1", "7", "0", "x!"), /^7\.2574156153\d*E\+306$/);
+    assert.equal(calc.press("1", "7", "0", "x!"), "Erro");
   });
 
   test("171 x! mostra Erro de overflow, e não Infinity nem NaN", () => {
@@ -4206,9 +4206,20 @@ describe("CALC-39: casos de borda do x!", () => {
     assert.equal(calc.press("1", "8", "x!"), "6402373705728000");
   });
 
-  test("19 x! passa de 2^53 e vai para notação científica: 1.2164510040883E+17", () => {
+  test("19 x! passa de 2^53 e mostra Erro: 1, 9, x! resulta em Erro", () => {
     const calc = createCalculator({ storage: {} });
-    assert.equal(calc.press("1", "9", "x!"), "1.2164510040883E+17");
+    assert.equal(calc.press("1", "9", "x!"), "Erro");
+  });
+
+  test("17 x! é exato e aparece por extenso: 355687428096000", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("1", "7", "x!"), "355687428096000");
+  });
+
+  test("18 x! é o último inteiro exato por extenso, no limite de 2^53: 6402373705728000 (19 x! é Erro)", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("1", "8", "x!"), "6402373705728000");
+    assert.equal(calc.press("×", "1", "9", "x!"), "Erro");
   });
 
   test("3 x! = 6 e 3 x! × 4 = resulta em 24", () => {
@@ -4242,20 +4253,20 @@ describe("CALC-39: casos de borda do x!", () => {
     assert.equal(calc.press("2", "+", "3", "=", "x!"), "120");
   });
 
-  test("dígito depois de notação científica começa um número novo: 20 x!, 5 resulta em 5", () => {
+  test("dígito depois do Erro de x! começa um número novo: 20 x!, 5 resulta em 5", () => {
     const calc = createCalculator({ storage: {} });
     assert.equal(calc.press("2", "0", "x!", "5"), "5");
   });
 
-  test("ponto depois de notação científica começa um número novo: 20 x!, ponto resulta em 0.", () => {
+  test("ponto depois do Erro de x! começa um número novo: 20 x!, ponto resulta em 0.", () => {
     const calc = createCalculator({ storage: {} });
     assert.equal(calc.press("2", "0", "x!", "."), "0.");
   });
 
-  test("Backspace sobre notação científica não altera o resultado (CALC-65): 20 x!, Backspace mantém 2.4329020081766E+18", () => {
+  test("Backspace sobre o Erro de x! não faz nada (CALC-65): 20 x!, Backspace mantém Erro", () => {
     const calc = createCalculator({ storage: {} });
     calc.press("2", "0", "x!");
-    assert.equal(calc.type("Backspace"), "2.4329020081766E+18");
+    assert.equal(calc.type("Backspace"), "Erro");
   });
 
   test("x! grava a própria linha no histórico (CALC-43): 5 x! grava 5! = 120", () => {
@@ -4708,10 +4719,10 @@ describe("CALC-43: casos de borda do histórico das funções avançadas", () =>
     assert.deepEqual(calc.historyItems(), ["3² = 9"]);
   });
 
-  test("x! acima de 2^53 grava o resultado em notação científica, como o visor: 2 0 x! grava 20! = 2.4329020081766E+18", () => {
+  test("x! acima de 2^53 mostra Erro e não grava histórico: 2 0 x! resulta em Erro e o histórico fica vazio", () => {
     const calc = createCalculator({ storage: {} });
-    assert.equal(calc.press("2", "0", "x!"), "2.4329020081766E+18");
-    assert.deepEqual(calc.historyItems(), ["20! = 2.4329020081766E+18"]);
+    assert.equal(calc.press("2", "0", "x!"), "Erro");
+    assert.deepEqual(calc.historyItems(), []);
   });
 
   test("função que dá Erro não grava: √ de negativo, tan de 90°, x! de 171 e 1/x de zero não entram no histórico", () => {
@@ -5052,11 +5063,11 @@ describe("CALC-72: casos de borda de copiar e colar o visor", () => {
     assert.equal(calc.press("="), "5");
   });
 
-  test("resultado em notação científica é copiado como exibido, mas não volta a ser colado (texto inválido): 20! copia 2.4329020081766E+18", () => {
+  test("número em notação científica (EXP) é copiado como exibido, mas não volta a ser colado (texto inválido): 1 E 16 copia 1E+16", () => {
     const calc = createCalculator();
-    calc.press("2", "0", "x!");
-    assert.equal(calc.copy(), "2.4329020081766E+18");
-    assert.equal(createCalculator().paste("2.4329020081766E+18").display, "0");
+    calc.type("1", "E", "1", "6");
+    assert.equal(calc.copy(), "1E+16");
+    assert.equal(createCalculator().paste("1E+16").display, "0");
   });
 
   test("colar não grava nada no armazenamento: colar 9 não cria as preferências", () => {

@@ -758,14 +758,14 @@ function inverse(s) {
 }
 
 // √x: troca o número exibido pela raiz quadrada dele, com a mesma regra de segundo operando do %, do x², do sen, do π e do 1/x.
-// Negativo não tem raiz real: mostra Erro. Com Erro no visor não calcula e mantém o Erro.
-// A raiz de um número até 2^53 fica até ~9.5e7, então não há limite de 2^53 a checar.
+// Negativo não tem raiz real: mostra Erro. Raiz acima de 2^53 em valor absoluto (só com número acima de 2^106, ex.: 1 EXP 300) também mostra Erro.
+// Com Erro no visor não calcula e mantém o Erro.
 function squareRoot(s) {
   if (s.error) {
     return;
   }
   const value = operandValue(s);
-  if (value < 0) {
+  if (value < 0 || Math.sqrt(value) > MAX_RESULT) {
     setError(s);
     return;
   }
@@ -776,8 +776,8 @@ function squareRoot(s) {
 }
 
 // x!: fatorial do número exibido, só para inteiros não negativos (0! = 1). Negativo e decimal mostram Erro.
-// Até 2^53 o resultado é inteiro exato e aparece por extenso; acima disso vai para notação científica (20! → 2.4329020081766E+18).
-// Acima de 170! o resultado passa do maior double (Infinity) e mostra Erro de overflow. Com Erro no visor não calcula.
+// Resultado acima de 2^53 em valor absoluto mostra Erro, como as outras funções (19! já é Erro; 18! = 6402373705728000 ainda aparece).
+// Acima de 170! o resultado passa do maior double (Infinity), que também é Erro. Com Erro no visor não calcula.
 function factorial(s) {
   if (s.error) {
     return;
@@ -792,24 +792,24 @@ function factorial(s) {
   for (let i = 2; i <= n && Number.isFinite(result); i++) {
     result *= i;
   }
-  if (!Number.isFinite(result)) {
+  if (!Number.isFinite(result) || Math.abs(result) > MAX_RESULT) {
     setError(s);
     return;
   }
   const expression = `${s.current}!`;
-  s.current = Math.abs(result) > MAX_RESULT ? toScientific(result) : formatResult(result);
+  s.current = formatResult(result);
   s.typing = 0;
   s.waitingForOperand = false;
   recordFunction(s, expression);
 }
 
-// Notação científica com 14 algarismos significativos, sem zeros à direita na mantissa (2432902008176640000 → 2.4329020081766E+18).
+// Notação científica com 14 algarismos significativos, sem zeros à direita na mantissa (1e20 → 1E+20). Só a entrada com EXP usa (ver entryText); resultados não.
 function toScientific(value) {
   const [mantissa, exponent] = value.toExponential(13).split("e");
   return `${mantissa.replace(/\.?0+$/, "")}E${exponent}`;
 }
 
-// Resultado (ou número de EXP) em notação científica não é um número em edição: o próximo dígito ou ponto começa um número novo.
+// Número de EXP em notação científica (ex.: 1E+20) não é um número em edição: o próximo dígito ou ponto começa um número novo.
 function isScientific(text) {
   return /E[+-]\d+$/.test(text);
 }
@@ -825,7 +825,7 @@ function entryText(value) {
 }
 
 // EXP (×10ˣ): abre o expoente do número em edição (1,5 EXP 3 → 1500). Sem número digitado antes, o toque é ignorado:
-// visor 0, depois de operador ou igual, com Erro, com grupo fechado ou com resultado em notação científica.
+// visor 0, depois de operador ou igual, com Erro, com grupo fechado ou com número já em notação científica.
 // Com o expoente já aberto, outro EXP também é ignorado.
 function startExponent(s) {
   if (s.exponent !== null || s.waitingForOperand || s.valueIsGroup || s.current === "0" || isScientific(s.current)) {
@@ -1005,7 +1005,7 @@ function toggleSecondary(s) {
 }
 
 // ⌫ (botão e Backspace): apaga o último caractere do número em edição. Devolve o estado novo (quem chama copia para o estado em curso).
-// Erro não muda (a mensagem fica), e nada mexe em resultado de função, MR, Ans, grupo fechado, notação científica ou no operador pendente:
+// Erro não muda (a mensagem fica), e nada mexe em resultado de função, MR, Ans, grupo fechado, número em notação científica ou no operador pendente:
 // só age sobre os caracteres editáveis no fim do visor (s.typing > 0), ou sobre o expoente de um EXP em digitação.
 function deleteDigit(state) {
   const s = cloneState(state);
