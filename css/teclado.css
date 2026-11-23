@@ -14,7 +14,7 @@
   gap: var(--gap);
 }
 
-/* Teclado básico: 4 colunas. O 0 ocupa duas (ver .btn-zero). */
+/* Teclado numérico: grade 4x5 (4 colunas e 5 linhas), uma coluna por tecla. */
 .keypad {
   display: grid;
   grid-template-columns: repeat(4, var(--cell));
@@ -28,6 +28,7 @@
   height: 100%;
   border: 0;
   border-radius: 999px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.45);
   background: #333333;
   color: #ffffff;
   font: inherit;
@@ -487,32 +488,6 @@
   outline-offset: 2px;
 }
 
-/* Botões ( e ): pílula cinza, como as demais teclas de função. */
-.paren-add {
-  padding: 0.4rem 0.9rem;
-  border: 1px solid #a5a5a5;
-  border-radius: 999px;
-  background: transparent;
-  color: #a5a5a5;
-  font: inherit;
-  font-size: 0.875rem;
-  cursor: pointer;
-}
-
-.paren-add:hover {
-  border-color: #ffffff;
-  color: #ffffff;
-}
-
-.paren-add:active {
-  filter: brightness(0.8);
-}
-
-.paren-add:focus-visible {
-  outline: 3px solid #ffffff;
-  outline-offset: 2px;
-}
-
 .scientific > button:focus-visible {
   outline: 3px solid #ffffff;
   outline-offset: 2px;
@@ -567,22 +542,17 @@
   color: #ffffff;
 }
 
+/* Tecla circular: quadrado de lado --cell com raio de 999px, e sombra suave. Todas as teclas do teclado ocupam uma coluna. */
 .btn {
   width: 100%;
   height: 100%;
   border: 0;
   border-radius: 999px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.45);
   font: inherit;
   font-size: min(2rem, calc(var(--cell) * 0.5));
   line-height: 1;
   cursor: pointer;
-}
-
-.btn-zero {
-  grid-column: span 2;
-  padding-left: 1.5rem;
-  text-align: left;
-  border-radius: 999px;
 }
 
 .btn-digit {

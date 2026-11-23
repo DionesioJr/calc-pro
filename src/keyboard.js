@@ -6,7 +6,7 @@
 // Ex.: m e M somam à memória; ( e ) abrem e fecham parênteses (Shift + 9 e Shift + 0 no teclado).
 const ACTION_BY_KEY = new Map(ACTIONS.flatMap((action) => (action.keys ?? []).map((key) => [key, action])));
 
-// Ids dos botões fora do teclado numérico que têm tecla (M+, MR, MC, M-, π, x!, xʸ, ( e )): o destaque de tecla pressionada usa esta lista.
+// Ids dos botões fora do teclado numérico que têm tecla (M+, MR, MC, M-, π, x!, xʸ, EXP, ⌫): o destaque de tecla pressionada usa esta lista. ( e ) não entram: o botão ( ) está no teclado numérico e não tem id.
 const KEY_BUTTON_IDS = ACTIONS.filter((action) => action.keys && action.buttonId).map((action) => action.buttonId);
 
 // Botões que recebem as mesmas teclas além do teclado numérico: o destaque e o efeito de tecla pressionada usam esta lista.

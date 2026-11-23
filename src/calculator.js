@@ -326,26 +326,15 @@ const ACTIONS = [
     type: "control",
     label: "⌫",
     keys: ["Backspace"],
+    buttonId: "backspace-button",
     // deleteDigit devolve um estado novo; applyButton não usa o retorno, então o resultado é copiado para s.
     apply: (s) => Object.assign(s, deleteDigit(s)),
   },
   { id: "equals", type: "control", label: "=", keys: ["=", "Enter"], apply: inputEquals },
-  {
-    id: "open-paren",
-    type: "control",
-    label: "(",
-    keys: ["("],
-    buttonId: "open-paren-button",
-    apply: inputOpenParen,
-  },
-  {
-    id: "close-paren",
-    type: "control",
-    label: ")",
-    keys: [")"],
-    buttonId: "close-paren-button",
-    apply: inputCloseParen,
-  },
+  // "(" e ")" são teclas do teclado físico; o botão da tela é o ( ), que alterna entre abrir e fechar (sem buttonId: está no teclado numérico).
+  { id: "open-paren", type: "control", label: "(", keys: ["("], apply: inputOpenParen },
+  { id: "close-paren", type: "control", label: ")", keys: [")"], apply: inputCloseParen },
+  { id: "paren-toggle", type: "control", label: "( )", apply: toggleParen },
 ];
 
 // Ação pelo id (data-value ou data-action), para o motor achar a entrada de um botão.
@@ -1183,6 +1172,15 @@ function inputCloseParen(s) {
     return;
   }
   closeGroup(s);
+}
+
+// Botão ( ): fecha o grupo mais interno se há um número no fim dele; nos outros casos abre um grupo novo (como "(").
+function toggleParen(s) {
+  if (!s.error && openDepth(s) > 0 && !s.waitingForOperand) {
+    inputCloseParen(s);
+  } else {
+    inputOpenParen(s);
+  }
 }
 
 // Fecha o grupo mais interno: o número em curso (se ainda não estiver na sequência) entra no grupo, que é calculado sozinho

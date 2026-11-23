@@ -507,10 +507,16 @@ describe("CALC-53: o registro de ações é a única fonte de botões e teclas",
     assert.equal(new Set(keys).size, keys.length);
   });
 
-  test("os data-action e data-value do HTML final são exatamente os ids do registro", () => {
+  test("os data-action e data-value do HTML final são exatamente os ids do registro, menos as teclas ( e ) que não têm botão", () => {
+    // ( e ) são ações só de tecla do teclado físico: o botão na tela é o ( ), paren-toggle (CALC-24).
+    const KEY_ONLY = ["open-paren", "close-paren"];
     const htmlIds = [...INDEX_HTML.matchAll(/data-(?:action|value)="([^"]+)"/g)].map((match) => match[1]);
-    const registryIds = ACTIONS.map((action) => action.id);
+    const registryIds = ACTIONS.map((action) => action.id).filter((id) => !KEY_ONLY.includes(id));
     assert.deepEqual([...new Set(htmlIds)].sort(), [...registryIds].sort());
+    for (const id of KEY_ONLY) {
+      assert.ok(ACTIONS.find((action) => action.id === id).keys?.length > 0, `${id} deve ter tecla`);
+      assert.ok(!htmlIds.includes(id), `${id} não deve ter botão no HTML`);
+    }
   });
 
   test("cada buttonId é um botão de index.html com o data-action da própria entrada", () => {
@@ -1001,5 +1007,64 @@ describe("CALC-71: 10ˣ, eˣ, x³ e ʸ√x como funções secundárias", () => {
     ]);
     assert.equal(result.state.current, "4");
     assert.deepEqual(result.history, ["(3 ʸ√x 27) + 1 = 4"]);
+  });
+});
+
+describe("CALC-24: o botão ( ) abre ou fecha parêntese conforme o estado", () => {
+  test("( ) abre um grupo e, com número no fim dele, fecha: ( ) 2 + 3 ( ) = resulta em 5", () => {
+    const result = run(initialState(), [
+      { action: "paren-toggle" },
+      { value: "2" },
+      { action: "add" },
+      { value: "3" },
+      { action: "paren-toggle" },
+      { action: "equals" },
+    ]);
+    assert.equal(result.state.current, "5");
+  });
+
+  test("( ) logo depois de ( abre outro grupo, em vez de fechar: ( ) ( ) deixa dois grupos abertos", () => {
+    const result = run(initialState(), [{ action: "paren-toggle" }, { action: "paren-toggle" }]);
+    assert.deepEqual(result.state.terms, ["(", "("]);
+  });
+
+  test("( ) depois de um número, com grupo aberto, fecha só o grupo mais interno: ( ( 2 ( ) deixa um grupo aberto", () => {
+    const result = run(initialState(), [
+      { action: "paren-toggle" },
+      { action: "paren-toggle" },
+      { value: "2" },
+      { action: "paren-toggle" },
+    ]);
+    assert.deepEqual(result.state.terms, ["("]);
+    assert.equal(result.state.current, "2");
+  });
+
+  test("( ) depois de um número, sem grupo aberto, multiplica: 2 ( ) 3 ( ) = resulta em 6", () => {
+    const result = run(initialState(), [
+      { value: "2" },
+      { action: "paren-toggle" },
+      { value: "3" },
+      { action: "paren-toggle" },
+      { action: "equals" },
+    ]);
+    assert.equal(result.state.current, "6");
+  });
+
+  test("( ) depois de erro abre um grupo novo: 2 ÷ 0 = e depois ( ) limpa o erro e abre o grupo", () => {
+    const failed = run(initialState(), [{ value: "2" }, { action: "divide" }, { value: "0" }, { action: "equals" }]);
+    assert.equal(failed.state.error, true);
+    const result = run(failed.state, [{ action: "paren-toggle" }]);
+    assert.equal(result.state.error, false);
+    assert.deepEqual(result.state.terms, ["("]);
+    assert.equal(result.state.current, "0");
+  });
+
+  test("( ) é só ação de botão: ( e ) continuam como teclas próprias, sem botão na tela", () => {
+    const toggle = ACTIONS.find((action) => action.id === "paren-toggle");
+    const open = ACTIONS.find((action) => action.id === "open-paren");
+    assert.equal(toggle.buttonId, undefined);
+    assert.equal(toggle.keys, undefined);
+    assert.deepEqual(open.keys, ["("]);
+    assert.equal(open.buttonId, undefined);
   });
 });

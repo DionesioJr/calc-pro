@@ -362,6 +362,11 @@ function createCalculator({ storage = {} } = {}) {
         angleUnitElement.dispatch("click");
         continue;
       }
+      // ( e ) não são botões da tela (o botão é o ( ), paren-toggle): entram pela tecla física, como no teclado do usuário.
+      if (key === "(" || key === ")") {
+        keyDown(key);
+        continue;
+      }
       if (key === "e") {
         eElement.dispatch("click");
         continue;
@@ -420,14 +425,6 @@ function createCalculator({ storage = {} } = {}) {
       }
       if (key === "tan") {
         tangentElement.dispatch("click");
-        continue;
-      }
-      if (key === "(") {
-        openParenElement.dispatch("click");
-        continue;
-      }
-      if (key === ")") {
-        closeParenElement.dispatch("click");
         continue;
       }
       if (key === "xʸ") {
@@ -1985,13 +1982,18 @@ describe("CALC-21: critérios de aceite do layout mobile", () => {
     assert.match(MOBILE_CSS, /\.calculator\s*\{[^}]*width:\s*100%;[^}]*height:\s*100%;[^}]*border-radius:\s*0;[^}]*\}/);
   });
 
-  test("botões são quadrados do mesmo lado (--cell), a grade científica e o teclado usam o mesmo lado, e o 0 ocupa duas colunas", () => {
+  test("botões são quadrados do mesmo lado (--cell), a grade científica e o teclado usam o mesmo lado, e o 0 ocupa uma coluna (CALC-24)", () => {
     assert.match(MOBILE_CSS, /\.calculator\s*\{[^}]*--cell:\s*min\(/);
     assert.match(CSS_SOURCE, /\.keypad\s*\{[^}]*grid-template-columns:\s*repeat\(4,\s*var\(--cell\)\);[^}]*\}/);
     assert.match(CSS_SOURCE, /\.keypad\s*\{[^}]*grid-auto-rows:\s*var\(--cell\);[^}]*\}/);
     assert.match(CSS_SOURCE, /\.scientific\s*\{[^}]*grid-template-columns:\s*repeat\(3,\s*var\(--cell\)\);[^}]*\}/);
     assert.match(CSS_SOURCE, /\.scientific\s*\{[^}]*grid-auto-rows:\s*var\(--cell\);[^}]*\}/);
-    assert.match(CSS_SOURCE, /\.btn-zero\s*\{[^}]*grid-column:\s*span 2;[^}]*\}/);
+    assert.doesNotMatch(CSS_SOURCE, /\.btn-zero\b/);
+  });
+
+  test("as teclas são circulares (raio de 999px) e têm sombra suave, no teclado e na linha de funções (CALC-24)", () => {
+    assert.match(CSS_SOURCE, /\.btn\s*\{[^}]*border-radius:\s*999px;[^}]*box-shadow:[^}]*\}/);
+    assert.match(CSS_SOURCE, /\.scientific > button\s*\{[^}]*border-radius:\s*999px;[^}]*box-shadow:[^}]*\}/);
   });
 
   test("em 360x640, 390x844, 414x896 e na paisagem 844x390, o teclado cabe na tela e os botões têm pelo menos 44px", () => {
@@ -4114,21 +4116,19 @@ describe("CALC-30: teclado e indicador de parênteses abertos", () => {
   });
 });
 
-describe("CALC-30: estrutura e foco dos botões ( e )", () => {
-  test("index.html tem os botões ( e ) na linha da memória, fora do teclado, com rótulo que traz o símbolo", () => {
+describe("CALC-24: estrutura e foco do botão ( )", () => {
+  test("o teclado numérico tem um só botão ( ), na primeira linha, que alterna abrir e fechar, com rótulo que traz o símbolo", () => {
     assert.match(
       HTML_SOURCE,
-      /<button type="button" id="open-paren-button" class="paren-add" data-action="open-paren" aria-label="Abrir parêntese \(">\(<\/button>/,
+      /<button type="button" class="btn btn-function" data-action="paren-toggle" aria-label="Parênteses: abrir ou fechar \( \)">\( \)<\/button>/,
     );
-    assert.match(
-      HTML_SOURCE,
-      /<button type="button" id="close-paren-button" class="paren-add" data-action="close-paren" aria-label="Fechar parêntese \)">\)<\/button>/,
-    );
+    assert.doesNotMatch(HTML_SOURCE, /data-action="(open|close)-paren"/);
   });
 
-  test("os botões ( e ) têm o mesmo estilo de pílula cinza e foco visível com contorno branco", () => {
-    assert.match(CSS_SOURCE, /\.paren-add\s*\{[^}]*border-radius:\s*999px;[^}]*color:\s*#a5a5a5;[^}]*\}/);
-    assert.match(CSS_SOURCE, /\.paren-add:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
+  test("o botão ( ) usa o estilo de tecla de função do teclado, circular, com foco visível em contorno branco", () => {
+    assert.match(CSS_SOURCE, /\.btn-function\s*\{[^}]*background:\s*#a5a5a5;[^}]*\}/);
+    assert.match(CSS_SOURCE, /\.btn:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
+    assert.doesNotMatch(CSS_SOURCE, /\.paren-add\b/);
   });
 
   test("o indicador de parênteses tem os símbolos escondidos do leitor de tela e o texto só para ele", () => {
