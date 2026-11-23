@@ -122,8 +122,23 @@
   display: none;
 }
 
-/* Ação secundária: contorno cinza, sem preenchimento, menor que os botões da calculadora. */
-.history-clear,
+/* Limpar é ação destrutiva: contorno e texto na cor de ação destrutiva do tema (tema.css), sem preenchimento. */
+.history-clear {
+  padding: 0.4rem 0.9rem;
+  border: 1px solid var(--cor-destrutiva);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--cor-destrutiva);
+  font: inherit;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.history-clear:hover {
+  filter: brightness(1.2);
+}
+
+/* Cancelar é ação secundária: contorno cinza, sem preenchimento, menor que os botões da calculadora. */
 .history-cancel {
   padding: 0.4rem 0.9rem;
   border: 1px solid #a5a5a5;
@@ -135,7 +150,6 @@
   cursor: pointer;
 }
 
-.history-clear:hover,
 .history-cancel:hover {
   border-color: #ffffff;
   color: #ffffff;

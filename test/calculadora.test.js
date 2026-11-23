@@ -1951,13 +1951,34 @@ describe("CALC-20: estilo e estrutura do histórico reformulado", () => {
     assert.match(CSS_SOURCE, /\.history-result\s*\{[^}]*font-weight:\s*600;[^}]*\}/);
   });
 
-  test("o botão Limpar tem visual secundário: fundo transparente, contorno e texto cinza, sem o laranja dos operadores", () => {
-    assert.match(CSS_SOURCE, /\.history-clear,\s*\.history-cancel\s*\{[^}]*background:\s*transparent;[^}]*color:\s*#a5a5a5;[^}]*\}/);
-    assert.doesNotMatch(CSS_SOURCE, /\.history-clear\s*\{[^}]*#ff9f0a/);
+  test("o botão Cancelar segue com visual secundário: fundo transparente, contorno e texto cinza, sem o laranja dos operadores", () => {
+    assert.match(CSS_SOURCE, /\.history-cancel\s*\{[^}]*background:\s*transparent;[^}]*color:\s*#a5a5a5;[^}]*\}/);
+    assert.doesNotMatch(CSS_SOURCE, /\.history-cancel\s*\{[^}]*#ff9f0a/);
   });
 
   test("a regra [hidden] vence o display flex do painel de ações e da confirmação", () => {
     assert.match(CSS_SOURCE, /\.history-actions\[hidden\],\s*\.history-confirm\[hidden\]\s*\{\s*display:\s*none;\s*\}/);
+  });
+});
+
+describe("CALC-13: Limpar histórico com a cor de ação destrutiva do tema", () => {
+  // Luminância relativa (WCAG) de um #rrggbb.
+  const luminancia = (hex) => {
+    const [r, g, b] = [1, 3, 5].map((i) => {
+      const c = parseInt(hex.slice(i, i + 2), 16) / 255;
+      return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+    });
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  };
+
+  test("o tema define a cor de ação destrutiva e o botão Limpar usa essa variável no contorno e no texto", () => {
+    assert.match(CSS_SOURCE, /:root\s*\{[^}]*--cor-destrutiva:\s*#ff453a;[^}]*\}/);
+    assert.match(CSS_SOURCE, /\.history-clear\s*\{[^}]*border:\s*1px solid var\(--cor-destrutiva\);[^}]*color:\s*var\(--cor-destrutiva\);[^}]*\}/);
+  });
+
+  test("a cor destrutiva tem contraste de pelo menos 4,5:1 sobre o preto do painel (texto normal)", () => {
+    const contraste = (luminancia("ff453a") + 0.05) / (luminancia("000000") + 0.05);
+    assert.ok(contraste >= 4.5, `contraste ${contraste.toFixed(2)} abaixo de 4,5:1`);
   });
 });
 
