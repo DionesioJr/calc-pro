@@ -1215,12 +1215,18 @@ function dropDanglingOperator(s) {
   }
   s.terms.pop();
   s.expression.pop();
-  // O termo guarda o número fechado (texto do visor ou valor completo de e); o visor mostra o texto de sempre, sem reformatar notação científica.
-  const value = Number(s.terms.pop());
-  setCurrent(s, entryText(value));
-  // Se o visor arredondou a constante, o valor completo volta em exact, para as próximas contas.
-  if (Number(s.current) !== value) {
-    s.exact = value;
+  // O termo guarda o número fechado: o texto do visor (digitado ou em notação científica) ou o valor completo de uma constante.
+  const term = s.terms.pop();
+  if (isScientific(term) || (!term.includes("e") && countDigits(term) <= MAX_DIGITS)) {
+    // Texto que o visor mostra volta como estava: 0.50 continua 0.50, 1E-7 continua 1E-7.
+    setCurrent(s, term);
+  } else {
+    // Valor completo de constante (ex.: String(Math.E), com mais algarismos que o visor): o visor mostra o arredondado, e exact guarda o valor inteiro.
+    const value = Number(term);
+    setCurrent(s, entryText(value));
+    if (Number(s.current) !== value) {
+      s.exact = value;
+    }
   }
   if (s.expression[s.expression.length - 1] === ")") {
     // O número era o valor de um grupo fechado: o texto do grupo continua na expressão.

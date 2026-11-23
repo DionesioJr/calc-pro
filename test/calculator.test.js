@@ -1069,6 +1069,40 @@ describe("CALC-1: closeGroup, dropDanglingOperator e x! passam por setCurrent e 
     assert.equal(result.state.error, false);
   });
 
+  test("dropDanglingOperator mantém o texto digitado: (0.50 + = usa 0.50 no histórico, não 0.5 reformatado", () => {
+    const result = run(initialState(), [
+      { action: "open-paren" },
+      { value: "0" },
+      { value: "." },
+      { value: "5" },
+      { value: "0" },
+      { action: "add" },
+      EQ,
+    ]);
+    assert.equal(result.state.current, "0.5");
+    assert.equal(result.state.error, false);
+    assert.deepEqual(result.history, ["(0.50) = 0.5"]);
+  });
+
+  test("dropDanglingOperator mantém o texto digitado em notação pequena: (0.0000005 + = usa 0.0000005 no histórico, não 5E-7 reformatado", () => {
+    const result = run(initialState(), [
+      { action: "open-paren" },
+      { value: "0" },
+      { value: "." },
+      { value: "0" },
+      { value: "0" },
+      { value: "0" },
+      { value: "0" },
+      { value: "0" },
+      { value: "0" },
+      { value: "5" },
+      { action: "add" },
+      EQ,
+    ]);
+    assert.equal(result.state.current, "5E-7");
+    assert.deepEqual(result.history, ["(0.0000005) = 5E-7"]);
+  });
+
   test("dropDanglingOperator mantém notação científica grande: (20! + = mostra 2.4329020081766E+18 em maiúscula", () => {
     const result = run(initialState(), [
       { action: "open-paren" },
