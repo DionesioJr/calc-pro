@@ -12,6 +12,9 @@ const DISPLAY_SIZES = [
 const BINARY_ACTION_IDS = new Set(ACTIONS.filter((action) => action.type === "binary").map((action) => action.id));
 
 let display = null;
+// Linha da expressão em andamento, acima do visor (CALC-23), e o documento dela, para criar os spans dos operadores.
+let expressionElement = null;
+let expressionDocument = null;
 let calculatorElement = null;
 let historyOpen = null;
 let historyPanel = null;
@@ -35,6 +38,8 @@ let operatorButtons = [];
 // Liga a interface ao documento: visor, indicadores, botões de operador e o painel do histórico (abrir, fechar, desktop).
 function bindUi(doc, win) {
   display = doc.getElementById("display");
+  expressionElement = doc.getElementById("expression");
+  expressionDocument = doc;
   calculatorElement = doc.getElementById("calculator");
   historyOpen = doc.getElementById("history-open");
   historyPanel = doc.getElementById("history-panel");
@@ -85,19 +90,70 @@ function bindUi(doc, win) {
   }
 }
 
-// Classe de tamanho de fonte do visor, pelo número de caracteres do texto.
+// Classe de tamanho de fonte do visor, pelo número de caracteres do texto (o valor cru, sem separadores).
 function displaySizeClass(text) {
   return DISPLAY_SIZES.find((size) => text.length <= size.maxLength).className;
+}
+
+// Número puro do visor: sinal opcional, parte inteira e parte decimal (que pode estar sendo digitada, ex.: "1234.").
+const PLAIN_NUMBER = /^(-?)(\d+)(\.\d*)?$/;
+
+// Texto do visor com separador de milhar (CALC-23): 8065 vira 8,065. Só mexe em número puro; Erro e notação científica saem como estão.
+// O valor interno (state.current) não muda: cópia, histórico e contas usam o texto cru.
+function formatDisplay(text) {
+  const match = PLAIN_NUMBER.exec(text);
+  if (match === null) {
+    return text;
+  }
+  const [, sign, integer, fraction = ""] = match;
+  return sign + integer.replace(/\B(?=(\d{3})+(?!\d))/g, ",") + fraction;
+}
+
+// Símbolos dos operadores que a linha da expressão destaca (+, −, ×, ÷, xʸ e ʸ√x da 2nd do xʸ), tirados do registro ACTIONS: é o que o botão mostra.
+const OPERATOR_TEXTS = new Set(
+  ACTIONS.filter((action) => action.type === "binary").flatMap((action) =>
+    action.secondary === undefined ? [action.label] : [action.label, action.secondary.label],
+  ),
+);
+
+// Partes da expressão em andamento: a conta guardada (state.expression) e, se houver, o número que está sendo digitado.
+// Sem operador nem grupo pendente não há expressão (ex.: 16 e depois √x mostra só o resultado), e depois do igual a conta sai.
+function expressionParts(state) {
+  if (state.expression.length === 0) {
+    return [];
+  }
+  const parts = [...state.expression];
+  // O número em digitação entra na expressão; depois de operador, de "(" ou de grupo fechado, o visor já é o que falta.
+  if (!state.waitingForOperand && !state.valueIsGroup) {
+    parts.push(state.current);
+  }
+  return parts;
+}
+
+// Desenha a linha da expressão: cada parte vira um span, e os operadores ganham a classe de destaque (CSS).
+function renderExpression(state) {
+  const nodes = expressionParts(state).map((part) => {
+    const span = expressionDocument.createElement("span");
+    span.textContent = part;
+    if (OPERATOR_TEXTS.has(part)) {
+      span.className = "expression-operator";
+    }
+    return span;
+  });
+  expressionElement.replaceChildren(...nodes);
 }
 
 // Desenha o visor e os indicadores a partir do estado recebido (quem chama guarda o estado).
 function render(state) {
   if (display) {
-    display.textContent = state.current;
+    display.textContent = formatDisplay(state.current);
     for (const size of DISPLAY_SIZES) {
       display.classList.remove(size.className);
     }
     display.classList.add(displaySizeClass(state.current));
+  }
+  if (expressionElement) {
+    renderExpression(state);
   }
 
   // Operador destacado (aria-pressed="true", estilizado no CSS): só enquanto o segundo número não começou.

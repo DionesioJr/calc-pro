@@ -29,19 +29,6 @@ body {
   background: #000000;
 }
 
-/* Título mantido para leitores de tela; fora da área visível, como na referência iOS. */
-.calculator h1 {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  margin: -1px;
-  padding: 0;
-  overflow: hidden;
-  clip: rect(0 0 0 0);
-  white-space: nowrap;
-  border: 0;
-}
-
 /* Texto só para leitor de tela. */
 .sr-only {
   position: absolute;
@@ -85,9 +72,9 @@ body {
 /*
  * Mobile (até 767px). Fica no fim deste arquivo para vencer as regras base de mesma especificidade.
  * A calculadora ocupa a viewport inteira. Cada botão é um quadrado de lado --cell, que é o menor entre:
- * a largura (7 colunas, com 6 espaços entre elas) e a altura (5 linhas, com o visor com pelo menos --display-min
- * e a linha de status acima dele). Assim os botões não distorcem, ficam com pelo menos 44px em 360px de largura,
- * e o visor recebe o que sobra.
+ * a largura (7 colunas, com 6 espaços entre elas) e a altura (5 linhas, com o visor com pelo menos --display-min,
+ * a linha de status e a linha do título acima dele). Assim os botões não distorcem, ficam com pelo menos 44px em 360px
+ * de largura, e o visor recebe o que sobra.
  */
 @media (max-width: 767px) {
   body {
@@ -101,12 +88,13 @@ body {
   }
 
   .calculator {
-    --display-min: 4.5rem;
+    --display-min: 5rem;
     --status-height: 1.5rem;
-    /* Largura: 7 colunas e 6 espaços. Altura: 5 linhas, 4 espaços, visor mínimo e status. */
+    --title-height: 0.875rem;
+    /* Largura: 7 colunas e 6 espaços. Altura: 5 linhas, 4 espaços, visor mínimo, status e título. */
     --cell: min(
       calc((100vw - 2 * var(--pad) - 6 * var(--gap)) / 7),
-      calc((100dvh - 2 * var(--pad) - 4 * var(--gap) - var(--display-min) - var(--status-height)) / 5)
+      calc((100dvh - 2 * var(--pad) - 4 * var(--gap) - var(--display-min) - var(--status-height) - var(--title-height)) / 5)
     );
     position: relative;
     display: flex;

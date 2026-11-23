@@ -46,3 +46,36 @@ describe("CALC-58: index.html carrega a calculadora sem servidor", () => {
     }
   });
 });
+
+const CSS_SOURCE = ["tema.css", "display.css", "teclado.css", "historico.css"]
+  .map((name) => fs.readFileSync(path.join(ROOT, "css", name), "utf8"))
+  .join("\n");
+
+describe("CALC-23: cartão com título Calculator visível e visor com expressão", () => {
+  test('o título "Calculator" fica visível no topo do cartão, dentro de main.calculator, antes dos indicadores', () => {
+    assert.match(
+      HTML_SOURCE,
+      /<main class="calculator" id="calculator">\s*<h1 class="calculator-title">Calculator<\/h1>/,
+    );
+    assert.ok(HTML_SOURCE.indexOf('class="calculator-title"') < HTML_SOURCE.indexOf('class="status"'));
+  });
+
+  test("o título não é mais escondido para leitor de tela: nenhuma regra de h1 usa clip ou sr-only, e .calculator-title é centralizado", () => {
+    assert.doesNotMatch(CSS_SOURCE, /\.calculator h1\s*\{/);
+    assert.match(CSS_SOURCE, /\.calculator-title\s*\{[^}]*text-align:\s*center;[^}]*\}/);
+    assert.doesNotMatch(CSS_SOURCE, /\.calculator-title\s*\{[^}]*clip:/);
+  });
+
+  test("o visor agrupa a linha da expressão (sem aria-live, para não narrar cada tecla) e o resultado (com aria-live), nessa ordem", () => {
+    assert.match(
+      HTML_SOURCE,
+      /<div class="visor">\s*<div id="expression" class="expression"><\/div>\s*<output id="display" class="display" aria-live="polite">0<\/output>\s*<\/div>/,
+    );
+    assert.doesNotMatch(HTML_SOURCE, /id="expression"[^>]*aria-live/);
+  });
+
+  test("o visor fica depois da linha de status e antes do teclado", () => {
+    assert.ok(HTML_SOURCE.indexOf('class="status"') < HTML_SOURCE.indexOf('class="visor"'));
+    assert.ok(HTML_SOURCE.indexOf('class="visor"') < HTML_SOURCE.indexOf('class="panel"'));
+  });
+});

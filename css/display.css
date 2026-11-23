@@ -75,17 +75,50 @@
   color: #b35c00;
 }
 
-.display {
-  display: block;
+/* Título do cartão (CALC-23): visível, centralizado no topo. Linha de 0.875rem com line-height 1, como o --title-height do tema.css. */
+.calculator-title {
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1;
+  text-align: center;
+  color: #ffffff;
+}
+
+/* Área do visor: fundo levemente mais claro que o teclado e uma linha divisória sutil antes do teclado. */
+.visor {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
   min-height: 6rem;
   padding: 0 0.5rem;
+  background: #1c1c1e;
+  border-bottom: 1px solid #2c2c2e;
+}
+
+/* Expressão em andamento (ex.: 8000+65), acima do resultado: cinza e pequena, com o operador em verde. Alinhada à direita. */
+.expression {
+  min-height: 1rem;
+  font-size: 0.875rem;
+  line-height: 1;
+  text-align: right;
+  color: #a5a5a5;
+  overflow-wrap: anywhere;
+}
+
+.expression-operator {
+  color: #30d158;
+}
+
+.display {
+  display: block;
+  padding: 0;
   text-align: right;
   font-size: 4rem; /* 64px: até 6 caracteres */
   font-weight: 300;
-  line-height: 1.1;
+  line-height: 1;
   color: #ffffff;
   font-variant-numeric: tabular-nums;
-  background: transparent;
   overflow-wrap: anywhere;
 }
 
@@ -105,18 +138,15 @@
   color: #ff9f0a;
 }
 
-/* Mobile (até 767px): status e visor. Visor ocupa o que sobra entre a linha de status e o teclado. */
+/* Mobile (até 767px): status e visor. Visor ocupa o que sobra entre a linha de status e o teclado, com pelo menos --display-min. */
 @media (max-width: 767px) {
   .status {
     flex: none;
     min-height: var(--status-height);
   }
 
-  .display {
+  .visor {
     flex: 1 1 auto;
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
-    justify-content: flex-end;
+    min-height: var(--display-min);
   }
 }
