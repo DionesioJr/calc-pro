@@ -1985,13 +1985,13 @@ describe("CALC-21: critérios de aceite do layout mobile", () => {
     assert.match(MOBILE_CSS, /\.calculator\s*\{[^}]*width:\s*100%;[^}]*height:\s*100%;[^}]*border-radius:\s*0;[^}]*\}/);
   });
 
-  test("botões são quadrados do mesmo lado (--cell), a grade científica e o teclado usam o mesmo lado, e o 0 ocupa duas colunas", () => {
+  test("botões são quadrados do mesmo lado (--cell), a grade científica e o teclado usam o mesmo lado, e o 0 ocupa uma coluna (CALC-9)", () => {
     assert.match(MOBILE_CSS, /\.calculator\s*\{[^}]*--cell:\s*min\(/);
     assert.match(CSS_SOURCE, /\.keypad\s*\{[^}]*grid-template-columns:\s*repeat\(4,\s*var\(--cell\)\);[^}]*\}/);
     assert.match(CSS_SOURCE, /\.keypad\s*\{[^}]*grid-auto-rows:\s*var\(--cell\);[^}]*\}/);
     assert.match(CSS_SOURCE, /\.scientific\s*\{[^}]*grid-template-columns:\s*repeat\(3,\s*var\(--cell\)\);[^}]*\}/);
     assert.match(CSS_SOURCE, /\.scientific\s*\{[^}]*grid-auto-rows:\s*var\(--cell\);[^}]*\}/);
-    assert.match(CSS_SOURCE, /\.btn-zero\s*\{[^}]*grid-column:\s*span 2;[^}]*\}/);
+    assert.doesNotMatch(CSS_SOURCE, /\.btn-zero/);
   });
 
   test("em 360x640, 390x844, 414x896 e na paisagem 844x390, o teclado cabe na tela e os botões têm pelo menos 44px", () => {

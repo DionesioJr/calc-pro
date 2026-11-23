@@ -6,7 +6,8 @@
   margin-top: 0.5rem;
 }
 
-/* Grade científica: 3 colunas, na ordem do DOM (MC, MR, M+, M-, x², log, sen, cos, tan, xʸ, π, e, EXP, 1/x, x!, √x). */
+/* Grade científica: 3 colunas em todas as larguras, na ordem do DOM (MC, MR, M+, M-, x², log, sen, cos, tan, xʸ, π, e, EXP, 1/x, x!, √x, Ans, (, )).
+   São 7 linhas: as 6 primeiras completas e a última com ( e ), centralizados (ver .scientific > .paren-add no fim do arquivo). */
 .scientific {
   display: grid;
   grid-template-columns: repeat(3, var(--cell));
@@ -14,7 +15,7 @@
   gap: var(--gap);
 }
 
-/* Teclado básico: 4 colunas. O 0 ocupa duas (ver .btn-zero). */
+/* Teclado básico: 4 colunas e 5 linhas completas (20 células). O 0 ocupa uma coluna, como as demais teclas. */
 .keypad {
   display: grid;
   grid-template-columns: repeat(4, var(--cell));
@@ -578,13 +579,6 @@
   cursor: pointer;
 }
 
-.btn-zero {
-  grid-column: span 2;
-  padding-left: 1.5rem;
-  text-align: left;
-  border-radius: 999px;
-}
-
 .btn-digit {
   background: #333333;
   color: #ffffff;
@@ -615,6 +609,49 @@
 .btn:focus-visible {
   outline: 3px solid #ffffff;
   outline-offset: 2px;
+}
+
+/* Grupos visuais da grade científica (CALC-9). Ficam no fim do arquivo: o seletor .scientific > .classe
+   (0,2,0) vence .scientific > button (0,1,1), e os hovers abaixo repetem o que o grupo precisa. */
+
+/* Memória (MC, MR, M+, M−): contorno cinza sólido, texto cinza; no hover, branco. */
+.scientific > .memory-clear,
+.scientific > .memory-recall,
+.scientific > .memory-add,
+.scientific > .memory-subtract {
+  background: transparent;
+  border: 1px solid #a5a5a5;
+  color: #a5a5a5;
+}
+
+.scientific > .memory-clear:hover,
+.scientific > .memory-recall:hover,
+.scientific > .memory-add:hover,
+.scientific > .memory-subtract:hover {
+  border-color: #ffffff;
+  color: #ffffff;
+}
+
+/* Constantes (π, e): preenchidas em cinza claro, com texto preto. Sem contorno. */
+.scientific > .pi-add,
+.scientific > .e-add {
+  background: #a5a5a5;
+  border: 0;
+  color: #000000;
+}
+
+/* Parênteses: contorno tracejado (o que os distingue da memória, que tem contorno sólido, e das constantes, que são preenchidas).
+   A 7ª linha tem só ( e ), nas colunas 1 e 2. Deslocar cada uma em meia coluna mais meio espaço centraliza o par na largura de 3 colunas. */
+.scientific > .paren-add {
+  background: transparent;
+  border: 1px dashed #a5a5a5;
+  color: #a5a5a5;
+  margin-left: calc((var(--cell) + var(--gap)) / 2);
+}
+
+.scientific > .paren-add:hover {
+  border-color: #ffffff;
+  color: #ffffff;
 }
 
 /* Mobile (até 767px): painel e atalhos. O painel não encolhe com o visor. */

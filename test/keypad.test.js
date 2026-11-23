@@ -31,7 +31,7 @@ function buttonValues(markup) {
 }
 
 describe("CALC-59: a linha de funções vem do registro, na ordem da tela", () => {
-  test("os 20 botões com buttonId aparecem na ordem MC, MR, M+, M-, x², log, ln, sen, cos, tan, xʸ, π, e, EXP, 1/x, x!, √x, (, ), Ans", () => {
+  test("os 20 botões com buttonId aparecem na ordem MC, MR, M+, M-, x², log, ln, sen, cos, tan, xʸ, π, e, EXP, 1/x, x!, √x, Ans, (, ) (CALC-9: Ans sai da última linha)", () => {
     assert.deepEqual(buttonIds(keypadMarkup().scientific), [
       "memory-clear",
       "memory-recall",
@@ -50,9 +50,9 @@ describe("CALC-59: a linha de funções vem do registro, na ordem da tela", () =
       "inverse-button",
       "factorial-button",
       "sqrt-button",
+      "ans-button",
       "open-paren-button",
       "close-paren-button",
-      "ans-button",
     ]);
   });
 
@@ -100,9 +100,9 @@ describe("CALC-59: o teclado numérico e a linha de funções cobrem o registro 
     }
   });
 
-  test("0 leva a classe btn-zero e os dígitos não têm aria-label (o rótulo visível já é o nome)", () => {
+  test("0 é uma tecla simples, de 1 célula, sem btn-zero (CALC-9); os dígitos não têm aria-label (o rótulo visível já é o nome)", () => {
     const { keypad } = keypadMarkup();
-    assert.ok(keypad.includes('<button type="button" class="btn btn-digit btn-zero" data-value="0">0</button>'));
+    assert.ok(keypad.includes('<button type="button" class="btn btn-digit" data-value="0">0</button>'));
     assert.ok(keypad.includes('<button type="button" class="btn btn-digit" data-value="7">7</button>'));
   });
 

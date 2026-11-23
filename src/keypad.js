@@ -24,15 +24,16 @@ const FUNCTION_ROW = [
   { id: "inverse", className: "inverse-add", ariaLabel: "Inverso (1/x)" },
   { id: "factorial", className: "factorial-add", ariaLabel: "Fatorial (x!)" },
   { id: "sqrt", className: "sqrt-add", ariaLabel: "Raiz quadrada (√x)" },
+  { id: "ans", className: "ans-add", ariaLabel: "Último resultado (Ans)" },
   { id: "open-paren", className: "paren-add", ariaLabel: "Abrir parêntese (" },
   { id: "close-paren", className: "paren-add", ariaLabel: "Fechar parêntese )" },
-  { id: "ans", className: "ans-add", ariaLabel: "Último resultado (Ans)" },
 ];
 
-// Teclado numérico, linha a linha (4 colunas no CSS): 20 botões. O ⌫ fica no fim, para não deslocar os demais.
+// Teclado numérico, linha a linha (4 colunas no CSS): 20 botões, cada um numa célula, em 5 linhas. O ⌫ fica ao lado do AC (CALC-9).
 // O aria-label contém o símbolo visível (WCAG 2.5.3): quem usa controle por voz fala o que está escrito no botão.
 const KEYPAD = [
   { id: "all-clear", className: "btn btn-function", ariaLabel: "Limpar (AC)" },
+  { id: "backspace", className: "btn btn-function", ariaLabel: "Apagar último dígito (⌫, Backspace)" },
   { id: "toggle-sign", className: "btn btn-function", ariaLabel: "Inverter sinal (+/-)" },
   { id: "percent", className: "btn btn-function", ariaLabel: "Porcentagem (%)" },
   { id: "divide", className: "btn btn-operator", ariaLabel: "Dividir (÷)" },
@@ -48,10 +49,9 @@ const KEYPAD = [
   { id: "2", className: DIGIT_CLASS },
   { id: "3", className: DIGIT_CLASS },
   { id: "add", className: "btn btn-operator", ariaLabel: "Somar (+)" },
-  { id: "0", className: "btn btn-digit btn-zero" },
+  { id: "0", className: DIGIT_CLASS },
   { id: ".", className: DIGIT_CLASS, ariaLabel: "Ponto decimal (.)" },
   { id: "equals", className: "btn btn-operator", ariaLabel: "Igual (=)" },
-  { id: "backspace", className: "btn btn-function", ariaLabel: "Apagar último dígito (⌫, Backspace)" },
 ];
 
 // Marcação de um botão: type, id (só se a ação tem buttonId), class, data-value ou data-action, aria-label (se houver), e o rótulo do registro.
