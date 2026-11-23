@@ -1061,11 +1061,11 @@ describe("CALC-8: casos de borda do teclado físico", () => {
   });
 
   test(
-    "resultado pequeno arredondado a 8 casas não vira notação científica: 0.00000015 seguido de % resulta em 0",
+    "resultado pequeno que seria arredondado a 0 vai para notação científica: 0.00000015 seguido de % resulta em 1.5E-9",
     () => {
       const calc = createCalculator();
-      assert.equal(calc.press("0", ".", "0", "0", "0", "0", "0", "0", "1", "5", "%"), "0");
-      assert.equal(calc.type("Backspace"), "0");
+      assert.equal(calc.press("0", ".", "0", "0", "0", "0", "0", "0", "1", "5", "%"), "1.5E-9");
+      assert.equal(calc.type("Backspace"), "1.5E-9");
     },
   );
 
@@ -2287,14 +2287,14 @@ describe("CALC-26: casos de borda do x² (quadrado)", () => {
     assert.equal(calc.press("0", ".", "5", "x²"), "0.25");
   });
 
-  test("quadrado pequeno é arredondado a 8 casas: 0.0001 x² mostra 0.00000001 (sem notação científica)", () => {
+  test("quadrado abaixo de 1e-6 vai para notação científica: 0.0001 x² mostra 1E-8", () => {
     const calc = createCalculator({ storage: {} });
-    assert.equal(calc.press("0", ".", "0", "0", "0", "1", "x²"), "0.00000001");
+    assert.equal(calc.press("0", ".", "0", "0", "0", "1", "x²"), "1E-8");
   });
 
-  test("quadrado abaixo de 8 casas vira 0: 0.00001 x² mostra 0", () => {
+  test("quadrado abaixo de 8 casas não vira 0: 0.00001 x² mostra 1E-10", () => {
     const calc = createCalculator({ storage: {} });
-    assert.equal(calc.press("0", ".", "0", "0", "0", "0", "1", "x²"), "0");
+    assert.equal(calc.press("0", ".", "0", "0", "0", "0", "1", "x²"), "1E-10");
   });
 
   test("resultado exatamente abaixo do limite de 2^53 continua exibido: 94906265 x² mostra 9007199136250225", () => {
@@ -2422,9 +2422,9 @@ describe("CALC-34: casos de borda do log (logaritmo decimal)", () => {
     assert.equal(calc.press("0", ".", "5", "log"), "-0.30103");
   });
 
-  test("log muito próximo de 0 não mostra -0 nem notação científica: 1,00000001 log resulta em 0", () => {
+  test("log muito próximo de 0 não vira 0: 1,00000001 log resulta em notação científica (~4.3E-9)", () => {
     const calc = createCalculator({ storage: {} });
-    assert.equal(calc.press("1", ".", "0", "0", "0", "0", "0", "0", "0", "1", "log"), "0");
+    assert.match(calc.press("1", ".", "0", "0", "0", "0", "0", "0", "0", "1", "log"), /^4\.3429\d*E-9$/);
   });
 
   test("valor muito pequeno sem notação científica: 0,00000001 log resulta em -8", () => {
@@ -2534,9 +2534,9 @@ describe("CALC-31: casos de borda do seno", () => {
     assert.equal(calc.press("AC", "1", "sen"), "0.01745241");
   });
 
-  test("seno menor que 5e-9 some no arredondamento, sem notação científica: 0.00000001 sen mostra 0", () => {
+  test("seno abaixo de 1e-6 vai para notação científica: 0.00000001 sen mostra ~1.7453E-10", () => {
     const calc = createCalculator({ storage: {} });
-    assert.equal(calc.press("0", ".", "0", "0", "0", "0", "0", "0", "0", "1", "sen"), "0");
+    assert.match(calc.press("0", ".", "0", "0", "0", "0", "0", "0", "0", "1", "sen"), /^1\.74533\d*E-10$/);
   });
 
   test("com Erro no visor, sen mantém o Erro: 5 ÷ 0 =, sen mostra Erro, e a próxima tecla reinicia", () => {
@@ -2635,9 +2635,9 @@ describe("CALC-41: casos de borda da unidade angular", () => {
     assert.equal(calc.press("unidade", "0", "sen"), "0");
   });
 
-  test("em rad, π vale 3.14159265 (8 casas), e sen π resulta em 0: unidade, π, sen resulta em 0", () => {
+  test("em rad, π vale 3.14159265 (8 casas), então sen π sobra 3.5897930298416E-9 em notação científica", () => {
     const calc = createCalculator({ storage: {} });
-    assert.equal(calc.press("unidade", "π", "sen"), "0");
+    assert.equal(calc.press("unidade", "π", "sen"), "3.5897930298416E-9");
   });
 
   test("a unidade vale no momento do sen: 9, 0, unidade, sen usa radianos e resulta em 0.89399666", () => {
@@ -3123,9 +3123,9 @@ describe("CALC-38: casos de borda do 1/x", () => {
     assert.equal(calc.press("0", ".", "0", "0", "0", "0", "0", "0", "0", "1", "1/x"), "100000000");
   });
 
-  test("resultado que some no arredondamento mostra 0: 999999999, 1/x resulta em 0", () => {
+  test("resultado abaixo de 1e-6 vai para notação científica: 999999999, 1/x resulta em 1.000000001E-9", () => {
     const calc = createCalculator({ storage: {} });
-    assert.equal(calc.press("9", "9", "9", "9", "9", "9", "9", "9", "9", "1/x"), "0");
+    assert.equal(calc.press("9", "9", "9", "9", "9", "9", "9", "9", "9", "1/x"), "1.000000001E-9");
   });
 
   test("1/x duas vezes volta ao número original: 4, 1/x, 1/x resulta em 4", () => {
@@ -4556,14 +4556,14 @@ describe("CALC-35: casos de borda do ln (logaritmo natural)", () => {
     assert.equal(calc.press("0", ".", "5", "ln"), "-0.69314718");
   });
 
-  test("ln de valor logo acima de 1 fica sem notação científica: 1,00000001 ln resulta em 0.00000001", () => {
+  test("ln de valor logo acima de 1 vai para notação científica: 1,00000001 ln resulta em 9.9999998892253E-9", () => {
     const calc = createCalculator({ storage: {} });
-    assert.equal(calc.press("1", ".", "0", "0", "0", "0", "0", "0", "0", "1", "ln"), "0.00000001");
+    assert.equal(calc.press("1", ".", "0", "0", "0", "0", "0", "0", "0", "1", "ln"), "9.9999998892253E-9");
   });
 
-  test("ln de valor abaixo de 1 perto do limite não mostra -0: 0,999999999 ln resulta em 0", () => {
+  test("ln de valor abaixo de 1 perto do limite fica negativo em notação científica: 0,999999999 ln", () => {
     const calc = createCalculator({ storage: {} });
-    assert.equal(calc.press("0", ".", "9", "9", "9", "9", "9", "9", "9", "9", "9", "ln"), "0");
+    assert.equal(calc.press("0", ".", "9", "9", "9", "9", "9", "9", "9", "9", "9", "ln"), "-9.9999997221807E-10");
   });
 
   test("Erro reinicia com o próximo dígito: 0, ln, 7 resulta em 7", () => {

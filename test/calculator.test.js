@@ -614,6 +614,58 @@ describe("CALC-68: EXP (×10ˣ) digita números grandes e pequenos", () => {
     assert.equal(seven.state.current, "1E-7");
   });
 
+  test("CALC-2: 1 ÷ 3 EXP 9 (3000000000) = mostra notação científica, não 0", () => {
+    const result = run(initialState(), [
+      { value: "1" },
+      { action: "divide" },
+      { value: "3" },
+      EXP,
+      { value: "9" },
+      { action: "equals" },
+    ]);
+    assert.equal(result.state.current, "3.3333333333333E-10");
+  });
+
+  test("CALC-2: resultado negativo muito pequeno também vai para notação científica", () => {
+    const result = run(initialState(), [
+      { value: "1" },
+      NEG,
+      { action: "divide" },
+      { value: "3" },
+      EXP,
+      { value: "9" },
+      { action: "equals" },
+    ]);
+    assert.equal(result.state.current, "-3.3333333333333E-10");
+  });
+
+  test("CALC-2: 1 ÷ 3 segue com 8 casas, e 1 ÷ 1000000 (1e-6) segue plano", () => {
+    const third = run(initialState(), [{ value: "1" }, { action: "divide" }, { value: "3" }, { action: "equals" }]);
+    assert.equal(third.state.current, "0.33333333");
+    const limit = run(initialState(), [
+      { value: "1" },
+      { action: "divide" },
+      { value: "1" },
+      EXP,
+      { value: "6" },
+      { action: "equals" },
+    ]);
+    assert.equal(limit.state.current, "0.000001");
+  });
+
+  test("CALC-2: zero e -0 continuam 0", () => {
+    const zero = run(initialState(), [{ value: "0" }, { action: "divide" }, { value: "5" }, { action: "equals" }]);
+    assert.equal(zero.state.current, "0");
+    const negativeZero = run(initialState(), [
+      { value: "0" },
+      NEG,
+      { action: "divide" },
+      { value: "5" },
+      { action: "equals" },
+    ]);
+    assert.equal(negativeZero.state.current, "0");
+  });
+
   test("zero continua zero: 0,0 EXP 5 resulta em 0", () => {
     const result = run(initialState(), [{ value: "0" }, { value: "." }, { value: "0" }, EXP, { value: "5" }]);
     assert.equal(result.state.current, "0");

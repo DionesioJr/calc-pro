@@ -17,6 +17,8 @@ const MAX_RESULT = 2 ** 53;
 
 // Número digitado com EXP (×10ˣ) fora da faixa do visor vai para notação científica: abaixo de 1e-6 (e diferente de zero) ou acima de 2^53.
 const SMALL_ENTRY = 1e-6;
+// Resultado abaixo disto é ruído de ponto flutuante, não um valor pequeno de verdade: formatResult o mostra como 0.
+const NOISE_FLOOR = 1e-15;
 
 // Expoente digitado depois de EXP tem no máximo 3 algarismos. Expoente que estoura o double (ex.: 1 EXP 400) mostra Erro.
 const MAX_EXPONENT_DIGITS = 3;
@@ -423,8 +425,14 @@ function isOperator(term) {
 }
 
 // Arredonda para no máximo 8 casas decimais e remove os zeros à direita (0.1 + 0.2 → 0.3; 1 ÷ 3 → 0.33333333).
-// O arredondamento também elimina o ruído de ponto flutuante. Sem notação científica.
+// O arredondamento também elimina o ruído de ponto flutuante.
+// Valor com módulo entre NOISE_FLOOR e SMALL_ENTRY vai para notação científica, para não aparecer como 0 (1 ÷ 3000000000 → 3.3333333333333E-10).
+// Abaixo de NOISE_FLOOR é ruído de ponto flutuante (0.1 + 0.2 − 0.3 = 5.5e-17, sen 180° sem tratamento exato = 1.2e-16) e continua saindo como 0.
 function formatResult(value) {
+  const magnitude = Math.abs(value);
+  if (magnitude >= NOISE_FLOOR && magnitude < SMALL_ENTRY) {
+    return toScientific(value);
+  }
   const fixed = value.toFixed(DECIMAL_PLACES).replace(/\.?0+$/, "");
   return fixed === "-0" ? "0" : fixed;
 }
