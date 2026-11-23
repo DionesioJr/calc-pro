@@ -507,6 +507,18 @@ describe("CALC-53: o registro de ações é a única fonte de botões e teclas",
     assert.equal(new Set(keys).size, keys.length);
   });
 
+  test("CALC-4: as 13 ações antes sem atalho têm tecla de um só caractere", () => {
+    const ids = [
+      ...["percent", "toggle-sign", "square", "sqrt", "inverse", "log", "ln"],
+      ...["sine", "cos", "tan", "ans", "angle-unit", "secondary"],
+    ];
+    for (const id of ids) {
+      const keys = ACTIONS.find((action) => action.id === id).keys;
+      assert.ok(Array.isArray(keys) && keys.length > 0, id);
+      assert.ok(keys.every((key) => key.length === 1), id);
+    }
+  });
+
   test("os data-action e data-value do HTML final são exatamente os ids do registro", () => {
     const htmlIds = [...INDEX_HTML.matchAll(/data-(?:action|value)="([^"]+)"/g)].map((match) => match[1]);
     const registryIds = ACTIONS.map((action) => action.id);

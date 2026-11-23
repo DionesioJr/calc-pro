@@ -1075,13 +1075,13 @@ describe("CALC-8: casos de borda do teclado físico", () => {
     assert.equal(calc.keyDown("Enter").defaultPrevented, true);
   });
 
-  test("teclas que a calculadora não usa são ignoradas: a, Tab e Shift não mudam o display nem são tratadas", () => {
+  test("teclas que a calculadora não usa são ignoradas: z, Tab e Shift não mudam o display nem são tratadas", () => {
     const calc = createCalculator();
     calc.press("4");
-    for (const key of ["a", "Tab", "Shift"]) {
+    for (const key of ["z", "Tab", "Shift"]) {
       assert.equal(calc.keyDown(key).defaultPrevented, false);
     }
-    assert.equal(calc.type("a", "Tab", "Shift"), "4");
+    assert.equal(calc.type("z", "Tab", "Shift"), "4");
   });
 
   test(
@@ -5063,5 +5063,82 @@ describe("CALC-72: casos de borda de copiar e colar o visor", () => {
     const storage = {};
     createCalculator({ storage }).paste("9");
     assert.equal(PREFERENCES_KEY in storage, false);
+  });
+});
+
+describe("CALC-4: atalhos de teclado das funções (%, +/-, x², √x, 1/x, log, ln, sen, cos, tan, Ans, DEG/RAD, 2nd)", () => {
+  test("cada tecla executa a função do botão: 50 %, 5 n, 5 q, 16 v, 4 i, 100 g, 1 l", () => {
+    const cases = [
+      [["5", "0", "%"], "0.5"],
+      [["5", "n"], "-5"],
+      [["5", "q"], "25"],
+      [["1", "6", "v"], "4"],
+      [["4", "i"], "0.25"],
+      [["1", "0", "0", "g"], "2"],
+      [["1", "l"], "0"],
+    ];
+    for (const [keys, expected] of cases) {
+      assert.equal(createCalculator().type(...keys), expected, keys.join(" "));
+    }
+  });
+
+  test("sen, cos e tan em graus: sen 90 = 1, cos 0 = 1, tan 45 = 1", () => {
+    assert.equal(createCalculator().type("9", "0", "s"), "1");
+    assert.equal(createCalculator().type("0", "o"), "1");
+    assert.equal(createCalculator().type("4", "5", "t"), "1");
+  });
+
+  test("a tecla D troca DEG/RAD: depois dela, sen 90 deixa de dar 1; outra vez, volta a dar 1", () => {
+    const calc = createCalculator();
+    calc.type("d");
+    assert.notEqual(calc.type("9", "0", "s"), "1");
+    calc.type("Escape", "d");
+    assert.equal(calc.type("9", "0", "s"), "1");
+  });
+
+  test("a tecla A insere o último resultado: 2 + 3 = mostra 5; 9, a volta a mostrar 5", () => {
+    const calc = createCalculator();
+    assert.equal(calc.type("2", "+", "3", "="), "5");
+    assert.equal(calc.type("9", "a"), "5");
+  });
+
+  test("a tecla F liga a 2nd e a função seguinte é a secundária: 16, f, q (x² vira √x) dá 4", () => {
+    assert.equal(createCalculator().type("1", "6", "f", "q"), "4");
+  });
+
+  test("maiúsculas valem o mesmo que minúsculas (Caps Lock): N, Q, V, I, G, L, S, O, T, A, D, F", () => {
+    assert.equal(createCalculator().type("5", "N"), "-5");
+    assert.equal(createCalculator().type("5", "Q"), "25");
+    assert.equal(createCalculator().type("9", "0", "S"), "1");
+    assert.equal(createCalculator().type("1", "6", "F", "Q"), "4");
+  });
+
+  test("a tecla do atalho marca o evento como tratado, e o foco num botão da calculadora não dispara clique duplo", () => {
+    const calc = createCalculator();
+    assert.equal(calc.keyDown("%").defaultPrevented, true);
+    assert.equal(calc.keyDown("s", { target: { tagName: "BUTTON" } }).defaultPrevented, true);
+  });
+
+  test("com Ctrl, Cmd ou Alt os atalhos novos ficam para o navegador: Ctrl+S, Cmd+F e Alt+D não mexem no visor", () => {
+    const calc = createCalculator();
+    calc.press("4");
+    for (const modifier of ["ctrlKey", "metaKey", "altKey"]) {
+      for (const key of ["s", "f", "d", "a", "n"]) {
+        assert.equal(calc.keyDown(key, { [modifier]: true }).defaultPrevented, false);
+      }
+    }
+    assert.equal(calc.type(), "4");
+  });
+
+  test("com o painel do histórico aberto (mobile), os atalhos novos não chegam à calculadora", () => {
+    const calc = createCalculator();
+    calc.press("9");
+    calc.tapHistoryOpen();
+    for (const key of ["%", "n", "q", "v", "i", "g", "l", "s", "o", "t", "a", "d", "f"]) {
+      assert.equal(calc.keyDown(key).defaultPrevented, false, key);
+    }
+    assert.equal(calc.display(), "9");
+    calc.type("Escape");
+    assert.equal(calc.type("q"), "81");
   });
 });
