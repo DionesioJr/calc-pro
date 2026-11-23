@@ -56,8 +56,8 @@ export default [
     },
   },
   {
-    // Testes em módulo ES no Node (import), com o mesmo package.json "type": "module".
-    files: ["test/**/*.js"],
+    // Testes e servidores de desenvolvimento em módulo ES no Node (import), com o mesmo package.json "type": "module".
+    files: ["test/**/*.js", "scripts/**/*.js"],
     languageOptions: {
       sourceType: "module",
       globals: globals.node,
