@@ -29,7 +29,8 @@
 // e dos atalhos de teclado das funções avançadas (CALC-42: ^ xʸ, p π, ! x!, r MR, c MC, _ M-, e a lista de atalhos na tela),
 // e do botão ⌫ e da tecla Backspace (CALC-65: apaga o último dígito; Erro, resultado e notação científica não mudam),
 // e da memória e da unidade DEG/RAD guardadas entre sessões, com armazenamento indisponível tratado sem erro (CALC-73),
-// e da cópia e colagem do visor (CALC-72: Ctrl+C copia o visor, Ctrl+V cola um número válido e ignora o resto).
+// e da cópia e colagem do visor (CALC-72: Ctrl+C copia o visor, Ctrl+V cola um número válido e ignora o resto),
+// e da linha de expressão acima do visor e do separador de milhar, com a fonte pelo tamanho formatado (CALC-15).
 // Monta os módulos reais de src/ (start de src/main.js) sobre um DOM mínimo, e aperta
 // os botões pelo mesmo caminho de clique que o navegador usa; o teclado usa o mesmo
 // caminho de keydown.
@@ -98,7 +99,7 @@ function createClassList() {
   };
 }
 
-const DISPLAY_SIZE_CLASSES = ["display-64", "display-48", "display-40"];
+const DISPLAY_SIZE_CLASSES = ["display-64", "display-48", "display-40", "display-32", "display-28"];
 
 // Botão com dataset, classList e atributos (setAttribute/getAttribute), como no navegador.
 function createButton(dataset) {
@@ -163,6 +164,8 @@ function createLocalStorage(storage) {
 // storage: objeto que faz o papel do localStorage; passe o mesmo objeto para simular recarregar a página.
 function createCalculator({ storage = {} } = {}) {
   const display = { textContent: "", classList: createClassList() };
+  // Linha secundária acima do visor (CALC-15): começa vazia, como no HTML.
+  const expressionElement = createElementMock("div");
   const historyList = createElementMock("ol");
   const historyEmpty = createElementMock("p");
   const historyActions = createElementMock("div");
@@ -288,6 +291,7 @@ function createCalculator({ storage = {} } = {}) {
 
   const elementsById = {
     display,
+    expression: expressionElement,
     "history-list": historyList,
     "history-empty": historyEmpty,
     "history-actions": historyActions,
@@ -626,6 +630,8 @@ function createCalculator({ storage = {} } = {}) {
     cancelFocused: () => historyCancel.focused,
     emptyMessageFocused: () => historyEmpty.focused,
     display: () => display.textContent,
+    // Texto da linha secundária (a expressão em andamento), vazio sem conta.
+    expressionLine: () => expressionElement.textContent,
     memoryValue,
     memoryIndicatorHidden: () => memoryIndicatorElement.hidden,
     memoryAddFocused: () => memoryAddElement.focused,
@@ -666,8 +672,14 @@ describe("CALC-55: ui.js e keyboard.js não fazem conta", () => {
     return ENGINE_NAMES.filter((name) => new RegExp(`\\b${name}\\b`).test(code)).sort();
   }
 
-  test("ui.js usa do motor só o que desenha: ACTIONS, OPEN_PAREN, openDepth e trailingOperator", () => {
-    assert.deepEqual(usedFromEngine(UI_SOURCE), ["ACTIONS", "OPEN_PAREN", "openDepth", "trailingOperator"]);
+  test("ui.js usa do motor só o que desenha: ACTIONS, OPEN_PAREN, expressionText, openDepth e trailingOperator", () => {
+    assert.deepEqual(usedFromEngine(UI_SOURCE), [
+      "ACTIONS",
+      "OPEN_PAREN",
+      "expressionText",
+      "openDepth",
+      "trailingOperator",
+    ]);
   });
 
   test("keyboard.js usa do motor só o registro de ações e datasetOf", () => {
@@ -877,7 +889,7 @@ describe("CALC-57: critérios de aceite do % em soma e subtração", () => {
 
   test("100 ÷ 10% resulta em 1000 (divisão usa o decimal 0.1)", () => {
     const calc = createCalculator({ storage: {} });
-    assert.equal(calc.press("1", "0", "0", "÷", "1", "0", "%", "="), "1000");
+    assert.equal(calc.press("1", "0", "0", "÷", "1", "0", "%", "="), "1 000");
   });
 
   test("10% sozinho resulta em 0.1 (sem operador pendente)", () => {
@@ -1131,7 +1143,7 @@ describe("CALC-7: critérios de aceite de erro, dígitos, arredondamento e fonte
 
   test("digitar 1234567890 mostra 123456789 (o 10º dígito é ignorado)", () => {
     const calc = createCalculator();
-    assert.equal(calc.press("1", "2", "3", "4", "5", "6", "7", "8", "9", "0"), "123456789");
+    assert.equal(calc.press("1", "2", "3", "4", "5", "6", "7", "8", "9", "0"), "123 456 789");
   });
 
   test("o limite de 9 dígitos vale também depois do ponto: 0.123456789 e o próximo dígito é ignorado", () => {
@@ -1141,12 +1153,12 @@ describe("CALC-7: critérios de aceite de erro, dígitos, arredondamento e fonte
 
   test("o sinal não conta no limite: 1, +/-, 2 a 9 e 0 resulta em -123456789", () => {
     const calc = createCalculator();
-    assert.equal(calc.press("1", "+/-", "2", "3", "4", "5", "6", "7", "8", "9", "0"), "-123456789");
+    assert.equal(calc.press("1", "+/-", "2", "3", "4", "5", "6", "7", "8", "9", "0"), "-123 456 789");
   });
 
   test("o limite também vale para o segundo operando: 1, +, 1234567890, = resulta em 123456790", () => {
     const calc = createCalculator();
-    assert.equal(calc.press("1", "+", "1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "="), "123456790");
+    assert.equal(calc.press("1", "+", "1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "="), "123 456 790");
   });
 
   test("zeros à esquerda da parte inteira não contam: 0.1234567 ainda aceita mais um dígito (0.12345678)", () => {
@@ -1154,19 +1166,19 @@ describe("CALC-7: critérios de aceite de erro, dígitos, arredondamento e fonte
     assert.equal(calc.press("0", ".", "1", "2", "3", "4", "5", "6", "7", "8"), "0.12345678");
   });
 
-  test("fonte de 64px com até 6 caracteres: 12345 e 12345. (6 caracteres) usam display-64", () => {
+  test("fonte de 64px com até 6 caracteres: 12345 (12 345, 6 caracteres) usa display-64, e 12345. (7) passa para display-48", () => {
     const calc = createCalculator();
-    assert.equal(calc.press("1", "2", "3", "4", "5"), "12345");
+    assert.equal(calc.press("1", "2", "3", "4", "5"), "12 345");
     assert.equal(calc.fontSizeClass(), "display-64");
-    assert.equal(calc.press("."), "12345.");
-    assert.equal(calc.fontSizeClass(), "display-64");
+    assert.equal(calc.press("."), "12 345.");
+    assert.equal(calc.fontSizeClass(), "display-48");
   });
 
-  test("o sinal conta no tamanho: -12345 (6 caracteres) usa display-64 e -123456 (7) usa display-48", () => {
+  test("o sinal e o separador contam no tamanho: -1234 (-1 234, 6 caracteres) usa display-64 e -12345 (-12 345, 7) usa display-48", () => {
     const calc = createCalculator();
-    assert.equal(calc.press("1", "2", "3", "4", "5", "+/-"), "-12345");
+    assert.equal(calc.press("1", "2", "3", "4", "+/-"), "-1 234");
     assert.equal(calc.fontSizeClass(), "display-64");
-    assert.equal(calc.press("6"), "-123456");
+    assert.equal(calc.press("5"), "-12 345");
     assert.equal(calc.fontSizeClass(), "display-48");
   });
 
@@ -1176,34 +1188,125 @@ describe("CALC-7: critérios de aceite de erro, dígitos, arredondamento e fonte
     assert.equal(calc.fontSizeClass(), "display-64");
   });
 
-  test("fonte de 48px com 7 ou 8 caracteres: 1234567 e -1234567 usam display-48", () => {
+  test("fonte de 48px com 7 ou 8 caracteres: 123456 (123 456, 7) usa display-48, e 1234567 (1 234 567, 9) passa para display-40", () => {
     const calc = createCalculator();
-    assert.equal(calc.press("1", "2", "3", "4", "5", "6", "7"), "1234567");
+    assert.equal(calc.press("1", "2", "3", "4", "5", "6"), "123 456");
     assert.equal(calc.fontSizeClass(), "display-48");
-    assert.equal(calc.press("8"), "12345678");
-    assert.equal(calc.fontSizeClass(), "display-48");
-  });
-
-  test("fonte de 40px com 9 caracteres: 123456789 usa display-40", () => {
-    const calc = createCalculator();
-    assert.equal(calc.press("1", "2", "3", "4", "5", "6", "7", "8", "9"), "123456789");
+    assert.equal(calc.press("7"), "1 234 567");
     assert.equal(calc.fontSizeClass(), "display-40");
   });
 
-  test("sinal e ponto contam como caracteres: -1234567 (8 caracteres) usa display-48 e 1234567. (8) também", () => {
+  test("fonte de 40px com 9 a 12 caracteres: 123456789 (123 456 789, 11 caracteres) usa display-40", () => {
     const calc = createCalculator();
-    calc.press("1", "2", "3", "4", "5", "6", "7", "+/-");
+    assert.equal(calc.press("1", "2", "3", "4", "5", "6", "7", "8", "9"), "123 456 789");
+    assert.equal(calc.fontSizeClass(), "display-40");
+  });
+
+  test("sinal, ponto e separador contam como caracteres: -123456 (-123 456, 8) usa display-48 e 123456. (123 456., 8) também", () => {
+    const calc = createCalculator();
+    calc.press("1", "2", "3", "4", "5", "6", "+/-");
     assert.equal(calc.fontSizeClass(), "display-48");
     const calc2 = createCalculator();
-    calc2.press("1", "2", "3", "4", "5", "6", "7", ".");
+    calc2.press("1", "2", "3", "4", "5", "6", ".");
     assert.equal(calc2.fontSizeClass(), "display-48");
   });
 
-  test("a fonte volta a diminuir ao apagar: 123456789 com Backspace usa display-48", () => {
+  test("a fonte diminui ao apagar: 123456789 (display-40) com Backspace vira 123 456 (7 caracteres, display-48)", () => {
     const calc = createCalculator();
     calc.press("1", "2", "3", "4", "5", "6", "7", "8", "9");
-    assert.equal(calc.type("Backspace"), "12345678");
+    assert.equal(calc.type("Backspace"), "12 345 678");
+    assert.equal(calc.fontSizeClass(), "display-40");
+    assert.equal(calc.type("Backspace", "Backspace"), "123 456");
     assert.equal(calc.fontSizeClass(), "display-48");
+  });
+
+  test("fonte de 32px com 13 a 16 caracteres: 123456789000 (123 456 789 000, 15 caracteres) usa display-32", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("1", "2", "3", "4", "5", "6", "7", "8", "9", "×", "1", "0", "0", "0", "="), "123 456 789 000");
+    assert.equal(calc.fontSizeClass(), "display-32");
+  });
+
+  test("fonte de 28px com 17 ou mais caracteres: 9007199136250225 (9 007 199 136 250 225, 21 caracteres) usa display-28", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("9", "4", "9", "0", "6", "2", "6", "5", "×", "9", "4", "9", "0", "6", "2", "6", "5", "="), "9 007 199 136 250 225");
+    assert.equal(calc.fontSizeClass(), "display-28");
+  });
+});
+
+// CALC-15: linha secundária com a expressão em andamento, separador de milhar no visor, e copiar/colar sem o separador.
+describe("CALC-15: critérios de aceite da linha de expressão e do separador de milhar", () => {
+  test("linha secundária mostra a expressão em andamento: 2, +, 3, × mostra 2 + 3 × e o visor 3", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("2", "+", "3", "×"), "3");
+    assert.equal(calc.expressionLine(), "2 + 3 ×");
+  });
+
+  test("a linha acompanha os parênteses: ( 2 + 3 × mostra (2 + 3 ×", () => {
+    const calc = createCalculator({ storage: {} });
+    calc.press("(", "2", "+", "3", "×");
+    assert.equal(calc.expressionLine(), "(2 + 3 ×");
+  });
+
+  test("a linha some depois do igual, do AC e do erro: 2 + 3 =, 7 + AC e 5 ÷ 0 = deixam a linha vazia", () => {
+    const calc = createCalculator({ storage: {} });
+    calc.press("2", "+", "3", "=");
+    assert.equal(calc.expressionLine(), "");
+    calc.press("7", "+", "AC");
+    assert.equal(calc.expressionLine(), "");
+    calc.press("5", "÷", "0", "=");
+    assert.equal(calc.expressionLine(), "");
+  });
+
+  test("a linha usa o separador de milhar: 1000 + mostra 1 000 +", () => {
+    const calc = createCalculator({ storage: {} });
+    calc.press("1", "0", "0", "0", "+");
+    assert.equal(calc.expressionLine(), "1 000 +");
+  });
+
+  test("expressão longa fica numa linha só: a linha guarda o texto inteiro e o CSS corta com reticências", () => {
+    const calc = createCalculator({ storage: {} });
+    calc.press("1", "2", "3", "4", "5", "6", "7", "8", "9", "+", "1", "2", "3", "4", "5", "6", "7", "8", "9", "×");
+    assert.equal(calc.expressionLine(), "123 456 789 + 123 456 789 ×");
+    assert.match(
+      CSS_SOURCE,
+      /\.expression\s*\{[^}]*white-space:\s*nowrap;[^}]*overflow:\s*hidden;[^}]*text-overflow:\s*ellipsis;[^}]*\}/,
+    );
+  });
+
+  test("a linha fica fora da região anunciada: no HTML ela vem antes do visor e não tem aria-live", () => {
+    const expressionTag = HTML_SOURCE.match(/<div id="expression"[^>]*>/);
+    assert.ok(expressionTag, "precisa existir a linha de expressão");
+    assert.doesNotMatch(expressionTag[0], /aria-live/);
+    assert.ok(HTML_SOURCE.indexOf('id="expression"') < HTML_SOURCE.indexOf('id="display"'));
+  });
+
+  test("no mobile a linha entra na conta do --cell: o teclado não empurra o visor para fora da tela", () => {
+    assert.match(CSS_SOURCE, /:root\s*\{[^}]*--expression-height:\s*1\.25rem;[^}]*\}/);
+    assert.match(MOBILE_CSS, /--cell:[\s\S]*var\(--expression-height\)/);
+  });
+
+  test("o separador não entra no valor copiado: 1234 mostra 1 234 e Ctrl+C copia 1234", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("1", "2", "3", "4"), "1 234");
+    assert.equal(calc.copy(), "1234");
+  });
+
+  test("com sinal e decimal também: -1234567.5 mostra -1 234 567.5 e Ctrl+C copia -1234567.5", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("1", "2", "3", "4", "5", "6", "7", ".", "5", "+/-"), "-1 234 567.5");
+    assert.equal(calc.copy(), "-1234567.5");
+  });
+
+  test("número colado com milhar entra sem separador: colar 1234 mostra 1 234 e copiar devolve 1234", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.deepEqual(calc.paste("1234"), { display: "1 234", handled: true });
+    assert.equal(calc.copy(), "1234");
+  });
+
+  test("Erro não ganha separador nem linha: 5 ÷ 0 = mostra Erro e a linha fica vazia", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("5", "÷", "0", "="), "Erro");
+    assert.equal(calc.expressionLine(), "");
   });
 });
 
@@ -1572,7 +1675,7 @@ describe("CALC-16: critérios de aceite do limite de resultado (2^53)", () => {
 
   test("99999 × 99999 = 9999800001 continua exibido sem alteração", () => {
     const calc = createCalculator();
-    assert.equal(calc.press("9", "9", "9", "9", "9", "×", "9", "9", "9", "9", "9", "="), "9999800001");
+    assert.equal(calc.press("9", "9", "9", "9", "9", "×", "9", "9", "9", "9", "9", "="), "9 999 800 001");
   });
 });
 
@@ -1584,7 +1687,7 @@ describe("CALC-16: casos de borda do limite de resultado (2^53)", () => {
 
   test("resultado exatamente abaixo do limite continua exibido: 94906265 × 94906265 = 9007199136250225 (< 2^53)", () => {
     const calc = createCalculator();
-    assert.equal(calc.press("9", "4", "9", "0", "6", "2", "6", "5", "×", "9", "4", "9", "0", "6", "2", "6", "5", "="), "9007199136250225");
+    assert.equal(calc.press("9", "4", "9", "0", "6", "2", "6", "5", "×", "9", "4", "9", "0", "6", "2", "6", "5", "="), "9 007 199 136 250 225");
   });
 
   test("primeiro resultado acima do limite mostra Erro: 94906266 × 94906266 = 9007199326062756 (> 2^53)", () => {
@@ -1966,14 +2069,15 @@ const MOBILE_CSS = CSS_FILES.map((css) => (css.match(/@media \(max-width: 767px\
 
 // Lado do botão no mobile, como o tema.css calcula em --cell: o menor entre a largura (7 colunas, com 6 espaços)
 // e a altura (5 linhas, com o visor com pelo menos --display-min e a linha de status). Em px, com 1rem = 16px:
-// --pad 14, --gap 4, --display-min 72, --status-height 24.
+// --pad 14, --gap 4, --display-min 72, --status-height 24, e a linha da expressão (CALC-15), --expression-height 20.
 function mobileButtonSide(width, height) {
   const pad = 14;
   const gap = 4;
   const displayMin = 72;
   const statusHeight = 24;
+  const expressionHeight = 20;
   const byWidth = (width - 2 * pad - 6 * gap) / 7;
-  const byHeight = (height - 2 * pad - 4 * gap - displayMin - statusHeight) / 5;
+  const byHeight = (height - 2 * pad - 4 * gap - displayMin - statusHeight - expressionHeight) / 5;
   return Math.min(byWidth, byHeight);
 }
 
@@ -2004,8 +2108,8 @@ describe("CALC-21: critérios de aceite do layout mobile", () => {
       const side = mobileButtonSide(width, height);
       const keypadHeight = 5 * side + 4 * 4;
       assert.ok(side >= 44, `${width}x${height}: botão de ${side}px`);
-      // Padding 14 nos dois lados, linha de status 24, visor mínimo 72 e o teclado (5 linhas).
-      assert.ok(2 * 14 + 24 + 72 + keypadHeight <= height, `${width}x${height}: teclado não cabe na altura`);
+      // Padding 14 nos dois lados, linha de status 24, linha da expressão 20, visor mínimo 72 e o teclado (5 linhas).
+      assert.ok(2 * 14 + 24 + 20 + 72 + keypadHeight <= height, `${width}x${height}: teclado não cabe na altura`);
     }
   });
 
@@ -2299,7 +2403,7 @@ describe("CALC-26: casos de borda do x² (quadrado)", () => {
 
   test("resultado exatamente abaixo do limite de 2^53 continua exibido: 94906265 x² mostra 9007199136250225", () => {
     const calc = createCalculator({ storage: {} });
-    assert.equal(calc.press("9", "4", "9", "0", "6", "2", "6", "5", "x²"), "9007199136250225");
+    assert.equal(calc.press("9", "4", "9", "0", "6", "2", "6", "5", "x²"), "9 007 199 136 250 225");
   });
 
   test("resultado acima do limite de 2^53 mostra Erro: 94906266 x² mostra Erro", () => {
@@ -2862,7 +2966,7 @@ describe("CALC-41: estrutura e foco do botão DEG/RAD", () => {
   test("o botão DEG/RAD fica na linha de status, acima do visor (fora do teclado), como um botão nativo", () => {
     assert.match(
       HTML_SOURCE,
-      /<div class="status">[\s\S]*?<button type="button" id="angle-unit" class="angle-unit" data-action="angle-unit"[^>]*>DEG<\/button>\s*<\/div>\s*<output id="display"/,
+      /<div class="status">[\s\S]*?<button type="button" id="angle-unit" class="angle-unit" data-action="angle-unit"[^>]*>DEG<\/button>\s*<\/div>\s*(?:<div id="expression" class="expression"><\/div>\s*)?<output id="display"/,
     );
   });
 
@@ -3120,7 +3224,7 @@ describe("CALC-38: casos de borda do 1/x", () => {
 
   test("1/x de 0.00000001 resulta em 100000000 (sem notação científica)", () => {
     const calc = createCalculator({ storage: {} });
-    assert.equal(calc.press("0", ".", "0", "0", "0", "0", "0", "0", "0", "1", "1/x"), "100000000");
+    assert.equal(calc.press("0", ".", "0", "0", "0", "0", "0", "0", "0", "1", "1/x"), "100 000 000");
   });
 
   test("resultado que some no arredondamento mostra 0: 999999999, 1/x resulta em 0", () => {
@@ -3228,7 +3332,7 @@ describe("CALC-27: casos de borda do √x", () => {
 
   test("raiz exata de número grande: 99980001, √x resulta em 9999", () => {
     const calc = createCalculator({ storage: {} });
-    assert.equal(calc.press("9", "9", "9", "8", "0", "0", "0", "1", "√x"), "9999");
+    assert.equal(calc.press("9", "9", "9", "8", "0", "0", "0", "1", "√x"), "9 999");
   });
 
   test("√x duas vezes: 16, √x, √x resulta em 2", () => {
@@ -3487,7 +3591,7 @@ describe("CALC-24: casos de borda do MR", () => {
   test("memória grande (até 2^53) aparece sem Erro: 94906265 × 94906265 =, M+, AC, MR mostra 9007199136250225", () => {
     const calc = createCalculator({ storage: {} });
     calc.press("9", "4", "9", "0", "6", "2", "6", "5", "×", "9", "4", "9", "0", "6", "2", "6", "5", "=", "M+", "AC");
-    assert.equal(calc.press("MR"), "9007199136250225");
+    assert.equal(calc.press("MR"), "9 007 199 136 250 225");
   });
 
   test("com Erro no visor, MR começa uma calculadora nova com a memória: 5, M+, AC, 5, ÷, 0, =, MR mostra 5", () => {
@@ -4157,7 +4261,7 @@ describe("CALC-39: critérios de aceite do x! (fatorial)", () => {
 
   test("10 x! mostra 3628800", () => {
     const calc = createCalculator({ storage: {} });
-    assert.equal(calc.press("1", "0", "x!"), "3628800");
+    assert.equal(calc.press("1", "0", "x!"), "3 628 800");
   });
 
   test("valor negativo mostra Erro e não trava: 3, +/-, x! resulta em Erro, AC volta a 0 e 7 resulta em 7", () => {
@@ -4203,7 +4307,7 @@ describe("CALC-39: critérios de aceite do x! (fatorial)", () => {
 describe("CALC-39: casos de borda do x!", () => {
   test("18 x! é o último inteiro exato por extenso: 6402373705728000", () => {
     const calc = createCalculator({ storage: {} });
-    assert.equal(calc.press("1", "8", "x!"), "6402373705728000");
+    assert.equal(calc.press("1", "8", "x!"), "6 402 373 705 728 000");
   });
 
   test("19 x! passa de 2^53 e vai para notação científica: 1.2164510040883E+17", () => {
@@ -4305,7 +4409,7 @@ describe("CALC-39: teclado, foco e estrutura do x!", () => {
 describe("CALC-29: critérios de aceite do xʸ (potência)", () => {
   test("2 xʸ 10 = resulta em 1024", () => {
     const calc = createCalculator({ storage: {} });
-    assert.equal(calc.press("2", "xʸ", "1", "0", "="), "1024");
+    assert.equal(calc.press("2", "xʸ", "1", "0", "="), "1 024");
   });
 
   test("a potência vem antes da soma: 2 + 3 xʸ 2 = resulta em 11", () => {
@@ -4467,7 +4571,7 @@ describe("CALC-29: teclado, foco e estrutura do xʸ", () => {
 describe("CALC-68: EXP no teclado físico, na tela e no CSS", () => {
   test("1,5 EXP 3 pelo teclado resulta em 1500: 1, ., 5, E, 3", () => {
     const calc = createCalculator({ storage: {} });
-    assert.equal(calc.type("1", ".", "5", "E", "3"), "1500");
+    assert.equal(calc.type("1", ".", "5", "E", "3"), "1 500");
   });
 
   test("expoente negativo pelo teclado: 1,5 E − 3 resulta em 0.0015", () => {
@@ -4973,7 +5077,7 @@ describe("CALC-72: casos de borda de copiar e colar o visor", () => {
     calc.press("7");
     assert.equal(calc.paste("1234567890").display, "7");
     assert.equal(calc.paste("1.2345678901").display, "7");
-    assert.equal(calc.paste("123456789").display, "123456789");
+    assert.equal(calc.paste("123456789").display, "123 456 789");
   });
 
   test("zeros à esquerda saem e o zero com sinal vira 0: 007 vira 7, .5 vira 0.5, -0,0 vira 0, 5. vira 5", () => {

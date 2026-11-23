@@ -75,6 +75,20 @@
   color: #b35c00;
 }
 
+/* Linha secundária acima do visor (CALC-15): a expressão em andamento, em cinza (contraste alto sobre preto). Uma linha só;
+   o que não cabe vira reticências. Fora da região aria-live do visor. */
+.expression {
+  min-height: var(--expression-height);
+  padding: 0 0.5rem;
+  text-align: right;
+  font-size: 0.875rem;
+  line-height: var(--expression-height);
+  color: #a5a5a5;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .display {
   display: block;
   min-height: 6rem;
@@ -89,13 +103,22 @@
   overflow-wrap: anywhere;
 }
 
-/* Tamanho definido pelo src/ui.js conforme o número de caracteres exibidos. */
+/* Tamanho definido pelo src/ui.js conforme o número de caracteres exibidos, separador de milhar incluso. */
 .display-48 {
   font-size: 3rem; /* 48px: 7 ou 8 caracteres */
 }
 
 .display-40 {
-  font-size: 2.5rem; /* 40px: 9 ou mais caracteres */
+  font-size: 2.5rem; /* 40px: 9 a 12 caracteres */
+}
+
+/* Resultados longos (até 16 dígitos, com separadores) ganham fonte menor para não estourar o visor. */
+.display-32 {
+  font-size: 2rem; /* 32px: 13 a 16 caracteres */
+}
+
+.display-28 {
+  font-size: 1.75rem; /* 28px: 17 ou mais caracteres */
 }
 
 /* Indicador de parênteses abertos: laranja como o indicador de memória, um "(" por nível. */

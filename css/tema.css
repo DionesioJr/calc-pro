@@ -10,6 +10,8 @@
   --pad: 0.875rem;
   --gap: 0.25rem;
   --cell: 2.75rem;
+  /* Altura da linha secundária do visor (expressão em andamento). */
+  --expression-height: 1.25rem;
 }
 
 body {
@@ -103,10 +105,10 @@ body {
   .calculator {
     --display-min: 4.5rem;
     --status-height: 1.5rem;
-    /* Largura: 7 colunas e 6 espaços. Altura: 5 linhas, 4 espaços, visor mínimo e status. */
+    /* Largura: 7 colunas e 6 espaços. Altura: 5 linhas, 4 espaços, visor mínimo, status e linha da expressão. */
     --cell: min(
       calc((100vw - 2 * var(--pad) - 6 * var(--gap)) / 7),
-      calc((100dvh - 2 * var(--pad) - 4 * var(--gap) - var(--display-min) - var(--status-height)) / 5)
+      calc((100dvh - 2 * var(--pad) - 4 * var(--gap) - var(--display-min) - var(--status-height) - var(--expression-height)) / 5)
     );
     position: relative;
     display: flex;

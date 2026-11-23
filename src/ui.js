@@ -1,17 +1,27 @@
 "use strict";
 
 // Interface: desenha o visor e os indicadores a partir do estado, e controla o painel do histórico no mobile.
-// Tamanho do display pelo número de caracteres exibidos (sinal e ponto contam).
+// Tamanho do display pelo número de caracteres exibidos, já com o separador de milhar (sinal, ponto e separador contam).
 const DISPLAY_SIZES = [
   { maxLength: 6, className: "display-64" },
   { maxLength: 8, className: "display-48" },
-  { maxLength: Infinity, className: "display-40" },
+  { maxLength: 12, className: "display-40" },
+  { maxLength: 16, className: "display-32" },
+  { maxLength: Infinity, className: "display-28" },
 ];
+
+// Separador de milhar (CALC-15): espaço fino sem quebra (U+202F), porque "." já é o decimal em todo o app. Só aparece no visor e na
+// linha de expressão; o valor do estado, o copiar e o colar seguem sem ele.
+const THOUSANDS_SEPARATOR = " ";
+// Número com sinal opcional, parte inteira e decimal opcional. Notação científica (ex.: 1.5E+18) não entra e sai como está.
+const PLAIN_NUMBER = /^(-?)(\d+)(\.\d*)?$/;
 
 // Ids das ações binárias (+, −, ×, ÷, xʸ), tiradas do registro ACTIONS: dizem só quais botões são operadores, não fazem conta.
 const BINARY_ACTION_IDS = new Set(ACTIONS.filter((action) => action.type === "binary").map((action) => action.id));
 
 let display = null;
+// Linha secundária acima do visor (CALC-15): a expressão em andamento. Fica fora do visor, que é aria-live, para não ser anunciada a cada tecla.
+let expressionLine = null;
 let calculatorElement = null;
 let historyOpen = null;
 let historyPanel = null;
@@ -35,6 +45,7 @@ let operatorButtons = [];
 // Liga a interface ao documento: visor, indicadores, botões de operador e o painel do histórico (abrir, fechar, desktop).
 function bindUi(doc, win) {
   display = doc.getElementById("display");
+  expressionLine = doc.getElementById("expression");
   calculatorElement = doc.getElementById("calculator");
   historyOpen = doc.getElementById("history-open");
   historyPanel = doc.getElementById("history-panel");
@@ -85,19 +96,35 @@ function bindUi(doc, win) {
   }
 }
 
-// Classe de tamanho de fonte do visor, pelo número de caracteres do texto.
+// Classe de tamanho de fonte do visor, pelo número de caracteres do texto (já formatado).
 function displaySizeClass(text) {
   return DISPLAY_SIZES.find((size) => text.length <= size.maxLength).className;
+}
+
+// Separador de milhar na parte inteira de um número (ex.: -1234567.5 vira -1 234 567.5). Texto que não é número (Erro) volta igual.
+function groupThousands(text) {
+  const match = PLAIN_NUMBER.exec(text);
+  if (match === null) {
+    return text;
+  }
+  const [, sign, integer, fraction = ""] = match;
+  return sign + integer.replace(/\B(?=(\d{3})+(?!\d))/g, THOUSANDS_SEPARATOR) + fraction;
 }
 
 // Desenha o visor e os indicadores a partir do estado recebido (quem chama guarda o estado).
 function render(state) {
   if (display) {
-    display.textContent = state.current;
+    const shown = groupThousands(state.current);
+    display.textContent = shown;
     for (const size of DISPLAY_SIZES) {
       display.classList.remove(size.className);
     }
-    display.classList.add(displaySizeClass(state.current));
+    display.classList.add(displaySizeClass(shown));
+  }
+
+  // Linha secundária: a expressão em andamento (ex.: "2 + 3 ×"), com o mesmo separador de milhar. Vazia sem conta em curso.
+  if (expressionLine) {
+    expressionLine.textContent = expressionText(state.expression.map(groupThousands));
   }
 
   // Operador destacado (aria-pressed="true", estilizado no CSS): só enquanto o segundo número não começou.
