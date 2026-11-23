@@ -7,7 +7,8 @@
 const ERROR_TEXT = "Erro";
 
 // Máximo de algarismos digitados num número (sinal, ponto e zeros à esquerda da parte inteira não contam).
-const MAX_DIGITS = 9;
+// 15 é o que o double representa sem perda para inteiros: 999999999999999 fica abaixo de 2^53.
+const MAX_DIGITS = 15;
 
 // Resultados são arredondados para no máximo 8 casas decimais.
 const DECIMAL_PLACES = 8;
@@ -448,7 +449,7 @@ function inputDigit(s, digit) {
     s.waitingForOperand = false;
     return;
   }
-  // Com 9 algarismos, o próximo dígito é ignorado.
+  // Com MAX_DIGITS algarismos, o próximo dígito é ignorado.
   if (countDigits(s.current) >= MAX_DIGITS) {
     return;
   }

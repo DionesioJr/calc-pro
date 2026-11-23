@@ -2,10 +2,15 @@
 
 // Interface: desenha o visor e os indicadores a partir do estado, e controla o painel do histórico no mobile.
 // Tamanho do display pelo número de caracteres exibidos (sinal e ponto contam).
+// Cabe em 276px (320px de tela menos o padding da calculadora e do visor), com 0,62em por caractere como estimativa conservadora:
+// o maior tamanho de cada faixa cabe nesse espaço. 17 caracteres = sinal, 15 algarismos e ponto. Notação científica (até 22) fica na última faixa.
 const DISPLAY_SIZES = [
   { maxLength: 6, className: "display-64" },
   { maxLength: 8, className: "display-48" },
-  { maxLength: Infinity, className: "display-40" },
+  { maxLength: 11, className: "display-40" },
+  { maxLength: 13, className: "display-32" },
+  { maxLength: 17, className: "display-26" },
+  { maxLength: Infinity, className: "display-20" },
 ];
 
 // Ids das ações binárias (+, −, ×, ÷, xʸ), tiradas do registro ACTIONS: dizem só quais botões são operadores, não fazem conta.

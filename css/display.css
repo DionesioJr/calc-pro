@@ -95,7 +95,19 @@
 }
 
 .display-40 {
-  font-size: 2.5rem; /* 40px: 9 ou mais caracteres */
+  font-size: 2.5rem; /* 40px: 9 a 11 caracteres */
+}
+
+.display-32 {
+  font-size: 2rem; /* 32px: 12 ou 13 caracteres */
+}
+
+.display-26 {
+  font-size: 1.625rem; /* 26px: 14 a 17 caracteres (15 algarismos com sinal e ponto) */
+}
+
+.display-20 {
+  font-size: 1.25rem; /* 20px: mais de 17 caracteres, em notação científica */
 }
 
 /* Indicador de parênteses abertos: laranja como o indicador de memória, um "(" por nível. */

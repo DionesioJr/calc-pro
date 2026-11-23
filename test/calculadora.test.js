@@ -98,7 +98,7 @@ function createClassList() {
   };
 }
 
-const DISPLAY_SIZE_CLASSES = ["display-64", "display-48", "display-40"];
+const DISPLAY_SIZE_CLASSES = ["display-64", "display-48", "display-40", "display-32", "display-26", "display-20"];
 
 // Botão com dataset, classList e atributos (setAttribute/getAttribute), como no navegador.
 function createButton(dataset) {
@@ -1129,24 +1129,52 @@ describe("CALC-7: critérios de aceite de erro, dígitos, arredondamento e fonte
     assert.equal(calc.press("1", "÷", "4", "="), "0.25");
   });
 
-  test("digitar 1234567890 mostra 123456789 (o 10º dígito é ignorado)", () => {
+  test("digitar 1234567890123456 mostra 123456789012345 (o 16º dígito é ignorado)", () => {
     const calc = createCalculator();
-    assert.equal(calc.press("1", "2", "3", "4", "5", "6", "7", "8", "9", "0"), "123456789");
+    assert.equal(
+      calc.press("1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "1", "2", "3", "4", "5", "6"),
+      "123456789012345",
+    );
   });
 
-  test("o limite de 9 dígitos vale também depois do ponto: 0.123456789 e o próximo dígito é ignorado", () => {
+  test("o limite de 15 dígitos vale também depois do ponto: 0.123456789012345 e o próximo dígito é ignorado", () => {
     const calc = createCalculator();
-    assert.equal(calc.press("0", ".", "1", "2", "3", "4", "5", "6", "7", "8", "9", "0"), "0.123456789");
+    assert.equal(
+      calc.press("0", ".", "1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "1", "2", "3", "4", "5", "6"),
+      "0.123456789012345",
+    );
   });
 
-  test("o sinal não conta no limite: 1, +/-, 2 a 9 e 0 resulta em -123456789", () => {
+  test("o sinal não conta no limite: 15 dígitos, +/- e o 16º dígito é ignorado: resulta em -123456789012345", () => {
     const calc = createCalculator();
-    assert.equal(calc.press("1", "+/-", "2", "3", "4", "5", "6", "7", "8", "9", "0"), "-123456789");
+    calc.press("1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "1", "2", "3", "4", "5", "+/-");
+    assert.equal(calc.press("6"), "-123456789012345");
   });
 
-  test("o limite também vale para o segundo operando: 1, +, 1234567890, = resulta em 123456790", () => {
+  test("o ponto não conta no limite: 15 dígitos e ponto deixam o 16º dígito de fora: 123456789012345. (16 caracteres)", () => {
     const calc = createCalculator();
-    assert.equal(calc.press("1", "+", "1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "="), "123456790");
+    calc.press("1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "1", "2", "3", "4", "5", ".");
+    assert.equal(calc.press("6"), "123456789012345.");
+  });
+
+  test("o limite também vale para o segundo operando: 1, +, 15 dígitos e o 16º ignorado, = resulta em 123456789012346", () => {
+    const calc = createCalculator();
+    assert.equal(
+      calc.press("1", "+", "1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "1", "2", "3", "4", "5", "6", "="),
+      "123456789012346",
+    );
+  });
+
+  test("15 algarismos somados dão resultado exato abaixo de 2^53: 999999999999999 × 9 = resulta em 8999999999999991", () => {
+    const calc = createCalculator();
+    calc.press("9", "9", "9", "9", "9", "9", "9", "9", "9", "9", "9", "9", "9", "9", "9");
+    assert.equal(calc.press("×", "9", "="), "8999999999999991");
+  });
+
+  test("15 algarismos com resultado acima de 2^53 mostra Erro: 999999999999999 × 10 = resulta em Erro", () => {
+    const calc = createCalculator();
+    calc.press("9", "9", "9", "9", "9", "9", "9", "9", "9", "9", "9", "9", "9", "9", "9");
+    assert.equal(calc.press("×", "1", "0", "="), "Erro");
   });
 
   test("zeros à esquerda da parte inteira não contam: 0.1234567 ainda aceita mais um dígito (0.12345678)", () => {
@@ -1204,6 +1232,55 @@ describe("CALC-7: critérios de aceite de erro, dígitos, arredondamento e fonte
     calc.press("1", "2", "3", "4", "5", "6", "7", "8", "9");
     assert.equal(calc.type("Backspace"), "12345678");
     assert.equal(calc.fontSizeClass(), "display-48");
+  });
+
+  test("faixas de fonte com 11 a 15 caracteres: 11 usa display-40, 12 e 13 usam display-32, 14 e 15 usam display-26", () => {
+    const calc = createCalculator();
+    assert.equal(calc.press("1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "1"), "12345678901");
+    assert.equal(calc.fontSizeClass(), "display-40");
+    assert.equal(calc.press("2"), "123456789012");
+    assert.equal(calc.fontSizeClass(), "display-32");
+    assert.equal(calc.press("3"), "1234567890123");
+    assert.equal(calc.fontSizeClass(), "display-32");
+    assert.equal(calc.press("4"), "12345678901234");
+    assert.equal(calc.fontSizeClass(), "display-26");
+    assert.equal(calc.press("5"), "123456789012345");
+    assert.equal(calc.fontSizeClass(), "display-26");
+  });
+
+  test("15 algarismos com sinal e ponto (17 caracteres) usam display-26: -12345678901234.5 colado", () => {
+    const calc = createCalculator();
+    assert.equal(calc.paste("-12345678901234.5").display, "-12345678901234.5");
+    assert.equal(calc.fontSizeClass(), "display-26");
+  });
+
+  test("notação científica usa display-20: 20 x! mostra 2.4329020081766E+18 (19 caracteres)", () => {
+    const calc = createCalculator();
+    assert.equal(calc.press("2", "0", "x!"), "2.4329020081766E+18");
+    assert.equal(calc.fontSizeClass(), "display-20");
+  });
+
+  test("cada tamanho cabe em 320px: com 0,62em por caractere, n caracteres x tamanho ≤ 276px (320 − 2 × 14 de padding − 2 × 8 do visor), de 1 a 17", () => {
+    // Largura útil do visor no mobile de 320px. No desktop (360px) sobram 316px, então cabe também.
+    const availableWidth = 320 - 2 * 14 - 2 * 8;
+    // Tamanho em px de cada classe, lido do CSS. O 0,62em é uma estimativa conservadora: dígitos de Segoe UI, SF e Roboto são de 0,55 a 0,62em.
+    const pxByClass = {};
+    // A regra base .display tem 4rem e é a classe display-64 (o visor não tem uma regra display-64 própria).
+    for (const [, selector, rem] of CSS_SOURCE.matchAll(/\.(display(?:-\d+)?)\s*\{[^}]*font-size:\s*([\d.]+)rem;/g)) {
+      pxByClass[selector === "display" ? "display-64" : selector] = Number(rem) * 16;
+    }
+    for (let length = 1; length <= 17; length += 1) {
+      // Texto com exatamente `length` caracteres e no máximo 15 algarismos: sinal e ponto entram depois dos dígitos.
+      const text = length <= 15 ? "1".repeat(length) : length === 16 ? `-${"1".repeat(15)}` : `-${"1".repeat(14)}.1`;
+      const calc = createCalculator();
+      assert.equal(calc.paste(text).display, text, `texto de ${length} caracteres`);
+      const name = calc.fontSizeClass();
+      assert.ok(pxByClass[name] !== undefined, `${name} precisa de font-size em rem no CSS`);
+      assert.ok(
+        length * 0.62 * pxByClass[name] <= availableWidth,
+        `${length} caracteres em ${name} (${pxByClass[name]}px) passam de ${availableWidth}px`,
+      );
+    }
   });
 });
 
@@ -2925,9 +3002,10 @@ describe("CALC-36: casos de borda do π", () => {
     assert.equal(calc.press("5", "÷", "0", "=", "π"), "3.14159265");
   });
 
-  test("com 9 dígitos, o próximo dígito é ignorado: π, 5 continua 3.14159265", () => {
+  test("π tem 9 algarismos e ainda aceita dígitos até 15: π, 1 a 6 mostra 3.14159265123456, e o 7º é ignorado", () => {
     const calc = createCalculator({ storage: {} });
-    assert.equal(calc.press("π", "5"), "3.14159265");
+    assert.equal(calc.press("π", "1", "2", "3", "4", "5", "6"), "3.14159265123456");
+    assert.equal(calc.press("7"), "3.14159265123456");
   });
 
   test("π no segundo operando usa o valor completo: 2 + π = mostra 5.14159265 e grava 2 + 3.14159265 = 5.14159265", () => {
@@ -3003,9 +3081,10 @@ describe("CALC-37: casos de borda do e", () => {
     assert.equal(calc.press("5", "÷", "0", "=", "e"), "2.71828183");
   });
 
-  test("com 9 dígitos, o próximo dígito é ignorado: e, 5 continua 2.71828183", () => {
+  test("e tem 9 algarismos e ainda aceita dígitos até 15: e, 1 a 6 mostra 2.71828183123456, e o 7º é ignorado", () => {
     const calc = createCalculator({ storage: {} });
-    assert.equal(calc.press("e", "5"), "2.71828183");
+    assert.equal(calc.press("e", "1", "2", "3", "4", "5", "6"), "2.71828183123456");
+    assert.equal(calc.press("7"), "2.71828183123456");
   });
 
   test("e no segundo operando usa o valor exibido: 2 + e = mostra 4.71828183 e grava 2 + 2.71828183 = 4.71828183", () => {
@@ -4968,12 +5047,24 @@ describe("CALC-72: casos de borda de copiar e colar o visor", () => {
     }
   });
 
-  test("mais de 9 algarismos é ignorado, e 9 é aceito: 1234567890 não entra, 123456789 entra", () => {
+  test("mais de 15 algarismos é ignorado, e 15 é aceito: 1234567890123456 não entra, 123456789012345 entra", () => {
     const calc = createCalculator();
     calc.press("7");
-    assert.equal(calc.paste("1234567890").display, "7");
-    assert.equal(calc.paste("1.2345678901").display, "7");
-    assert.equal(calc.paste("123456789").display, "123456789");
+    assert.equal(calc.paste("1234567890123456").display, "7");
+    assert.equal(calc.paste("1.234567890123456").display, "7");
+    assert.equal(calc.paste("123456789012345").display, "123456789012345");
+  });
+
+  test("o limite de 15 algarismos conta sinal e ponto à parte: -12345678901234.5 entra e -123456789012345.6 (16 algarismos) é ignorado", () => {
+    const calc = createCalculator();
+    calc.press("7");
+    assert.equal(calc.paste("-12345678901234.5").display, "-12345678901234.5");
+    assert.equal(calc.paste("-123456789012345.6").display, "-12345678901234.5");
+  });
+
+  test("colar 10 algarismos (que antes estourava o limite de 9) agora entra: 1234567890 mostra 1234567890", () => {
+    const calc = createCalculator();
+    assert.equal(calc.paste("1234567890").display, "1234567890");
   });
 
   test("zeros à esquerda saem e o zero com sinal vira 0: 007 vira 7, .5 vira 0.5, -0,0 vira 0, 5. vira 5", () => {
