@@ -247,6 +247,8 @@ function createCalculator({ storage = {} } = {}) {
   let onBlur = null;
   let onCopy = null;
   let onPaste = null;
+  // Listener da consulta (min-width: 768px) de matchMedia, que ui.js registra para fechar o painel ao ir para o desktop.
+  let onDesktopChange = null;
   // Texto selecionado na página (window.getSelection), vazio por padrão.
   let selectedText = "";
 
@@ -349,6 +351,14 @@ function createCalculator({ storage = {} } = {}) {
       }
     },
     getSelection: () => ({ toString: () => selectedText }),
+    matchMedia: () => ({
+      matches: false,
+      addEventListener(type, listener) {
+        if (type === "change") {
+          onDesktopChange = listener;
+        }
+      },
+    }),
   };
 
   const localStorage = createLocalStorage(storage);
@@ -591,6 +601,11 @@ function createCalculator({ storage = {} } = {}) {
     historyCloseButton.dispatch("click");
   }
 
+  // A tela passa a ter largura de desktop (min-width: 768px), como o navegador avisa ao redimensionar ou girar.
+  function changeToDesktop() {
+    onDesktopChange({ matches: true });
+  }
+
   return {
     press,
     keyDown,
@@ -612,6 +627,7 @@ function createCalculator({ storage = {} } = {}) {
     clickClear,
     tapHistoryOpen,
     tapHistoryClose,
+    changeToDesktop,
     historyClear,
     panelShown: () => historyPanel.classList.contains("is-open"),
     openButtonExpanded: () => historyOpenButton.getAttribute("aria-expanded"),
@@ -880,9 +896,10 @@ describe("CALC-57: critérios de aceite do % em soma e subtração", () => {
     assert.equal(calc.press("1", "0", "0", "÷", "1", "0", "%", "="), "1000");
   });
 
-  test("10% sozinho resulta em 0.1 (sem operador pendente)", () => {
+  test("10% sozinho resulta em 0.1 (sem operador pendente) e não grava histórico", () => {
     const calc = createCalculator({ storage: {} });
     assert.equal(calc.press("1", "0", "%"), "0.1");
+    assert.deepEqual(calc.historyItems(), []);
   });
 
   test("funciona com decimais: 250 − 12.5% resulta em 218.75", () => {
@@ -2075,6 +2092,26 @@ describe("CALC-21: critérios de aceite do histórico em tela cheia no mobile", 
     calc.tapHistoryOpen();
     assert.equal(calc.tapHistoryItem(0), "5");
     assert.equal(calc.panelShown(), false);
+  });
+
+  test("ao ir para desktop, o painel aberto fecha, libera a calculadora e devolve o foco ao Histórico", () => {
+    const calc = createCalculator({ storage: {} });
+    calc.tapHistoryOpen();
+    assert.equal(calc.calculatorInert(), true);
+    calc.changeToDesktop();
+    assert.equal(calc.panelShown(), false);
+    assert.equal(calc.calculatorInert(), false);
+    assert.equal(calc.openButtonExpanded(), "false");
+    assert.equal(calc.openButtonFocused(), true);
+  });
+
+  test("com o painel fechado, passar para desktop não muda nada: 5, desktop, + 3 = resulta em 8", () => {
+    const calc = createCalculator({ storage: {} });
+    calc.press("5");
+    calc.changeToDesktop();
+    assert.equal(calc.panelShown(), false);
+    assert.equal(calc.calculatorInert(), false);
+    assert.equal(calc.press("+", "3", "="), "8");
   });
 });
 
@@ -4793,6 +4830,14 @@ function blockedStorage() {
   return new Proxy({}, { has: blocked, get: blocked, set: blocked, deleteProperty: blocked });
 }
 
+// Armazenamento sem espaço (cota cheia): a leitura funciona e nada está salvo, mas toda gravação lança erro.
+function fullStorage() {
+  const full = () => {
+    throw new Error("cota cheia");
+  };
+  return new Proxy({}, { set: full });
+}
+
 describe("CALC-73: critérios de aceite da memória e da unidade guardadas entre sessões", () => {
   test("a memória volta ao reabrir: 5 M+, nova calculadora no mesmo storage mantém a memória em 5 e o indicador visível", () => {
     const storage = {};
@@ -4878,6 +4923,14 @@ describe("CALC-73: casos de borda da memória e da unidade guardadas", () => {
     const calc = createCalculator({ storage: blockedStorage() });
     assert.equal(calc.memoryValue(), 0);
     assert.equal(calc.angleUnitLabel(), "DEG");
+  });
+
+  test("cota cheia ao gravar não quebra a calculadora: M+ e a unidade funcionam na sessão, sem erro", () => {
+    const calc = createCalculator({ storage: fullStorage() });
+    assert.equal(calc.press("5", "M+"), "5");
+    assert.equal(calc.memoryValue(), 5);
+    assert.equal(calc.press("unidade"), "5");
+    assert.equal(calc.angleUnitLabel(), "RAD");
   });
 
   test("dado salvo que não é JSON vira o padrão (memória 0, DEG), sem erro", () => {
