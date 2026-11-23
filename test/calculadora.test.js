@@ -1986,7 +1986,8 @@ function panelHeight(cell, rows) {
 }
 
 // Lado do botão na paisagem baixa, como tema.css calcula em --cell: o menor entre 2.75rem e a altura da tela
-// (--pad 14, --gap 4, --display-min 72, --status-height 30 e a margem de 8px acima do painel, em px).
+// (--pad 14, --gap 4, --display-min 72, --status-height 30 e a margem-top de 8px do .panel, em px).
+// É uma conta com as constantes do CSS, não uma medição do layout renderizado: a medição é manual, no navegador.
 function landscapeButtonSide(height) {
   const byHeight = (height - 2 * 14 - 6 * 4 - 72 - 30 - 8) / 7;
   return Math.min(2.75 * 16, byHeight);
@@ -2026,11 +2027,13 @@ describe("CALC-21: critérios de aceite do layout mobile", () => {
     }
   });
 
-  test("na paisagem 844x390 (acima de 767px, até 500px de altura), a coluna inteira cabe em 390px sem rolagem, com a grade de 7 linhas (não só o teclado de 5)", () => {
+  test("na paisagem 844x390 (acima de 767px, até 500px de altura), a conta da coluna com a grade de 7 linhas fecha em 390px (conferência aritmética, não medição no navegador)", () => {
     // Em 844px de largura o bloco @media (max-width: 767px) não vale: o bloco de paisagem baixa de tema.css calcula o --cell.
     assert.match(LANDSCAPE_CSS, /--cell:\s*min\(\s*2\.75rem,\s*calc\(\(100vh - 2 \* var\(--pad\) - 6 \* var\(--gap\) - var\(--display-min\) - var\(--status-height\) - 0\.5rem\) \/ 7\)\s*\)/);
     assert.match(LANDSCAPE_CSS, /\.calculator\s*\{[^}]*--display-min:\s*4\.5rem;[^}]*--status-height:\s*1\.875rem;[^}]*\}/);
     assert.match(CSS_SOURCE, /:root\s*\{[^}]*--cell:\s*2\.75rem;[^}]*\}/);
+    // A margem de 8px acima do painel é o margin-top de .panel na regra base (teclado.css), que a paisagem não zera.
+    assert.match(CSS_SOURCE, /\.panel\s*\{[^}]*margin-top:\s*0\.5rem;[^}]*\}/);
     const cell = landscapeButtonSide(390);
     // O painel é o maior dos dois contêineres: grade científica (7 linhas) e teclado (5 linhas).
     const panel = Math.max(panelHeight(cell, 7), panelHeight(cell, 5));

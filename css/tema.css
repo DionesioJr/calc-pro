@@ -120,8 +120,11 @@ body {
 }
 
 /*
- * Paisagem baixa (768px ou mais de largura e até 500px de altura, como 844x390): a calculadora cabe na altura da tela, sem rolagem.
- * --cell diminui até a grade de 7 linhas caber com o visor mínimo, a linha de status e a margem do painel; até 2.75rem, não passa disso.
+ * Paisagem baixa (768px ou mais de largura e até 500px de altura, como 844x390).
+ * --cell diminui para a grade de 7 linhas caber na altura, descontando o visor mínimo (--display-min), a linha de status
+ * (--status-height, 30px, estimativa a partir do padding do botão, não medida) e a margem-top do painel (0.5rem, teclado.css).
+ * Até 2.75rem, não passa disso. Os botões ficam abaixo de 44px nessa altura: é o trade-off do CALC-19.
+ * Os valores são a conta do layout; a altura e a rolagem reais só se confirmam medindo no navegador em 844x390.
  * Os demais arquivos completam o bloco: display.css usa --display-min no visor, teclado.css esconde os atalhos, e historico.css limita a lista do histórico.
  */
 @media (min-width: 768px) and (max-height: 500px) {
