@@ -2017,10 +2017,37 @@ describe("CALC-21: critérios de aceite do layout mobile", () => {
   test("index.html tem o botão Histórico ligado ao painel e o × com rótulo para leitor de tela", () => {
     assert.match(
       HTML_SOURCE,
-      /id="history-open"[^>]*aria-controls="history-panel"[^>]*aria-expanded="false"[^>]*>Histórico<\/button>/,
+      /id="history-open"[^>]*aria-controls="history-panel"[^>]*aria-expanded="false"[^>]*>[\s\S]*?<\/svg>Histórico<\/button>/,
     );
     assert.match(HTML_SOURCE, /<section class="history" id="history-panel"/);
     assert.match(HTML_SOURCE, /id="history-close"[^>]*aria-label="Fechar histórico"[^>]*>×<\/button>/);
+  });
+});
+
+describe("CALC-18: botão Histórico na linha de status e cabeçalho do painel", () => {
+  test("o botão Histórico fica na linha de status, antes do 2nd e do DEG/RAD, e fora da grade", () => {
+    assert.ok(HTML_SOURCE.indexOf('class="status"') < HTML_SOURCE.indexOf('id="history-open"'));
+    assert.ok(HTML_SOURCE.indexOf('id="history-open"') < HTML_SOURCE.indexOf('id="secondary-toggle"'));
+    assert.ok(HTML_SOURCE.indexOf('id="secondary-toggle"') < HTML_SOURCE.indexOf('class="panel"'));
+  });
+
+  test("o botão Histórico tem ícone decorativo (aria-hidden) e o rótulo visível continua sendo o nome", () => {
+    assert.match(HTML_SOURCE, /id="history-open"[\s\S]*?<svg class="history-icon"[^>]*aria-hidden="true"/);
+    assert.doesNotMatch(HTML_SOURCE, /id="history-open"[^>]*aria-label=/);
+  });
+
+  test("no mobile o botão Histórico não é mais absoluto: entra no fluxo da linha de status, com estilo da pílula 2nd", () => {
+    assert.doesNotMatch(MOBILE_CSS, /\.history-open\s*\{[^}]*position:\s*absolute/);
+    assert.match(MOBILE_CSS, /\.history-open\s*\{[^}]*margin-right:\s*auto;[^}]*\}/);
+    assert.match(MOBILE_CSS, /\.history-open\s*\{[^}]*font-weight:\s*600;[^}]*\}/);
+  });
+
+  test("o título do painel é maior que antes (1.25rem) e o × do mobile é menor (2rem, fonte 1.125rem)", () => {
+    assert.match(CSS_SOURCE, /\.history-title\s*\{[^}]*font-size:\s*1\.25rem;[^}]*\}/);
+    assert.match(
+      MOBILE_CSS,
+      /\.history\.is-open \.history-close\s*\{[^}]*width:\s*2rem;[^}]*height:\s*2rem;[^}]*font-size:\s*1\.125rem;[^}]*\}/,
+    );
   });
 });
 
