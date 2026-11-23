@@ -51,7 +51,8 @@
   flex-direction: column;
   gap: 0.5rem;
   margin: 0;
-  padding: 0;
+  /* Espaço no fim: o último item rola até ficar inteiro acima do rodapé (Limpar), sem encostar nele. */
+  padding: 0 0 1rem;
   max-height: 26rem;
   overflow-y: auto;
   list-style: none;
@@ -68,7 +69,7 @@
   outline-offset: 2px;
 }
 
-/* Cada cálculo é um botão: tocar nele devolve o resultado ao visor. Expressão pequena e cinza; resultado grande e branco. */
+/* Cada cálculo é um botão: tocar nele devolve o resultado ao visor. Expressão em branco, como o visor; resultado maior e em negrito. */
 .history-item {
   display: flex;
   flex-direction: column;
@@ -95,9 +96,10 @@
   outline-offset: 2px;
 }
 
+/* Cor do visor (#ffffff), em 1rem: menor que o resultado (1.5rem, negrito), mas legível. */
 .history-expression {
-  font-size: 0.875rem;
-  color: #a5a5a5;
+  font-size: 1rem;
+  color: #ffffff;
   font-variant-numeric: tabular-nums;
 }
 
@@ -107,6 +109,11 @@
   line-height: 1.2;
   color: #ffffff;
   font-variant-numeric: tabular-nums;
+}
+
+/* O "=" vem antes do resultado só na tela (CSS): o texto do elemento continua só o número. */
+.history-result::before {
+  content: "= ";
 }
 
 .history-actions {

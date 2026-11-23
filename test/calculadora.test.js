@@ -1769,7 +1769,7 @@ describe("CALC-19: estrutura e estilo do histórico", () => {
   test("index.html tem a área do histórico, a mensagem de vazio e o botão Limpar histórico", () => {
     assert.match(HTML_SOURCE, /class="history"/);
     assert.match(HTML_SOURCE, /id="history-list"/);
-    assert.match(HTML_SOURCE, /Ainda não há cálculos\./);
+    assert.match(HTML_SOURCE, /Nenhum cálculo ainda/);
     assert.match(HTML_SOURCE, /id="history-clear"[^>]*>Limpar histórico<\/button>/);
   });
 
@@ -1790,6 +1790,42 @@ describe("CALC-19: estrutura e estilo do histórico", () => {
   test("histórico usa o fundo escuro e o cinza do texto de apoio", () => {
     assert.match(CSS_SOURCE, /\.history-item\s*\{[^}]*background:\s*#333333;[^}]*color:\s*#ffffff;[^}]*\}/);
     assert.match(CSS_SOURCE, /\.history-empty\s*\{[^}]*color:\s*#a5a5a5;[^}]*\}/);
+  });
+});
+
+describe("CALC-17: legibilidade da lista do histórico e estado vazio", () => {
+  test("sem cálculos, a mensagem de vazio diz 'Nenhum cálculo ainda' e a lista fica escondida", () => {
+    assert.match(HTML_SOURCE, /id="history-empty"[^>]*>Nenhum cálculo ainda<\/p>/);
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.historyEmptyHidden(), false);
+    assert.equal(calc.historyListHidden(), true);
+  });
+
+  test("a expressão tem fonte de pelo menos 1rem e a cor do visor (#ffffff)", () => {
+    assert.match(CSS_SOURCE, /\.history-expression\s*\{[^}]*font-size:\s*1rem;[^}]*color:\s*#ffffff;[^}]*\}/);
+  });
+
+  test("o '=' aparece antes do resultado pelo CSS, sem entrar no texto do elemento: 12 × 3 mostra '= 36' e o texto segue 36", () => {
+    assert.match(CSS_SOURCE, /\.history-result::before\s*\{\s*content:\s*"= ";\s*\}/);
+    const calc = createCalculator({ storage: {} });
+    calc.press("1", "2", "×", "3", "=");
+    assert.equal(calc.historyItemParts(0).result, "36");
+  });
+
+  test("o último item tem espaço abaixo na lista (padding inferior), para não ficar atrás do rodapé", () => {
+    assert.match(CSS_SOURCE, /\.history-list\s*\{[^}]*padding:\s*0 0 1rem;[^}]*\}/);
+  });
+
+  test("o resultado gravado tem o mesmo arredondamento do visor: 1 ÷ 3 mostra e grava 0.33333333", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("1", "÷", "3", "="), "0.33333333");
+    assert.equal(calc.historyItemParts(0).result, "0.33333333");
+  });
+
+  test("o resultado gravado acompanha o visor com as casas decimais limpas: 0.1 + 0.2 mostra e grava 0.3", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("0", ".", "1", "+", "0", ".", "2", "="), "0.3");
+    assert.equal(calc.historyItemParts(0).result, "0.3");
   });
 });
 
