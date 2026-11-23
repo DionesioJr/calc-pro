@@ -1038,7 +1038,7 @@ describe("CALC-1: closeGroup, dropDanglingOperator e x! passam por setCurrent e 
     assert.deepEqual(result.history, ["(10000 × 2.71828183) = 27182.81828459"]);
   });
 
-  test("dropDanglingOperator restaura o e pendente sem deixar exact preso: (e + = dá 2.71828183 e não reaparece em e2.718281828459045e × 3", () => {
+  test("dropDanglingOperator restaura o e pendente e fecha o grupo com o valor completo: (e + = mostra 2.71828183 com exact nulo, e a conta seguinte dá 8.15484549", () => {
     const danglingClose = run(initialState(), [
       { action: "open-paren" },
       { action: "euler" },
@@ -1046,12 +1046,66 @@ describe("CALC-1: closeGroup, dropDanglingOperator e x! passam por setCurrent e 
       EQ,
     ]);
     assert.equal(danglingClose.state.current, "2.71828183");
+    // O "=" fecha o grupo logo depois de restaurar o e; closeGroup grava o resultado com setCurrent, que zera exact.
     assert.equal(danglingClose.state.exact, null);
     assert.deepEqual(danglingClose.history, ["(2.71828183) = 2.71828183"]);
 
     const chained = run(danglingClose.state, [{ action: "multiply" }, { value: "3" }, EQ]);
     assert.equal(chained.state.current, "8.15484549");
     assert.deepEqual(chained.history, ["2.71828183 × 3 = 8.15484549"]);
+  });
+
+  test("dropDanglingOperator mantém notação científica pequena: (1 EXP − 7 + = mostra 1E-7, não 0", () => {
+    const result = run(initialState(), [
+      { action: "open-paren" },
+      { value: "1" },
+      EXP,
+      SUB,
+      { value: "7" },
+      { action: "add" },
+      EQ,
+    ]);
+    assert.equal(result.state.current, "1E-7");
+    assert.equal(result.state.error, false);
+  });
+
+  test("dropDanglingOperator mantém notação científica grande: (20! + = mostra 2.4329020081766E+18 em maiúscula", () => {
+    const result = run(initialState(), [
+      { action: "open-paren" },
+      { value: "2" },
+      { value: "0" },
+      { action: "factorial" },
+      { action: "add" },
+      EQ,
+    ]);
+    assert.equal(result.state.current, "2.4329020081766E+18");
+    assert.equal(result.state.error, false);
+  });
+
+  test("depois de notação científica vinda de grupo, o próximo dígito começa número novo: (20! + = depois 5 mostra 5, não 2.4329020081766E+185", () => {
+    const result = run(initialState(), [
+      { action: "open-paren" },
+      { value: "2" },
+      { value: "0" },
+      { action: "factorial" },
+      { action: "add" },
+      EQ,
+      { value: "5" },
+    ]);
+    assert.equal(result.state.current, "5");
+  });
+
+  test("closeGroup mantém notação científica maiúscula: (1 EXP 25) = mostra 1E+25, não 1e+25", () => {
+    const result = run(initialState(), [
+      { action: "open-paren" },
+      { value: "1" },
+      EXP,
+      { value: "2" },
+      { value: "5" },
+      { action: "close-paren" },
+      EQ,
+    ]);
+    assert.equal(result.state.current, "1E+25");
   });
 
   test("x! limpa o valor completo (exact) do visor em vez de deixá-lo preso: e⁰ = 1 (exact 1), x! resulta em 1 com exact nulo", () => {

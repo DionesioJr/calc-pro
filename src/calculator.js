@@ -1201,7 +1201,7 @@ function closeGroup(s) {
     setError(s);
     return;
   }
-  setCurrent(s, formatResult(value));
+  setCurrent(s, entryText(value));
   s.waitingForOperand = false;
   s.valueIsGroup = true;
   refreshStack(s);
@@ -1215,8 +1215,13 @@ function dropDanglingOperator(s) {
   }
   s.terms.pop();
   s.expression.pop();
+  // O termo guarda o número fechado (texto do visor ou valor completo de e); o visor mostra o texto de sempre, sem reformatar notação científica.
   const value = Number(s.terms.pop());
-  setCurrent(s, formatResult(value));
+  setCurrent(s, entryText(value));
+  // Se o visor arredondou a constante, o valor completo volta em exact, para as próximas contas.
+  if (Number(s.current) !== value) {
+    s.exact = value;
+  }
   if (s.expression[s.expression.length - 1] === ")") {
     // O número era o valor de um grupo fechado: o texto do grupo continua na expressão.
     s.valueIsGroup = true;
