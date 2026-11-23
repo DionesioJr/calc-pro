@@ -629,3 +629,10 @@
     display: none;
   }
 }
+
+/* Paisagem baixa (tema.css): sem espaço abaixo do teclado para a lista de atalhos, que sai para a calculadora caber sem rolagem. */
+@media (min-width: 768px) and (max-height: 500px) {
+  .shortcuts {
+    display: none;
+  }
+}

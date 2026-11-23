@@ -1964,6 +1964,9 @@ describe("CALC-20: estilo e estrutura do histórico reformulado", () => {
 // Regras do mobile: o bloco @media (max-width: 767px) fica no fim de cada arquivo de css/, somados aqui.
 const MOBILE_CSS = CSS_FILES.map((css) => (css.match(/@media \(max-width: 767px\) \{[\s\S]*$/) || [""])[0]).join("\n");
 
+// Blocos de paisagem baixa (768px ou mais de largura, até 500px de altura): cada bloco termina na primeira linha "}" da coluna 0.
+const LANDSCAPE_CSS = CSS_FILES.map((css) => (css.match(/@media \(min-width: 768px\) and \(max-height: 500px\) \{[\s\S]*?\n\}/) || [""])[0]).join("\n");
+
 // Lado do botão no mobile, como o tema.css calcula em --cell: o menor entre a largura (7 colunas, com 6 espaços)
 // e a altura (7 linhas da grade científica, com o visor com pelo menos --display-min e a linha de status). Em px, com 1rem = 16px:
 // --pad 14, --gap 4, --display-min 72, --status-height 24.
@@ -1980,6 +1983,13 @@ function mobileButtonSide(width, height) {
 // Altura de uma coluna do painel com n linhas de botões quadrados de lado `cell` e --gap de 4px entre elas.
 function panelHeight(cell, rows) {
   return rows * cell + (rows - 1) * 4;
+}
+
+// Lado do botão na paisagem baixa, como tema.css calcula em --cell: o menor entre 2.75rem e a altura da tela
+// (--pad 14, --gap 4, --display-min 72, --status-height 30 e a margem de 8px acima do painel, em px).
+function landscapeButtonSide(height) {
+  const byHeight = (height - 2 * 14 - 6 * 4 - 72 - 30 - 8) / 7;
+  return Math.min(2.75 * 16, byHeight);
 }
 
 describe("CALC-21: critérios de aceite do layout mobile", () => {
@@ -2016,13 +2026,22 @@ describe("CALC-21: critérios de aceite do layout mobile", () => {
     }
   });
 
-  test("na paisagem 844x390 (acima de 767px, sem o bloco mobile), o botão é o --cell de :root (44px) e o painel tem no máximo 390px", () => {
-    // Em 844px de largura o bloco @media (max-width: 767px) não vale: o --cell é o de :root, 2.75rem.
-    const cell = 2.75 * 16;
-    const panel = Math.max(panelHeight(cell, 7), panelHeight(cell, 5));
-    assert.ok(cell >= 44, `844x390: botão de ${cell}px`);
-    assert.ok(panel <= 390, `844x390: painel de ${panel}px`);
+  test("na paisagem 844x390 (acima de 767px, até 500px de altura), a coluna inteira cabe em 390px sem rolagem, com a grade de 7 linhas (não só o teclado de 5)", () => {
+    // Em 844px de largura o bloco @media (max-width: 767px) não vale: o bloco de paisagem baixa de tema.css calcula o --cell.
+    assert.match(LANDSCAPE_CSS, /--cell:\s*min\(\s*2\.75rem,\s*calc\(\(100vh - 2 \* var\(--pad\) - 6 \* var\(--gap\) - var\(--display-min\) - var\(--status-height\) - 0\.5rem\) \/ 7\)\s*\)/);
+    assert.match(LANDSCAPE_CSS, /\.calculator\s*\{[^}]*--display-min:\s*4\.5rem;[^}]*--status-height:\s*1\.875rem;[^}]*\}/);
     assert.match(CSS_SOURCE, /:root\s*\{[^}]*--cell:\s*2\.75rem;[^}]*\}/);
+    const cell = landscapeButtonSide(390);
+    // O painel é o maior dos dois contêineres: grade científica (7 linhas) e teclado (5 linhas).
+    const panel = Math.max(panelHeight(cell, 7), panelHeight(cell, 5));
+    // Padding 14 nos dois lados, visor 72, linha de status 30, margem 8 acima do painel e o painel.
+    const column = 2 * 14 + 72 + 30 + 8 + panel;
+    // Tolerância de ponto flutuante: a conta fecha exatamente em 390px.
+    assert.ok(column <= 390 + 1e-6, `844x390: coluna de ${column}px`);
+    // Em 390px de altura o botão encolhe abaixo dos 44px de :root: o piso de 44px não cabe com o visor e o status (trade-off registrado).
+    assert.ok(cell < 2.75 * 16, `844x390: botão de ${cell}px`);
+    assert.match(LANDSCAPE_CSS, /\.history-list\s*\{\s*max-height:\s*calc\(100vh - 9rem\);\s*\}/);
+    assert.match(LANDSCAPE_CSS, /\.shortcuts\s*\{\s*display:\s*none;\s*\}/);
   });
 
   test("o botão Histórico aparece só no mobile: escondido na base e visível no bloco mobile", () => {

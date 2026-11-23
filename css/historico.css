@@ -267,3 +267,10 @@
     filter: brightness(0.8);
   }
 }
+
+/* Paisagem baixa (tema.css): a lista do histórico cabe na altura da tela (com o título, o botão Limpar e o padding), sem rolagem da página. */
+@media (min-width: 768px) and (max-height: 500px) {
+  .history-list {
+    max-height: calc(100vh - 9rem);
+  }
+}

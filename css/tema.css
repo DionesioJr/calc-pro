@@ -118,3 +118,19 @@ body {
     border-radius: 0;
   }
 }
+
+/*
+ * Paisagem baixa (768px ou mais de largura e até 500px de altura, como 844x390): a calculadora cabe na altura da tela, sem rolagem.
+ * --cell diminui até a grade de 7 linhas caber com o visor mínimo, a linha de status e a margem do painel; até 2.75rem, não passa disso.
+ * Os demais arquivos completam o bloco: display.css usa --display-min no visor, teclado.css esconde os atalhos, e historico.css limita a lista do histórico.
+ */
+@media (min-width: 768px) and (max-height: 500px) {
+  .calculator {
+    --display-min: 4.5rem;
+    --status-height: 1.875rem;
+    --cell: min(
+      2.75rem,
+      calc((100vh - 2 * var(--pad) - 6 * var(--gap) - var(--display-min) - var(--status-height) - 0.5rem) / 7)
+    );
+  }
+}
