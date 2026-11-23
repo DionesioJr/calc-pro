@@ -2875,6 +2875,23 @@ describe("CALC-41: estrutura e foco do botão DEG/RAD", () => {
   });
 });
 
+describe("CALC-11: aparência de controle clicável do botão DEG/RAD", () => {
+  test("o botão DEG/RAD tem cursor pointer e contorno cinza em formato de pílula, diferente de texto estático", () => {
+    assert.match(
+      CSS_SOURCE,
+      /\.angle-unit\s*\{[^}]*border:\s*1px solid #a5a5a5;[^}]*border-radius:\s*999px;[^}]*cursor:\s*pointer;[^}]*\}/,
+    );
+  });
+
+  test("o botão DEG/RAD muda a cor do contorno e do texto no hover", () => {
+    assert.match(CSS_SOURCE, /\.angle-unit:hover\s*\{\s*border-color:\s*#ffffff;\s*color:\s*#ffffff;\s*\}/);
+  });
+
+  test("o botão DEG/RAD mantém o aria-label que descreve a ação de alternância", () => {
+    assert.match(HTML_SOURCE, /id="angle-unit"[^>]*aria-label="DEG \(graus\), trocar para radianos"/);
+  });
+});
+
 describe("CALC-32: teclado, foco e estrutura do cos", () => {
   test("cos não tem tecla própria: Enter com o foco no botão cos não vira igual, o cálculo em curso fica", () => {
     const calc = createCalculator({ storage: {} });
