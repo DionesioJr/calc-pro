@@ -29,7 +29,8 @@
 // e dos atalhos de teclado das funções avançadas (CALC-42: ^ xʸ, p π, ! x!, r MR, c MC, _ M-, e a lista de atalhos na tela),
 // e do botão ⌫ e da tecla Backspace (CALC-65: apaga o último dígito; Erro, resultado e notação científica não mudam),
 // e da memória e da unidade DEG/RAD guardadas entre sessões, com armazenamento indisponível tratado sem erro (CALC-73),
-// e da cópia e colagem do visor (CALC-72: Ctrl+C copia o visor, Ctrl+V cola um número válido e ignora o resto).
+// e da cópia e colagem do visor (CALC-72: Ctrl+C copia o visor, Ctrl+V cola um número válido e ignora o resto),
+// e do painel científico recolhível e do botão Histórico como ícone no cabeçalho (CALC-26).
 // Monta os módulos reais de src/ (start de src/main.js) sobre um DOM mínimo, e aperta
 // os botões pelo mesmo caminho de clique que o navegador usa; o teclado usa o mesmo
 // caminho de keydown.
@@ -173,6 +174,11 @@ function createCalculator({ storage = {} } = {}) {
   const historyPanel = createElementMock("section");
   const historyOpenButton = createElementMock("button");
   const historyCloseButton = createElementMock("button");
+  // Botão Científica (CALC-26) e o painel que ele abre: começam recolhidos, como em index.html.
+  const scientificToggleElement = createElementMock("button");
+  scientificToggleElement.setAttribute("aria-expanded", "false");
+  const scientificPanelElement = createElementMock("div");
+  scientificPanelElement.classList.add("is-collapsed");
   const calculatorMain = createElementMock("main");
   // MC fica fora do teclado, antes do MR na linha da memória, como em index.html.
   const memoryClearElement = createElementMock("button");
@@ -298,6 +304,8 @@ function createCalculator({ storage = {} } = {}) {
     "history-panel": historyPanel,
     "history-open": historyOpenButton,
     "history-close": historyCloseButton,
+    "scientific-toggle": scientificToggleElement,
+    "scientific-panel": scientificPanelElement,
     calculator: calculatorMain,
     "memory-clear": memoryClearElement,
     "memory-recall": memoryRecallElement,
@@ -591,6 +599,11 @@ function createCalculator({ storage = {} } = {}) {
     historyCloseButton.dispatch("click");
   }
 
+  // Botão Científica do cabeçalho (CALC-26), como um toque.
+  function tapScientificToggle() {
+    scientificToggleElement.dispatch("click");
+  }
+
   return {
     press,
     keyDown,
@@ -612,6 +625,9 @@ function createCalculator({ storage = {} } = {}) {
     clickClear,
     tapHistoryOpen,
     tapHistoryClose,
+    tapScientificToggle,
+    scientificExpanded: () => scientificToggleElement.getAttribute("aria-expanded"),
+    scientificPanelCollapsed: () => scientificPanelElement.classList.contains("is-collapsed"),
     historyClear,
     panelShown: () => historyPanel.classList.contains("is-open"),
     openButtonExpanded: () => historyOpenButton.getAttribute("aria-expanded"),
@@ -2017,7 +2033,7 @@ describe("CALC-21: critérios de aceite do layout mobile", () => {
   test("index.html tem o botão Histórico ligado ao painel e o × com rótulo para leitor de tela", () => {
     assert.match(
       HTML_SOURCE,
-      /id="history-open"[^>]*aria-controls="history-panel"[^>]*aria-expanded="false"[^>]*>Histórico<\/button>/,
+      /id="history-open"[^>]*aria-controls="history-panel"[^>]*aria-expanded="false"[^>]*aria-label="Histórico"[^>]*>/,
     );
     assert.match(HTML_SOURCE, /<section class="history" id="history-panel"/);
     assert.match(HTML_SOURCE, /id="history-close"[^>]*aria-label="Fechar histórico"[^>]*>×<\/button>/);
@@ -2075,6 +2091,65 @@ describe("CALC-21: critérios de aceite do histórico em tela cheia no mobile", 
     calc.tapHistoryOpen();
     assert.equal(calc.tapHistoryItem(0), "5");
     assert.equal(calc.panelShown(), false);
+  });
+});
+
+describe("CALC-26: painel científico recolhível e botão Histórico no cabeçalho", () => {
+  test("o botão Científica fica na linha de status, depois do Histórico e antes dos indicadores, com aria-controls e aria-expanded=false", () => {
+    assert.match(
+      HTML_SOURCE,
+      /<div class="status">\s*<button type="button" id="history-open"[\s\S]*?<button type="button" id="scientific-toggle" class="scientific-toggle" aria-controls="scientific-panel" aria-expanded="false">Científica<\/button>\s*<span id="memory-indicator"/,
+    );
+  });
+
+  test("o painel científico começa recolhido: .panel com is-collapsed e id scientific-panel, que é o alvo do aria-controls", () => {
+    assert.match(HTML_SOURCE, /<div class="panel is-collapsed" id="scientific-panel">/);
+  });
+
+  test("recolher só esconde a grade científica: .panel.is-collapsed > .scientific com display none, sem regra que esconda o teclado", () => {
+    assert.match(CSS_SOURCE, /\.panel\.is-collapsed\s*>\s*\.scientific\s*\{\s*display:\s*none;\s*\}/);
+    assert.doesNotMatch(CSS_SOURCE, /\.panel\.is-collapsed\s*>\s*\.keypad/);
+  });
+
+  test("o botão Científica é um button nativo com foco visível, e fica à esquerda da linha de status (margin-right: auto)", () => {
+    assert.match(CSS_SOURCE, /\.scientific-toggle:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
+    assert.match(CSS_SOURCE, /\.scientific-toggle\s*\{[^}]*margin-right:\s*auto;[^}]*\}/);
+  });
+
+  test("tocar em Científica abre o painel e marca aria-expanded=true; tocar de novo fecha e marca false", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.scientificExpanded(), "false");
+    assert.equal(calc.scientificPanelCollapsed(), true);
+    calc.tapScientificToggle();
+    assert.equal(calc.scientificExpanded(), "true");
+    assert.equal(calc.scientificPanelCollapsed(), false);
+    calc.tapScientificToggle();
+    assert.equal(calc.scientificExpanded(), "false");
+    assert.equal(calc.scientificPanelCollapsed(), true);
+  });
+
+  test("abrir e fechar o painel não mexe no visor nem na memória", () => {
+    const calc = createCalculator({ storage: {} });
+    calc.press("5", "M+");
+    calc.tapScientificToggle();
+    calc.tapScientificToggle();
+    assert.equal(calc.display(), "5");
+    assert.equal(calc.memoryValue(), 5);
+  });
+
+  test("com o painel recolhido as funções seguem valendo: 9 √x dá 3 (o recolhimento só esconde os botões)", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.scientificPanelCollapsed(), true);
+    assert.equal(calc.press("9", "√x"), "3");
+  });
+
+  test("o botão Histórico é só ícone no cabeçalho: nome pelo aria-label, sem texto visível, e sem posição absoluta no mobile", () => {
+    assert.match(
+      HTML_SOURCE,
+      /<div class="status">\s*<button type="button" id="history-open" class="history-open" aria-controls="history-panel" aria-expanded="false" aria-label="Histórico"><svg/,
+    );
+    assert.doesNotMatch(HTML_SOURCE, /id="history-open"[^>]*>Histórico</);
+    assert.doesNotMatch(MOBILE_CSS, /\.history-open\s*\{[^}]*position:\s*absolute/);
   });
 });
 
@@ -2842,7 +2917,7 @@ describe("CALC-69: a tecla 2nd na interface", () => {
       HTML_SOURCE,
       /<div class="status">[\s\S]*?<button type="button" id="secondary-toggle" class="secondary-toggle" data-action="secondary" aria-pressed="false" aria-label="Funções secundárias \(2nd\)">2nd<\/button>\s*<button type="button" id="angle-unit"/,
     );
-    assert.ok(HTML_SOURCE.indexOf('id="secondary-toggle"') < HTML_SOURCE.indexOf('class="panel"'));
+    assert.ok(HTML_SOURCE.indexOf('id="secondary-toggle"') < HTML_SOURCE.indexOf('class="panel'));
   });
 
   test("o estado ativo tem aparência de pressionado, com contraste do operador pendente, e foco visível", () => {
@@ -3430,7 +3505,7 @@ describe("CALC-23: teclado, foco e estrutura do M-", () => {
 
   test("a grade científica tem 3 colunas do mesmo lado dos botões do teclado, à esquerda dele: .scientific antes de .keypad no DOM", () => {
     assert.match(CSS_SOURCE, /\.scientific\s*\{[^}]*grid-template-columns:\s*repeat\(3,\s*var\(--cell\)\);[^}]*\}/);
-    assert.match(HTML_SOURCE, /<div class="panel">\s*<div class="scientific">[\s\S]*?<\/div>\s*<div class="keypad">/);
+    assert.match(HTML_SOURCE, /<div class="panel is-collapsed" id="scientific-panel">\s*<div class="scientific">[\s\S]*?<\/div>\s*<div class="keypad">/);
   });
 });
 

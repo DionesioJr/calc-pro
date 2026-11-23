@@ -1,6 +1,6 @@
 "use strict";
 
-// Interface: desenha o visor e os indicadores a partir do estado, e controla o painel do histórico no mobile.
+// Interface: desenha o visor e os indicadores a partir do estado, controla o painel científico recolhível e o painel do histórico no mobile.
 // Tamanho do display pelo número de caracteres exibidos (sinal e ponto contam).
 const DISPLAY_SIZES = [
   { maxLength: 6, className: "display-64" },
@@ -21,6 +21,9 @@ let parenIndicator = null;
 let parenSymbols = null;
 let parenText = null;
 let angleUnitButton = null;
+// Painel científico recolhível (CALC-26): o botão Científica do cabeçalho abre e fecha o .panel (que começa recolhido, como na referência).
+let scientificToggle = null;
+let scientificPanel = null;
 // Tecla 2nd (CALC-69) e os botões que têm função secundária: rótulo e nome acessível trocam enquanto a 2nd estiver ativa.
 let secondaryToggle = null;
 let secondaryButtons = [];
@@ -45,6 +48,8 @@ function bindUi(doc, win) {
   parenText = doc.getElementById("paren-text");
   angleUnitButton = doc.getElementById("angle-unit");
   secondaryToggle = doc.getElementById("secondary-toggle");
+  scientificToggle = doc.getElementById("scientific-toggle");
+  scientificPanel = doc.getElementById("scientific-panel");
 
   // Nome primário de cada botão com função secundária: o aria-label que keypad.js gerou (ou o rótulo visível, se não houver).
   secondaryButtons = ACTIONS.filter((action) => action.secondary !== undefined)
@@ -69,6 +74,9 @@ function bindUi(doc, win) {
   }
   if (historyClose) {
     historyClose.addEventListener("click", hideHistoryPanel);
+  }
+  if (scientificToggle) {
+    scientificToggle.addEventListener("click", toggleScientificPanel);
   }
 
   // Ao passar para o desktop, o histórico volta a ser coluna ao lado: se o painel estava aberto, fecha para
@@ -141,6 +149,21 @@ function render(state) {
     if (parenText) {
       parenText.textContent = depth === 1 ? "1 parêntese aberto" : `${depth} parênteses abertos`;
     }
+  }
+}
+
+// Abre ou fecha o painel científico (CALC-26) e marca aria-expanded no botão Científica. O clique vem do próprio botão,
+// que fica fora do painel, então o foco nunca some junto com as funções ao fechar. As teclas de função seguem valendo com o painel fechado.
+function toggleScientificPanel() {
+  if (!scientificToggle || !scientificPanel) {
+    return;
+  }
+  const open = scientificToggle.getAttribute("aria-expanded") !== "true";
+  scientificToggle.setAttribute("aria-expanded", String(open));
+  if (open) {
+    scientificPanel.classList.remove("is-collapsed");
+  } else {
+    scientificPanel.classList.add("is-collapsed");
   }
 }
 

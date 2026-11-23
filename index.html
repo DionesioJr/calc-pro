@@ -13,15 +13,16 @@
     <div class="layout">
       <main class="calculator" id="calculator">
         <h1>Calculadora Pro</h1>
-        <button type="button" id="history-open" class="history-open" aria-controls="history-panel" aria-expanded="false">Histórico</button>
         <div class="status">
+          <button type="button" id="history-open" class="history-open" aria-controls="history-panel" aria-expanded="false" aria-label="Histórico"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></button>
+          <button type="button" id="scientific-toggle" class="scientific-toggle" aria-controls="scientific-panel" aria-expanded="false">Científica</button>
           <span id="memory-indicator" class="memory-indicator" hidden><span aria-hidden="true">M</span><span class="sr-only">Memória com valor guardado</span></span>
           <span id="paren-indicator" class="paren-indicator" hidden><span id="paren-symbols" aria-hidden="true"></span><span id="paren-text" class="sr-only"></span></span>
           <button type="button" id="secondary-toggle" class="secondary-toggle" data-action="secondary" aria-pressed="false" aria-label="Funções secundárias (2nd)">2nd</button>
           <button type="button" id="angle-unit" class="angle-unit" data-action="angle-unit" aria-label="DEG (graus), trocar para radianos">DEG</button>
         </div>
         <output id="display" class="display" aria-live="polite">0</output>
-        <div class="panel">
+        <div class="panel is-collapsed" id="scientific-panel">
           <div class="scientific"></div>
           <div class="keypad"></div>
         </div>

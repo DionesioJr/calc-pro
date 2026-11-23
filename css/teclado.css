@@ -22,6 +22,11 @@
   gap: var(--gap);
 }
 
+/* Painel científico recolhido (CALC-26): começa fechado, como na referência. Só a grade científica some; o teclado fica no lugar. */
+.panel.is-collapsed > .scientific {
+  display: none;
+}
+
 /* Botões científicos: cinza escuro, como os dígitos do teclado. Mesmo formato e tamanho dos botões básicos. */
 .scientific > button {
   width: 100%;
