@@ -5065,3 +5065,51 @@ describe("CALC-72: casos de borda de copiar e colar o visor", () => {
     assert.equal(PREFERENCES_KEY in storage, false);
   });
 });
+
+// Luminância relativa e razão de contraste (WCAG 2.1, critério 1.4.3). Entradas em #rrggbb.
+function luminancia(hex) {
+  const [r, g, b] = [1, 3, 5].map((i) => {
+    const canal = parseInt(hex.slice(i, i + 2), 16) / 255;
+    return canal <= 0.03928 ? canal / 12.92 : ((canal + 0.055) / 1.055) ** 2.4;
+  });
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+function razaoDeContraste(a, b) {
+  const [claro, escuro] = [luminancia(a), luminancia(b)].sort((x, y) => y - x);
+  return (claro + 0.05) / (escuro + 0.05);
+}
+
+describe("CALC-16: contraste e tamanho dos rótulos científicos", () => {
+  // Cada par é a regra real do CSS (fundo e texto) e a razão de contraste mínima de 4,5:1 para texto normal.
+  const PARES = [
+    { regra: "\\.scientific > button", fundo: "#333333", texto: "#ffffff" },
+    { regra: "\\.btn-digit", fundo: "#333333", texto: "#ffffff" },
+    { regra: "\\.btn-function", fundo: "#a5a5a5", texto: "#000000" },
+    { regra: "\\.btn-operator", fundo: "#ff9f0a", texto: "#000000" },
+    { regra: '\\.btn-operator\\[aria-pressed="true"\\]', fundo: "#ffffff", texto: "#b35c00" },
+    { regra: '\\.power-add\\[aria-pressed="true"\\]', fundo: "#ffffff", texto: "#b35c00" },
+  ];
+
+  test("texto das teclas tem contraste de pelo menos 4,5:1 sobre o fundo declarado no CSS (tema escuro, único do projeto)", () => {
+    for (const { regra, fundo, texto } of PARES) {
+      assert.match(CSS_SOURCE, new RegExp(`${regra}\\s*\\{[^}]*background:\\s*${fundo};[^}]*color:\\s*${texto};[^}]*\\}`));
+      assert.ok(razaoDeContraste(fundo, texto) >= 4.5, `${regra}: ${razaoDeContraste(fundo, texto).toFixed(2)}:1`);
+    }
+  });
+
+  test("casos de borda: o branco sobre preto e o preto sobre branco dão 21:1, e um par cinza claro sobre cinza claro fica abaixo de 4,5:1", () => {
+    assert.equal(Math.round(razaoDeContraste("#ffffff", "#000000")), 21);
+    assert.ok(razaoDeContraste("#a5a5a5", "#8a8a8a") < 4.5);
+  });
+
+  test("rótulos científicos crescem com a célula até 1,25rem: min(1.25rem, calc(var(--cell) * 0.45))", () => {
+    assert.match(CSS_SOURCE, /\.scientific > button\s*\{[^}]*font-size:\s*min\(1\.25rem,\s*calc\(var\(--cell\) \* 0\.45\)\);[^}]*\}/);
+  });
+
+  test("em 360px de largura (referência de tela estreita), o rótulo científico tem pelo menos 18px e a tecla pelo menos 44px", () => {
+    const side = mobileButtonSide(360, 640);
+    const fonte = Math.min(20, side * 0.45);
+    assert.ok(side >= 44, `botão de ${side}px`);
+    assert.ok(fonte >= 18, `rótulo de ${fonte}px`);
+  });
+});
