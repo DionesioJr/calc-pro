@@ -88,6 +88,9 @@ body {
  * a largura (7 colunas, com 6 espaços entre elas) e a altura (5 linhas, com o visor com pelo menos --display-min
  * e a linha de status acima dele). Assim os botões não distorcem, ficam com pelo menos 44px em 360px de largura,
  * e o visor recebe o que sobra.
+ * Largura mínima suportada: 360px (CALC-20). Em 320px o lado cai para ~38px. Para chegar a 44px ali seria preciso
+ * padding zero (a grade encosta nas bordas da tela e o botão Histórico vai para o canto) e espaço de 2px entre as teclas.
+ * Como o teclado tem 7 colunas fixas, isso degrada o layout para uma faixa pequena de aparelhos; por isso 360px é o mínimo.
  */
 @media (max-width: 767px) {
   body {
