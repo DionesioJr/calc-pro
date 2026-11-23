@@ -12,6 +12,43 @@
   --cell: 2.75rem;
 }
 
+/*
+ * Tokens do novo visual (CALC-22): cor, sombra, raio e fonte. O tema claro vale por padrão; o escuro vale com
+ * prefers-color-scheme: dark. Os seletores abaixo ainda usam os valores do visual atual e migram para estas
+ * variáveis em tarefa própria. Valores de verde da página, sombras e raios são provisórios (ver ficha).
+ */
+:root {
+  --page-bg: #c8e6c9;
+  --card-bg: #f4f4f4;
+  --card-text: #000000;
+  --card-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+  --radius-card: 1.5rem;
+  --key-bg: #ffffff;
+  --key-text: #000000;
+  --key-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+  --radius-key: 0.75rem;
+  --accent-text: #1e7a34;
+  --clear-text: #c62828;
+  --equals-gradient: linear-gradient(180deg, #1a7a36, #14602a);
+  --equals-text: #ffffff;
+  --font-family: "Open Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-weight-title: 700;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --page-bg: #1e3a26;
+    --card-bg: #454545;
+    --card-text: #ffffff;
+    --card-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+    --key-bg: #5a5a5a;
+    --key-text: #ffffff;
+    --key-shadow: 0 2px 3px rgba(0, 0, 0, 0.5);
+    --accent-text: #a6eab0;
+    --clear-text: #ffc9c4;
+  }
+}
+
 body {
   margin: 0;
   min-height: 100vh;

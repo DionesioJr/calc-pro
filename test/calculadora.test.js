@@ -5065,3 +5065,75 @@ describe("CALC-72: casos de borda de copiar e colar o visor", () => {
     assert.equal(PREFERENCES_KEY in storage, false);
   });
 });
+
+// CALC-22: tokens do novo visual em css/tema.css, lidos do próprio arquivo. O tema claro é o bloco :root;
+// o escuro é o bloco de prefers-color-scheme: dark, que sobrescreve só os tokens que muda.
+const TEMA_CSS = fs.readFileSync(path.join(ROOT, "css", "tema.css"), "utf8");
+const TEMA_ESCURO_BLOCO = TEMA_CSS.slice(TEMA_CSS.indexOf("@media (prefers-color-scheme: dark)"));
+function tokensDoCss(css) {
+  const tokens = {};
+  for (const [, nome, valor] of css.matchAll(/(--[\w-]+):\s*([^;]+);/g)) tokens[nome] = valor.trim();
+  return tokens;
+}
+const TOKENS_CLARO = tokensDoCss(TEMA_CSS.slice(0, TEMA_CSS.indexOf("@media (prefers-color-scheme: dark)")));
+const TOKENS_ESCURO = { ...TOKENS_CLARO, ...tokensDoCss(TEMA_ESCURO_BLOCO) };
+// Contraste WCAG 2.x entre duas cores #rrggbb.
+function luminancia(hex) {
+  const [r, g, b] = [1, 3, 5].map((i) => {
+    const c = parseInt(hex.slice(i, i + 2), 16) / 255;
+    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  });
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+function contraste(a, b) {
+  const [claro, escuro] = [luminancia(a), luminancia(b)].sort((x, y) => y - x);
+  return (claro + 0.05) / (escuro + 0.05);
+}
+
+describe("CALC-22: critérios de aceite dos tokens visuais", () => {
+  for (const [nome, tokens] of [["claro", TOKENS_CLARO], ["escuro", TOKENS_ESCURO]]) {
+    test(`tema ${nome} define cor, sombra, raio e fonte nas variáveis`, () => {
+      for (const variavel of [
+        "--page-bg", "--card-bg", "--card-text", "--card-shadow", "--radius-card",
+        "--key-bg", "--key-text", "--key-shadow", "--radius-key", "--accent-text",
+        "--clear-text", "--equals-gradient", "--equals-text", "--font-family", "--font-weight-title",
+      ]) {
+        assert.ok(tokens[variavel], `${variavel} ausente no tema ${nome}`);
+      }
+    });
+
+    test(`tema ${nome}: texto principal e rótulos com contraste AA (4,5:1)`, () => {
+      const pares = [
+        ["cartão", tokens["--card-text"], tokens["--card-bg"]],
+        ["tecla", tokens["--key-text"], tokens["--key-bg"]],
+        ["operador (verde)", tokens["--accent-text"], tokens["--key-bg"]],
+        ["C (vermelho)", tokens["--clear-text"], tokens["--key-bg"]],
+      ];
+      for (const [rotulo, texto, fundo] of pares) {
+        assert.ok(contraste(texto, fundo) >= 4.5, `${rotulo}: ${contraste(texto, fundo).toFixed(2)}:1`);
+      }
+    });
+
+    test(`tema ${nome}: o = (texto sobre o gradiente) tem contraste AA nas duas pontas do gradiente`, () => {
+      const pontas = tokens["--equals-gradient"].match(/#[0-9a-fA-F]{6}/g);
+      assert.equal(pontas.length, 2);
+      for (const ponta of pontas) {
+        assert.ok(contraste(tokens["--equals-text"], ponta) >= 4.5, `= em ${ponta}`);
+      }
+    });
+  }
+
+  test("o tema escuro é ativado por prefers-color-scheme: dark e muda cartão, tecla e texto", () => {
+    assert.match(TEMA_CSS, /@media \(prefers-color-scheme: dark\)\s*\{\s*:root\s*\{/);
+    assert.equal(TOKENS_ESCURO["--card-bg"], "#454545");
+    assert.equal(TOKENS_ESCURO["--key-bg"], "#5a5a5a");
+    assert.equal(TOKENS_ESCURO["--card-text"], "#ffffff");
+    assert.equal(TOKENS_CLARO["--card-bg"], "#f4f4f4");
+  });
+
+  test("os tokens de cor do cartão e das teclas do tema claro são os da ficha", () => {
+    assert.equal(TOKENS_CLARO["--card-bg"], "#f4f4f4");
+    assert.equal(TOKENS_CLARO["--key-bg"], "#ffffff");
+    assert.equal(TOKENS_CLARO["--key-text"], "#000000");
+  });
+});
