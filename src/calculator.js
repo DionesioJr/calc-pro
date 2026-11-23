@@ -320,7 +320,11 @@ const ACTIONS = [
     replacesDisplay: true,
     apply: insertAnswer,
   },
+  // AC só pela tecla Escape (CALC-28): no teclado de toque, o botão no lugar dele é o C.
   { id: "all-clear", type: "control", label: "AC", keys: ["Escape"], apply: reset },
+  // C (CALC-28): botão de toque no lugar do AC. Apaga a entrada atual; com o visor já em 0 (ou com Erro), limpa tudo. Sem tecla física (c é MC).
+  { id: "clear-entry", type: "control", label: "C", apply: clearEntry },
+  // ⌫ saiu do teclado de toque (CALC-28): a ação fica só na tecla Backspace.
   {
     id: "backspace",
     type: "control",
@@ -330,12 +334,12 @@ const ACTIONS = [
     apply: (s) => Object.assign(s, deleteDigit(s)),
   },
   { id: "equals", type: "control", label: "=", keys: ["=", "Enter"], apply: inputEquals },
+  // ( e ) (CALC-30) continuam como ações de teclado; o botão de toque é o ( ) (CALC-28), que abre ou fecha conforme o contexto.
   {
     id: "open-paren",
     type: "control",
     label: "(",
     keys: ["("],
-    buttonId: "open-paren-button",
     apply: inputOpenParen,
   },
   {
@@ -343,9 +347,9 @@ const ACTIONS = [
     type: "control",
     label: ")",
     keys: [")"],
-    buttonId: "close-paren-button",
     apply: inputCloseParen,
   },
+  { id: "paren-toggle", type: "control", label: "( )", apply: toggleParen },
 ];
 
 // Ação pelo id (data-value ou data-action), para o motor achar a entrada de um botão.
@@ -380,6 +384,19 @@ function reset(s) {
   s.expression = [];
   s.valueIsGroup = false;
   s.exponent = null;
+}
+
+// C (CALC-28): apaga a entrada atual. O visor vai para 0 e a conta pendente fica (5 + 7 C 3 = resulta em 8).
+// Com o visor já em 0, ou com Erro, limpa tudo, como AC. Um grupo fechado que estava no visor sai da expressão.
+function clearEntry(s) {
+  if (s.error || s.current === "0") {
+    reset(s);
+    return;
+  }
+  if (s.valueIsGroup) {
+    dropGroupText(s);
+  }
+  setCurrent(s, "0");
 }
 
 // Troca o texto do visor e descarta o valor completo de uma constante (e), se havia um.
@@ -1004,7 +1021,7 @@ function toggleSecondary(s) {
   s.secondary = !s.secondary;
 }
 
-// ⌫ (botão e Backspace): apaga o último caractere do número em edição. Devolve o estado novo (quem chama copia para o estado em curso).
+// Backspace (o ⌫ saiu do teclado de toque, CALC-28): apaga o último caractere do número em edição. Devolve o estado novo (quem chama copia para o estado em curso).
 // Erro não muda (a mensagem fica), e nada mexe em resultado de função, MR, Ans, grupo fechado, notação científica ou no operador pendente:
 // só age sobre os caracteres editáveis no fim do visor (s.typing > 0), ou sobre o expoente de um EXP em digitação.
 function deleteDigit(state) {
@@ -1183,6 +1200,16 @@ function inputCloseParen(s) {
     return;
   }
   closeGroup(s);
+}
+
+// ( ) (CALC-28): um botão para os dois parênteses. Fecha o grupo mais interno se há grupo aberto e o último item é número ou ")"
+// (ou seja, o visor não espera operando); senão abre. Com Erro, inputOpenParen reinicia antes de abrir.
+function toggleParen(s) {
+  if (openDepth(s) > 0 && !s.waitingForOperand) {
+    inputCloseParen(s);
+  } else {
+    inputOpenParen(s);
+  }
 }
 
 // Fecha o grupo mais interno: o número em curso (se ainda não estiver na sequência) entra no grupo, que é calculado sozinho

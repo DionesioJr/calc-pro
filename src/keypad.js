@@ -24,15 +24,14 @@ const FUNCTION_ROW = [
   { id: "inverse", className: "inverse-add", ariaLabel: "Inverso (1/x)" },
   { id: "factorial", className: "factorial-add", ariaLabel: "Fatorial (x!)" },
   { id: "sqrt", className: "sqrt-add", ariaLabel: "Raiz quadrada (√x)" },
-  { id: "open-paren", className: "paren-add", ariaLabel: "Abrir parêntese (" },
-  { id: "close-paren", className: "paren-add", ariaLabel: "Fechar parêntese )" },
   { id: "ans", className: "ans-add", ariaLabel: "Último resultado (Ans)" },
 ];
 
-// Teclado numérico, linha a linha (4 colunas no CSS): 20 botões. O ⌫ fica no fim, para não deslocar os demais.
+// Teclado numérico, linha a linha (4 colunas no CSS): 20 botões. C (CALC-28) ocupa o lugar do AC, e o ( ) fica no fim, no lugar do ⌫,
+// que saiu do toque (continua na tecla Backspace). O ( ) é o único botão de parênteses, então a linha de funções não tem (, ).
 // O aria-label contém o símbolo visível (WCAG 2.5.3): quem usa controle por voz fala o que está escrito no botão.
 const KEYPAD = [
-  { id: "all-clear", className: "btn btn-function", ariaLabel: "Limpar (AC)" },
+  { id: "clear-entry", className: "btn btn-function", ariaLabel: "Limpar entrada (C)" },
   { id: "toggle-sign", className: "btn btn-function", ariaLabel: "Inverter sinal (+/-)" },
   { id: "percent", className: "btn btn-function", ariaLabel: "Porcentagem (%)" },
   { id: "divide", className: "btn btn-operator", ariaLabel: "Dividir (÷)" },
@@ -51,7 +50,7 @@ const KEYPAD = [
   { id: "0", className: "btn btn-digit btn-zero" },
   { id: ".", className: DIGIT_CLASS, ariaLabel: "Ponto decimal (.)" },
   { id: "equals", className: "btn btn-operator", ariaLabel: "Igual (=)" },
-  { id: "backspace", className: "btn btn-function", ariaLabel: "Apagar último dígito (⌫, Backspace)" },
+  { id: "paren-toggle", className: "btn btn-function", ariaLabel: "Abrir ou fechar parêntese ( )" },
 ];
 
 // Marcação de um botão: type, id (só se a ação tem buttonId), class, data-value ou data-action, aria-label (se houver), e o rótulo do registro.

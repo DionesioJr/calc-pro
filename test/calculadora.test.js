@@ -29,7 +29,8 @@
 // e dos atalhos de teclado das funções avançadas (CALC-42: ^ xʸ, p π, ! x!, r MR, c MC, _ M-, e a lista de atalhos na tela),
 // e do botão ⌫ e da tecla Backspace (CALC-65: apaga o último dígito; Erro, resultado e notação científica não mudam),
 // e da memória e da unidade DEG/RAD guardadas entre sessões, com armazenamento indisponível tratado sem erro (CALC-73),
-// e da cópia e colagem do visor (CALC-72: Ctrl+C copia o visor, Ctrl+V cola um número válido e ignora o resto).
+// e da cópia e colagem do visor (CALC-72: Ctrl+C copia o visor, Ctrl+V cola um número válido e ignora o resto),
+// e do botão C (apaga a entrada atual, ou limpa tudo com o visor em 0), do botão ( ) (abre ou fecha) e da grade sem ⌫ (CALC-28).
 // Monta os módulos reais de src/ (start de src/main.js) sobre um DOM mínimo, e aperta
 // os botões pelo mesmo caminho de clique que o navegador usa; o teclado usa o mesmo
 // caminho de keydown.
@@ -77,8 +78,8 @@ const KEY_DATASET = {
   8: { value: "8" },
   9: { value: "9" },
   ".": { value: "." },
-  AC: { action: "all-clear" },
-  "⌫": { action: "backspace" },
+  C: { action: "clear-entry" },
+  "( )": { action: "paren-toggle" },
   "+/-": { action: "toggle-sign" },
   "%": { action: "percent" },
   "+": { action: "add" },
@@ -180,6 +181,9 @@ function createCalculator({ storage = {} } = {}) {
   // MR fica fora do teclado, antes do M+ na linha da memória, como em index.html.
   const memoryRecallElement = createElementMock("button");
   memoryRecallElement.dataset = { action: "memory-recall" };
+  // Ans fica na linha de funções, como em index.html: insere o último resultado no visor.
+  const ansElement = createElementMock("button");
+  ansElement.dataset = { action: "ans" };
   // M+ fica fora do teclado, como em index.html; o indicador começa escondido, como no HTML.
   const memoryAddElement = createElementMock("button");
   memoryAddElement.dataset = { action: "memory-add" };
@@ -228,11 +232,6 @@ function createCalculator({ storage = {} } = {}) {
   // ln também fica fora do teclado, na linha da memória, logo depois do log, como em index.html.
   const lnElement = createElementMock("button");
   lnElement.dataset = { action: "ln" };
-  // ( e ) também ficam fora do teclado, na linha da memória, como em index.html.
-  const openParenElement = createElementMock("button");
-  openParenElement.dataset = { action: "open-paren" };
-  const closeParenElement = createElementMock("button");
-  closeParenElement.dataset = { action: "close-paren" };
   // Indicador de parênteses começa escondido, como no HTML; símbolos e texto para o leitor de tela.
   const parenIndicatorElement = createElementMock("span");
   parenIndicatorElement.hidden = true;
@@ -271,8 +270,6 @@ function createCalculator({ storage = {} } = {}) {
   buttonByKey["cos"] = cosineElement;
   buttonByKey["√x"] = squareRootElement;
   buttonByKey["tan"] = tangentElement;
-  buttonByKey["("] = openParenElement;
-  buttonByKey[")"] = closeParenElement;
   buttonByKey["xʸ"] = powerElement;
   buttonByKey["2nd"] = secondaryToggleElement;
 
@@ -301,6 +298,7 @@ function createCalculator({ storage = {} } = {}) {
     calculator: calculatorMain,
     "memory-clear": memoryClearElement,
     "memory-recall": memoryRecallElement,
+    "ans-button": ansElement,
     "memory-add": memoryAddElement,
     "memory-subtract": memorySubtractElement,
     "memory-indicator": memoryIndicatorElement,
@@ -317,8 +315,6 @@ function createCalculator({ storage = {} } = {}) {
     "cos-button": cosineElement,
     "sqrt-button": squareRootElement,
     "tan-button": tangentElement,
-    "open-paren-button": openParenElement,
-    "close-paren-button": closeParenElement,
     "paren-indicator": parenIndicatorElement,
     "paren-symbols": parenSymbolsElement,
     "paren-text": parenTextElement,
@@ -356,8 +352,21 @@ function createCalculator({ storage = {} } = {}) {
   const app = start(document, window, localStorage);
 
   // Aperta as teclas em sequência e devolve o texto final do display. MC, MR, M+, M-, x², log, sen, cos, π, e, 1/x, √x, tan, xʸ e "unidade" (DEG/RAD) são clicados pelo próprio botão, fora do teclado.
+  // AC e ⌫ não têm botão na tela (CALC-28): viram as teclas Escape e Backspace. ( e ) também são só teclado.
   function press(...keys) {
     for (const key of keys) {
+      if (key === "AC") {
+        keyDown("Escape");
+        continue;
+      }
+      if (key === "⌫") {
+        keyDown("Backspace");
+        continue;
+      }
+      if (key === "(" || key === ")") {
+        keyDown(key);
+        continue;
+      }
       if (key === "unidade") {
         angleUnitElement.dispatch("click");
         continue;
@@ -422,16 +431,12 @@ function createCalculator({ storage = {} } = {}) {
         tangentElement.dispatch("click");
         continue;
       }
-      if (key === "(") {
-        openParenElement.dispatch("click");
-        continue;
-      }
-      if (key === ")") {
-        closeParenElement.dispatch("click");
-        continue;
-      }
       if (key === "xʸ") {
         powerElement.dispatch("click");
+        continue;
+      }
+      if (key === "Ans") {
+        ansElement.dispatch("click");
         continue;
       }
       if (key === "2nd") {
@@ -1527,13 +1532,11 @@ describe("CALC-9: critérios de aceite do efeito ao pressionar", () => {
     assert.equal(calc.buttonFor("+").classList.contains("is-pressed"), false);
   });
 
-  test("Backspace escurece o botão ⌫ até soltar (CALC-65): 7, Backspace baixado marca ⌫, soltar tira a marca e apaga o 7", () => {
+  test("Backspace apaga o 7 sem botão na tela (CALC-28: o ⌫ saiu do teclado de toque): 7, Backspace baixado e solto resulta em 0", () => {
     const calc = createCalculator();
     calc.press("7");
     assert.equal(calc.keyDown("Backspace", { code: "Backspace" }).key, "Backspace");
-    assert.equal(calc.buttonFor("⌫").classList.contains("is-pressed"), true);
     calc.keyUp("Backspace", "Backspace");
-    assert.equal(calc.buttonFor("⌫").classList.contains("is-pressed"), false);
     assert.equal(calc.type(), "0");
   });
 
@@ -4114,21 +4117,13 @@ describe("CALC-30: teclado e indicador de parênteses abertos", () => {
   });
 });
 
-describe("CALC-30: estrutura e foco dos botões ( e )", () => {
-  test("index.html tem os botões ( e ) na linha da memória, fora do teclado, com rótulo que traz o símbolo", () => {
+describe("CALC-30: estrutura dos parênteses na tela (CALC-28: um botão só)", () => {
+  test("o teclado tem o botão ( ) no fim, com rótulo que traz o símbolo, e a tela não tem mais botões ( e ) separados", () => {
     assert.match(
       HTML_SOURCE,
-      /<button type="button" id="open-paren-button" class="paren-add" data-action="open-paren" aria-label="Abrir parêntese \(">\(<\/button>/,
+      /<button type="button" class="btn btn-function" data-action="paren-toggle" aria-label="Abrir ou fechar parêntese \( \)">\( \)<\/button><\/div>/,
     );
-    assert.match(
-      HTML_SOURCE,
-      /<button type="button" id="close-paren-button" class="paren-add" data-action="close-paren" aria-label="Fechar parêntese \)">\)<\/button>/,
-    );
-  });
-
-  test("os botões ( e ) têm o mesmo estilo de pílula cinza e foco visível com contorno branco", () => {
-    assert.match(CSS_SOURCE, /\.paren-add\s*\{[^}]*border-radius:\s*999px;[^}]*color:\s*#a5a5a5;[^}]*\}/);
-    assert.match(CSS_SOURCE, /\.paren-add:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
+    assert.doesNotMatch(HTML_SOURCE, /open-paren-button|close-paren-button|paren-add|data-action="open-paren"|data-action="close-paren"/);
   });
 
   test("o indicador de parênteses tem os símbolos escondidos do leitor de tela e o texto só para ele", () => {
@@ -4136,6 +4131,92 @@ describe("CALC-30: estrutura e foco dos botões ( e )", () => {
       HTML_SOURCE,
       /<span id="paren-indicator" class="paren-indicator" hidden><span id="paren-symbols" aria-hidden="true"><\/span><span id="paren-text" class="sr-only"><\/span><\/span>/,
     );
+  });
+});
+
+describe("CALC-28: tecla ( ) única e C no lugar de AC e ⌫ no teclado de toque", () => {
+  test("( ) abre um grupo quando não há grupo aberto: ( ) mostra 1 parêntese aberto e o visor segue 0", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("( )"), "0");
+    assert.equal(calc.parenIndicatorHidden(), false);
+    assert.equal(calc.parenSymbols(), "(");
+    assert.equal(calc.parenText(), "1 parêntese aberto");
+  });
+
+  test("( ) fecha o grupo depois de um número e o indicador some: ( ) 2 ( ) resulta em 2 e o indicador fica escondido", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("( )", "2", "( )"), "2");
+    assert.equal(calc.parenIndicatorHidden(), true);
+  });
+
+  test("( ) fecha o grupo que está na conta: ( ) 2 + 3 ( ) × 4 = resulta em 20", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("( )", "2", "+", "3", "( )", "×", "4", "="), "20");
+  });
+
+  test("( ) aninhado abre o segundo nível e fecha o mais interno primeiro: ( ) ( ) 2 + 3 ( ) ( ) × 2 = resulta em 10", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("( )", "( )"), "0");
+    assert.equal(calc.parenSymbols(), "((");
+    assert.equal(calc.parenText(), "2 parênteses abertos");
+    assert.equal(calc.press("2", "+", "3", "( )"), "5");
+    assert.equal(calc.parenSymbols(), "(");
+    assert.equal(calc.press("( )", "×", "2", "="), "10");
+  });
+
+  test("( ) depois de operador abre, e não fecha: 2 + ( ) 3 ( ) = resulta em 5", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("2", "+", "( )", "3", "( )", "="), "5");
+  });
+
+  test("( ) sem número no grupo, seguido de =, não deixa grupo vazio: ( ) ( ) = resulta em 0 e o indicador some", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("( )", "( )", "="), "0");
+    assert.equal(calc.parenIndicatorHidden(), true);
+  });
+
+  test("os parênteses do teclado físico continuam: ( 2 + 3 ) × 4 = resulta em 20", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.type("(", "2", "+", "3", ")", "×", "4", "="), "20");
+  });
+
+  test("C apaga a entrada atual e a conta pendente fica: 5 + 7 C 3 = resulta em 8", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("5", "+", "7", "C"), "0");
+    assert.equal(calc.press("3", "="), "8");
+  });
+
+  test("C com o visor já em 0 limpa tudo, inclusive a conta pendente: 5 + 7 C C 3 = resulta em 3", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("5", "+", "7", "C", "C", "3", "="), "3");
+  });
+
+  test("C com Erro no visor limpa o Erro: 5 ÷ 0 = C resulta em 0", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("5", "÷", "0", "=", "C"), "0");
+  });
+
+  test("C depois do igual não apaga o último resultado (Ans): 2 + 3 = C Ans resulta em 5", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("2", "+", "3", "=", "C"), "0");
+    assert.equal(calc.press("Ans"), "5");
+  });
+
+  test("C sobre um grupo fechado tira o grupo da conta: ( 2 + 3 ) C + 4 = resulta em 4", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.press("( )", "2", "+", "3", "( )", "C", "+", "4", "="), "4");
+  });
+
+  test("C com EXP aberto fecha o expoente e zera o visor: 1 . 5 EXP 3 C resulta em 0", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.type("1", ".", "5", "E", "3"), "1500");
+    assert.equal(calc.press("C"), "0");
+  });
+
+  test("Escape segue como AC e Backspace como ⌫, sem botão na tela: 7 8 Escape resulta em 0 e 7 8 Backspace resulta em 7", () => {
+    const calc = createCalculator({ storage: {} });
+    assert.equal(calc.type("7", "8", "Escape"), "0");
+    assert.equal(calc.type("7", "8", "Backspace"), "7");
   });
 });
 

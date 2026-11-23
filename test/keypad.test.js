@@ -31,7 +31,7 @@ function buttonValues(markup) {
 }
 
 describe("CALC-59: a linha de funções vem do registro, na ordem da tela", () => {
-  test("os 20 botões com buttonId aparecem na ordem MC, MR, M+, M-, x², log, ln, sen, cos, tan, xʸ, π, e, EXP, 1/x, x!, √x, (, ), Ans", () => {
+  test("os 18 botões com buttonId aparecem na ordem MC, MR, M+, M-, x², log, ln, sen, cos, tan, xʸ, π, e, EXP, 1/x, x!, √x, Ans (sem ( e ), que saíram, CALC-28)", () => {
     assert.deepEqual(buttonIds(keypadMarkup().scientific), [
       "memory-clear",
       "memory-recall",
@@ -50,8 +50,6 @@ describe("CALC-59: a linha de funções vem do registro, na ordem da tela", () =
       "inverse-button",
       "factorial-button",
       "sqrt-button",
-      "open-paren-button",
-      "close-paren-button",
       "ans-button",
     ]);
   });
@@ -70,16 +68,26 @@ describe("CALC-59: a linha de funções vem do registro, na ordem da tela", () =
   });
 });
 
+// Ações que só têm tecla física, sem botão na tela (CALC-28): AC (Escape), ⌫ (Backspace), ( e ).
+const KEYBOARD_ONLY = ["all-clear", "backspace", "open-paren", "close-paren"];
+
 describe("CALC-59: o teclado numérico e a linha de funções cobrem o registro sem repetição", () => {
-  test("o teclado tem 20 botões (com ⌫) e a linha de funções 20 (com EXP e Ans): 40 no total, um por ação do registro exceto angle-unit e secondary", () => {
+  test("o teclado tem 20 botões (com C e ( ), a linha de funções 18 (com EXP e Ans): 38 no total, um por ação do registro com botão, exceto angle-unit, secondary e as só de teclado", () => {
     const { scientific, keypad } = keypadMarkup();
     assert.equal((keypad.match(/<button /g) ?? []).length, 20);
-    assert.equal((scientific.match(/<button /g) ?? []).length, 20);
+    assert.equal((scientific.match(/<button /g) ?? []).length, 18);
     const generated = buttonValues(scientific + keypad).sort();
     const generatedActions = ACTIONS.map((action) => action.id)
-      .filter((id) => !STATIC_IN_STATUS_BAR.includes(id))
+      .filter((id) => !STATIC_IN_STATUS_BAR.includes(id) && !KEYBOARD_ONLY.includes(id))
       .sort();
     assert.deepEqual(generated, generatedActions);
+  });
+
+  test("AC, ⌫, ( e ) não têm botão na tela: continuam só como tecla física (CALC-28)", () => {
+    const { scientific, keypad } = keypadMarkup();
+    for (const id of KEYBOARD_ONLY) {
+      assert.doesNotMatch(scientific + keypad, new RegExp(`data-action="${id}"`));
+    }
   });
 
   test("o botão de ponto usa data-value e aria-label do registro: <button ... data-value=\".\" aria-label=\"Ponto decimal (.)\">.</button>", () => {
@@ -93,8 +101,8 @@ describe("CALC-59: o teclado numérico e a linha de funções cobrem o registro 
   test("CALC-74: o nome acessível de cada botão contém o rótulo visível (WCAG 2.5.3), no teclado e na linha de funções", () => {
     const markup = keypadMarkup().scientific + keypadMarkup().keypad;
     const named = [...markup.matchAll(/aria-label="([^"]+)"[^>]*>([^<]+)<\/button>/g)];
-    // Os 20 da linha de funções têm aria-label; no teclado, só os que não são dígitos.
-    assert.ok(named.length >= 30, `só ${named.length} botões com aria-label`);
+    // Os 18 da linha de funções têm aria-label; no teclado, os 10 que não são dígitos (C, +/-, %, operadores, =, ponto e ( )).
+    assert.ok(named.length >= 28, `só ${named.length} botões com aria-label`);
     for (const [, name, visible] of named) {
       assert.ok(name.includes(visible), `"${name}" não contém o rótulo visível "${visible}"`);
     }
@@ -106,12 +114,26 @@ describe("CALC-59: o teclado numérico e a linha de funções cobrem o registro 
     assert.ok(keypad.includes('<button type="button" class="btn btn-digit" data-value="7">7</button>'));
   });
 
-  test("⌫ sai no teclado com data-action backspace, classe de função e aria-label que diz o que faz (CALC-65)", () => {
+  test("o C fica no lugar do AC, no início do teclado, com aria-label que traz o símbolo (CALC-28)", () => {
     assert.ok(
-      keypadMarkup().keypad.includes(
-        '<button type="button" class="btn btn-function" data-action="backspace" aria-label="Apagar último dígito (⌫, Backspace)">⌫</button>',
+      keypadMarkup().keypad.startsWith(
+        '<button type="button" class="btn btn-function" data-action="clear-entry" aria-label="Limpar entrada (C)">C</button>',
       ),
     );
+  });
+
+  test("o ( ) é o último botão do teclado, no lugar do ⌫, com aria-label que traz o símbolo (CALC-28)", () => {
+    assert.ok(
+      keypadMarkup().keypad.endsWith(
+        '<button type="button" class="btn btn-function" data-action="paren-toggle" aria-label="Abrir ou fechar parêntese ( )">( )</button>',
+      ),
+    );
+  });
+
+  test("⌫ não tem botão no teclado de toque, mas a ação segue com a tecla Backspace (CALC-28)", () => {
+    assert.doesNotMatch(keypadMarkup().keypad, /data-action="backspace"/);
+    const action = ACTIONS.find((item) => item.id === "backspace");
+    assert.deepEqual(action.keys, ["Backspace"]);
   });
 
   test("Ans da linha de funções sai com id, classe, data-action, aria-label e o rótulo do registro (CALC-67)", () => {
@@ -135,7 +157,7 @@ describe("CALC-59: o HTML final e o documento recebem o teclado gerado", () => {
   test("fillKeypadMarkup põe o markup nas duas colunas vazias de index.html", () => {
     const html = fillKeypadMarkup('<div class="scientific"></div>\n<div class="keypad"></div>');
     assert.ok(html.includes('<div class="scientific"><button type="button" id="memory-clear"'));
-    assert.ok(html.includes('<div class="keypad"><button type="button" class="btn btn-function" data-action="all-clear"'));
+    assert.ok(html.includes('<div class="keypad"><button type="button" class="btn btn-function" data-action="clear-entry"'));
   });
 
   test("renderKeypad preenche os dois contêineres do documento", () => {

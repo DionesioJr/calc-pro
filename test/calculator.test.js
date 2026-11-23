@@ -92,6 +92,74 @@ describe("CALC-52: o motor recebe e devolve estado", () => {
   });
 });
 
+describe("CALC-28: tecla ( ) única e C no motor", () => {
+  test("( ) é ação de controle sem tecla física nem buttonId; ( e ) continuam com as suas teclas", () => {
+    const toggle = ACTIONS.find((action) => action.id === "paren-toggle");
+    assert.equal(toggle.label, "( )");
+    assert.equal(toggle.keys, undefined);
+    assert.equal(toggle.buttonId, undefined);
+    assert.deepEqual(ACTIONS.find((action) => action.id === "open-paren").keys, ["("]);
+    assert.deepEqual(ACTIONS.find((action) => action.id === "close-paren").keys, [")"]);
+  });
+
+  test("( ) abre um grupo sem conta e fecha depois de um número: ( ) 2 ( ) deixa o visor em 2 e nenhum grupo aberto", () => {
+    const { state } = run(initialState(), [{ action: "paren-toggle" }, { value: "2" }, { action: "paren-toggle" }]);
+    assert.equal(state.current, "2");
+    assert.equal(state.terms.includes("("), false);
+  });
+
+  test("( ) depois de operador abre um grupo, e não fecha: 2 + ( ) 3 ( ) = resulta em 5", () => {
+    const { state } = run(initialState(), [
+      { value: "2" },
+      { action: "add" },
+      { action: "paren-toggle" },
+      { value: "3" },
+      { action: "paren-toggle" },
+      { action: "equals" },
+    ]);
+    assert.equal(state.current, "5");
+  });
+
+  test("( ) com o visor esperando operando abre outro grupo: ( ) ( ) deixa dois grupos abertos", () => {
+    const { state } = run(initialState(), [{ action: "paren-toggle" }, { action: "paren-toggle" }]);
+    assert.equal(state.terms.filter((term) => term === "(").length, 2);
+  });
+
+  test("C apaga só a entrada e a conta pendente fica: 5 + 7 C resulta em 0 com 5 + ainda na sequência", () => {
+    const { state } = run(initialState(), [
+      { value: "5" },
+      { action: "add" },
+      { value: "7" },
+      { action: "clear-entry" },
+    ]);
+    assert.equal(state.current, "0");
+    assert.deepEqual(state.terms, ["5", "add"]);
+  });
+
+  test("C com o visor já em 0 limpa tudo, inclusive a conta pendente: 5 + C C resulta em 0 sem sequência", () => {
+    const { state } = run(initialState(), [
+      { value: "5" },
+      { action: "add" },
+      { action: "clear-entry" },
+      { action: "clear-entry" },
+    ]);
+    assert.equal(state.current, "0");
+    assert.deepEqual(state.terms, []);
+  });
+
+  test("C com Erro no visor limpa o Erro: 5 ÷ 0 = C resulta em 0 sem erro", () => {
+    const { state } = run(initialState(), [
+      { value: "5" },
+      { action: "divide" },
+      { value: "0" },
+      { action: "equals" },
+      { action: "clear-entry" },
+    ]);
+    assert.equal(state.current, "0");
+    assert.equal(state.error, false);
+  });
+});
+
 describe("CALC-65: ⌫ apaga o último dígito e não mexe em resultado nem em erro", () => {
   test("⌫ está no registro com a tecla Backspace e o rótulo ⌫", () => {
     const action = ACTIONS.find((item) => item.id === "backspace");
@@ -507,9 +575,10 @@ describe("CALC-53: o registro de ações é a única fonte de botões e teclas",
     assert.equal(new Set(keys).size, keys.length);
   });
 
-  test("os data-action e data-value do HTML final são exatamente os ids do registro", () => {
+  test("os data-action e data-value do HTML final são os ids do registro, menos as ações só de teclado (AC, ⌫, ( e ), CALC-28)", () => {
+    const keyboardOnly = ["all-clear", "backspace", "open-paren", "close-paren"];
     const htmlIds = [...INDEX_HTML.matchAll(/data-(?:action|value)="([^"]+)"/g)].map((match) => match[1]);
-    const registryIds = ACTIONS.map((action) => action.id);
+    const registryIds = ACTIONS.map((action) => action.id).filter((id) => !keyboardOnly.includes(id));
     assert.deepEqual([...new Set(htmlIds)].sort(), [...registryIds].sort());
   });
 
