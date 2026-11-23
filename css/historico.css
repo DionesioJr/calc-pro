@@ -86,6 +86,11 @@
   overflow-wrap: anywhere;
 }
 
+/* Passar o mouse por cima clareia o item, para mostrar que ele é tocável (CALC-12). */
+.history-item:hover {
+  background: #444444;
+}
+
 .history-item:active {
   filter: brightness(0.8);
 }

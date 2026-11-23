@@ -29,7 +29,8 @@
 // e dos atalhos de teclado das funções avançadas (CALC-42: ^ xʸ, p π, ! x!, r MR, c MC, _ M-, e a lista de atalhos na tela),
 // e do botão ⌫ e da tecla Backspace (CALC-65: apaga o último dígito; Erro, resultado e notação científica não mudam),
 // e da memória e da unidade DEG/RAD guardadas entre sessões, com armazenamento indisponível tratado sem erro (CALC-73),
-// e da cópia e colagem do visor (CALC-72: Ctrl+C copia o visor, Ctrl+V cola um número válido e ignora o resto).
+// e da cópia e colagem do visor (CALC-72: Ctrl+C copia o visor, Ctrl+V cola um número válido e ignora o resto),
+// e do item do histórico reaproveitável (CALC-12: toque leva o resultado ao visor e fecha o painel, com hover e foco visíveis).
 // Monta os módulos reais de src/ (start de src/main.js) sobre um DOM mínimo, e aperta
 // os botões pelo mesmo caminho de clique que o navegador usa; o teclado usa o mesmo
 // caminho de keydown.
@@ -2075,6 +2076,61 @@ describe("CALC-21: critérios de aceite do histórico em tela cheia no mobile", 
     calc.tapHistoryOpen();
     assert.equal(calc.tapHistoryItem(0), "5");
     assert.equal(calc.panelShown(), false);
+  });
+});
+
+describe("CALC-12: critérios de aceite do item do histórico reaproveitável", () => {
+  test("tocar no item coloca o resultado no visor e fecha o Histórico (mobile)", () => {
+    const calc = createCalculator({ storage: {} });
+    calc.press("1", "2", "×", "3", "=");
+    calc.tapHistoryOpen();
+    assert.equal(calc.tapHistoryItem(0), "36");
+    assert.equal(calc.display(), "36");
+    assert.equal(calc.panelShown(), false);
+    assert.equal(calc.calculatorInert(), false);
+  });
+
+  test("tocar no item também funciona com o Histórico fechado (desktop): o visor recebe o resultado", () => {
+    const calc = createCalculator({ storage: {} });
+    calc.press("1", "2", "×", "3", "=");
+    assert.equal(calc.panelShown(), false);
+    assert.equal(calc.tapHistoryItem(0), "36");
+    assert.equal(calc.panelShown(), false);
+  });
+
+  test("o item é um botão de verdade (type=button), então recebe foco por teclado e o Enter o aciona", () => {
+    const calc = createCalculator({ storage: {} });
+    calc.press("2", "+", "3", "=");
+    const button = calc.historyItemButton(0);
+    assert.equal(button.tagName, "BUTTON");
+    assert.equal(button.type, "button");
+    assert.equal(calc.keyDown("Enter", { target: button }).defaultPrevented, false);
+  });
+
+  test("escolha de teclas: Espaço também é deixado para o botão do item (não é tecla da calculadora nem faz conta)", () => {
+    const calc = createCalculator({ storage: {} });
+    calc.press("2", "+", "3", "=");
+    const event = calc.keyDown(" ", { target: calc.historyItemButton(0) });
+    assert.equal(event.defaultPrevented, false);
+    assert.equal(calc.display(), "5");
+  });
+
+  test("com o painel aberto, Enter e Espaço não chegam ao visor: o painel segue aberto e o visor fica em 5", () => {
+    const calc = createCalculator({ storage: {} });
+    calc.press("2", "+", "3", "=");
+    calc.tapHistoryOpen();
+    calc.keyDown("Enter", { target: calc.historyItemButton(0) });
+    calc.keyDown(" ", { target: calc.historyItemButton(0) });
+    assert.equal(calc.panelShown(), true);
+    assert.equal(calc.display(), "5");
+  });
+
+  test("o item tem estado de hover: o fundo clareia ao passar o mouse", () => {
+    assert.match(CSS_SOURCE, /\.history-item:hover\s*\{\s*background:\s*#444444;\s*\}/);
+  });
+
+  test("o item mostra o foco por teclado com contorno branco, como os demais botões", () => {
+    assert.match(CSS_SOURCE, /\.history-item:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
   });
 });
 
