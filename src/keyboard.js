@@ -51,7 +51,7 @@ function bindKeyboard(doc, win, actions) {
       return;
     }
 
-    const dataset = datasetForKey(event.key);
+    const dataset = highlightDatasetForKey(event.key);
     if (dataset !== null) {
       holdKey(event.code || event.key, findButton(dataset));
     }
@@ -74,6 +74,16 @@ function bindKeyboard(doc, win, actions) {
 function datasetForKey(key) {
   const action = ACTION_BY_KEY.get(key);
   return action === undefined ? null : datasetOf(action);
+}
+
+// Tecla → dataset do botão que ela destaca. É o próprio botão da ação, salvo quando o registro traz keyButton (( e ) destacam o ( )).
+function highlightDatasetForKey(key) {
+  const action = ACTION_BY_KEY.get(key);
+  if (action === undefined) {
+    return null;
+  }
+  const target = action.keyButton === undefined ? action : ACTIONS.find((item) => item.id === action.keyButton);
+  return datasetOf(target);
 }
 
 // Botão do teclado correspondente a um dataset (ex.: { value: "7" } ou { action: "add" }), ou null.

@@ -77,6 +77,7 @@ const KEY_DATASET = {
   8: { value: "8" },
   9: { value: "9" },
   ".": { value: "." },
+  "( )": { action: "paren-toggle" },
   AC: { action: "all-clear" },
   "⌫": { action: "backspace" },
   "+/-": { action: "toggle-sign" },
@@ -228,11 +229,6 @@ function createCalculator({ storage = {} } = {}) {
   // ln também fica fora do teclado, na linha da memória, logo depois do log, como em index.html.
   const lnElement = createElementMock("button");
   lnElement.dataset = { action: "ln" };
-  // ( e ) também ficam fora do teclado, na linha da memória, como em index.html.
-  const openParenElement = createElementMock("button");
-  openParenElement.dataset = { action: "open-paren" };
-  const closeParenElement = createElementMock("button");
-  closeParenElement.dataset = { action: "close-paren" };
   // Indicador de parênteses começa escondido, como no HTML; símbolos e texto para o leitor de tela.
   const parenIndicatorElement = createElementMock("span");
   parenIndicatorElement.hidden = true;
@@ -271,8 +267,6 @@ function createCalculator({ storage = {} } = {}) {
   buttonByKey["cos"] = cosineElement;
   buttonByKey["√x"] = squareRootElement;
   buttonByKey["tan"] = tangentElement;
-  buttonByKey["("] = openParenElement;
-  buttonByKey[")"] = closeParenElement;
   buttonByKey["xʸ"] = powerElement;
   buttonByKey["2nd"] = secondaryToggleElement;
 
@@ -317,8 +311,6 @@ function createCalculator({ storage = {} } = {}) {
     "cos-button": cosineElement,
     "sqrt-button": squareRootElement,
     "tan-button": tangentElement,
-    "open-paren-button": openParenElement,
-    "close-paren-button": closeParenElement,
     "paren-indicator": parenIndicatorElement,
     "paren-symbols": parenSymbolsElement,
     "paren-text": parenTextElement,
@@ -1538,6 +1530,26 @@ describe("CALC-9: critérios de aceite do efeito ao pressionar", () => {
     const calc = createCalculator();
     calc.keyDown("7", { code: "Digit7", ctrlKey: true });
     assert.equal(calc.buttonFor("7").classList.contains("is-pressed"), false);
+  });
+
+  test("( e ) escurecem o botão ( ) da tela até soltar (CALC-24): ( baixado marca ( ), soltar tira a marca; ) faz o mesmo", () => {
+    const calc = createCalculator();
+    calc.keyDown("(", { code: "Digit9", shiftKey: true });
+    assert.equal(calc.buttonFor("( )").classList.contains("is-pressed"), true);
+    calc.keyUp("(", "Digit9");
+    assert.equal(calc.buttonFor("( )").classList.contains("is-pressed"), false);
+    calc.keyDown(")", { code: "Digit0", shiftKey: true });
+    assert.equal(calc.buttonFor("( )").classList.contains("is-pressed"), true);
+    calc.keyUp(")", "Digit0");
+    assert.equal(calc.buttonFor("( )").classList.contains("is-pressed"), false);
+  });
+
+  test("( pressionado pelo teclado abre o parêntese e o indicador aparece, como no clique do botão ( )", () => {
+    const calc = createCalculator();
+    calc.keyDown("(", { code: "Digit9", shiftKey: true });
+    calc.keyUp("(", "Digit9");
+    assert.equal(calc.parenIndicatorHidden(), false);
+    assert.equal(calc.parenSymbols(), "(");
   });
 });
 

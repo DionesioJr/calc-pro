@@ -332,8 +332,9 @@ const ACTIONS = [
   },
   { id: "equals", type: "control", label: "=", keys: ["=", "Enter"], apply: inputEquals },
   // "(" e ")" são teclas do teclado físico; o botão da tela é o ( ), que alterna entre abrir e fechar (sem buttonId: está no teclado numérico).
-  { id: "open-paren", type: "control", label: "(", keys: ["("], apply: inputOpenParen },
-  { id: "close-paren", type: "control", label: ")", keys: [")"], apply: inputCloseParen },
+  // keyButton: o botão que a tecla destaca enquanto é pressionada (keyboard.js).
+  { id: "open-paren", type: "control", label: "(", keys: ["("], keyButton: "paren-toggle", apply: inputOpenParen },
+  { id: "close-paren", type: "control", label: ")", keys: [")"], keyButton: "paren-toggle", apply: inputCloseParen },
   { id: "paren-toggle", type: "control", label: "( )", apply: toggleParen },
 ];
 
