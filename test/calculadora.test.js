@@ -59,10 +59,6 @@ const CSS_FILES = ["tema.css", "display.css", "teclado.css", "historico.css"].ma
   fs.readFileSync(path.join(ROOT, "css", name), "utf8"),
 );
 const CSS_SOURCE = CSS_FILES.join("\n");
-// Partes antes e depois do corte de 768px, de cada arquivo (cada um tem o seu bloco desktop).
-const DESKTOP_MEDIA = "@media (min-width: 768px)";
-const CSS_BASE = CSS_FILES.map((css) => css.split(DESKTOP_MEDIA)[0]).join("\n");
-const CSS_DESKTOP = CSS_FILES.map((css) => css.split(DESKTOP_MEDIA)[1] ?? "").join("\n");
 
 // Teclas usadas nos testes, com os mesmos data-* que index.html define para cada botão.
 const KEY_DATASET = {
@@ -163,6 +159,8 @@ function createLocalStorage(storage) {
 // storage: objeto que faz o papel do localStorage; passe o mesmo objeto para simular recarregar a página.
 function createCalculator({ storage = {} } = {}) {
   const display = { textContent: "", classList: createClassList() };
+  // Texto do visor sem o separador de milhar (8,065 → 8065): estes testes comparam os dígitos; a vírgula tem teste próprio (CALC-76).
+  const shownText = () => display.textContent.replace(/,/g, "");
   const historyList = createElementMock("ol");
   const historyEmpty = createElementMock("p");
   const historyActions = createElementMock("div");
@@ -441,7 +439,7 @@ function createCalculator({ storage = {} } = {}) {
       const button = buttonByKey[key];
       onKeypadClick({ target: { closest: () => button } });
     }
-    return display.textContent;
+    return shownText();
   }
 
   // Valor guardado na memória (registrador de src/calculator.js).
@@ -495,7 +493,7 @@ function createCalculator({ storage = {} } = {}) {
       },
     };
     onPaste(event);
-    return { display: display.textContent, handled: event.defaultPrevented };
+    return { display: shownText(), handled: event.defaultPrevented };
   }
 
   // Classe de tamanho de fonte que o display tem agora (uma só).
@@ -527,7 +525,7 @@ function createCalculator({ storage = {} } = {}) {
     for (const key of keys) {
       keyDown(key);
     }
-    return display.textContent;
+    return shownText();
   }
 
   // Itens do histórico na tela, na ordem em que aparecem (do mais recente para o mais antigo), como "12 × 3 = 36".
@@ -558,7 +556,7 @@ function createCalculator({ storage = {} } = {}) {
   // Toca num item do histórico, como um clique ou toque; devolve o texto do visor.
   function tapHistoryItem(index) {
     historyItemButton(index).dispatch("click");
-    return display.textContent;
+    return shownText();
   }
 
   // Aperta o botão Limpar histórico, como um clique do mouse (só abre a confirmação).
@@ -625,7 +623,7 @@ function createCalculator({ storage = {} } = {}) {
     confirmHidden: () => historyConfirm.hidden,
     cancelFocused: () => historyCancel.focused,
     emptyMessageFocused: () => historyEmpty.focused,
-    display: () => display.textContent,
+    display: () => shownText(),
     memoryValue,
     memoryIndicatorHidden: () => memoryIndicatorElement.hidden,
     memoryAddFocused: () => memoryAddElement.focused,
@@ -1549,18 +1547,21 @@ describe("CALC-9: estilo do feedback visual no CSS", () => {
     assert.match(CSS_SOURCE, /\.btn:active,\s*\.btn\.is-pressed\s*\{\s*filter:\s*brightness\(0\.8\);\s*\}/);
   });
 
-  test("operador destacado tem fundo #ffffff e texto #b35c00 (contraste >= 4,5:1 sobre branco)", () => {
-    assert.match(CSS_SOURCE, /\.btn-operator\[aria-pressed="true"\]\s*\{\s*background:\s*#ffffff;\s*color:\s*#b35c00;\s*\}/);
+  test("operador destacado (operação pendente) tem fundo verde --accent e texto branco", () => {
+    assert.match(CSS_SOURCE, /\.btn-operator\[aria-pressed="true"\]\s*\{\s*background:\s*var\(--accent\);\s*color:\s*#ffffff;\s*\}/);
   });
 });
 
-describe("CALC-18: cores de fundo da página e da calculadora", () => {
-  test("página tem fundo #686868 (cinza que a calculadora tinha) e texto #ffffff", () => {
-    assert.match(CSS_SOURCE, /body\s*\{[^}]*background:\s*#686868;[^}]*color:\s*#ffffff;[^}]*\}/);
+describe("CALC-18: cores de fundo da página e do cartão", () => {
+  test("página tem fundo verde claro liso (#9fe8a0) e texto da cor --ink", () => {
+    assert.match(CSS_SOURCE, /:root\s*\{[^}]*--page:\s*#9fe8a0;[^}]*\}/);
+    assert.match(CSS_SOURCE, /body\s*\{[^}]*background:\s*var\(--page\);[^}]*color:\s*var\(--ink\);[^}]*\}/);
   });
 
-  test("calculadora tem fundo #000000 (preto que a página tinha)", () => {
-    assert.match(CSS_SOURCE, /\.calculator\s*\{[^}]*background:\s*#000000;[^}]*\}/);
+  test("cartão usa --card: cinza quase branco no tema claro (#f4f4f4) e cinza escuro no escuro (#454545)", () => {
+    assert.match(CSS_SOURCE, /:root\s*\{[^}]*--card:\s*#f4f4f4;[^}]*\}/);
+    assert.match(CSS_SOURCE, /prefers-color-scheme: dark\)\s*\{\s*:root\s*\{[^}]*--card:\s*#454545;/);
+    assert.match(CSS_SOURCE, /\.calculator\s*\{[^}]*background:\s*var\(--card\);[^}]*\}/);
   });
 });
 
@@ -1773,11 +1774,9 @@ describe("CALC-19: estrutura e estilo do histórico", () => {
     assert.match(HTML_SOURCE, /id="history-clear"[^>]*>Limpar histórico<\/button>/);
   });
 
-  test("o histórico fica escondido no mobile e aparece a partir de 768px, no mesmo corte do projeto", () => {
-    const base = CSS_BASE;
-    const desktop = CSS_DESKTOP;
-    assert.match(base, /\.history\s*\{\s*display:\s*none;\s*\}/);
-    assert.match(desktop, /\.history\s*\{[^}]*display:\s*flex;/);
+  test("o histórico fica escondido até ser aberto, e aberto vira um painel (display flex) por cima do cartão", () => {
+    assert.match(CSS_SOURCE, /\.history\s*\{\s*display:\s*none;\s*\}/);
+    assert.match(CSS_SOURCE, /\.history\.is-open\s*\{[^}]*position:\s*fixed;[^}]*display:\s*flex;[^}]*\}/);
   });
 
   test("lista vazia (hidden) fica fora da renderização: a regra [hidden] vence o display flex da lista", () => {
@@ -1930,11 +1929,9 @@ describe("CALC-20: estilo e estrutura do histórico reformulado", () => {
     assert.match(HTML_SOURCE, /id="history-list"[^>]*tabindex="0"/);
   });
 
-  test("no desktop o painel tem a mesma largura da calculadora (360px) e fica alinhado ao topo dela", () => {
-    const desktop = CSS_DESKTOP;
-    assert.match(desktop, /\.calculator\s*\{[^}]*width:\s*360px;[^}]*\}/);
-    assert.match(desktop, /\.history\s*\{[^}]*width:\s*min\(360px,\s*100%\);[^}]*\}/);
-    assert.match(desktop, /\.layout\s*\{[^}]*align-items:\s*start;[^}]*\}/);
+  test("o painel aberto tem o mesmo tamanho do cartão (235 x 505 px, cantos de 32px), por cima dele", () => {
+    assert.match(CSS_SOURCE, /\.calculator\s*\{[^}]*width:\s*235px;[^}]*height:\s*505px;[^}]*border-radius:\s*32px;[^}]*\}/);
+    assert.match(CSS_SOURCE, /\.history\.is-open\s*\{[^}]*width:\s*235px;[^}]*height:\s*min\(505px,[^}]*\}/);
   });
 
   test("a lista rola dentro do painel com altura máxima, sem empurrar o layout", () => {
@@ -1961,57 +1958,25 @@ describe("CALC-20: estilo e estrutura do histórico reformulado", () => {
   });
 });
 
-// Regras do mobile: o bloco @media (max-width: 767px) fica no fim de cada arquivo de css/, somados aqui.
-const MOBILE_CSS = CSS_FILES.map((css) => (css.match(/@media \(max-width: 767px\) \{[\s\S]*$/) || [""])[0]).join("\n");
-
-// Lado do botão no mobile, como o tema.css calcula em --cell: o menor entre a largura (7 colunas, com 6 espaços)
-// e a altura (5 linhas, com o visor com pelo menos --display-min e a linha de status). Em px, com 1rem = 16px:
-// --pad 14, --gap 4, --display-min 72, --status-height 24.
-function mobileButtonSide(width, height) {
-  const pad = 14;
-  const gap = 4;
-  const displayMin = 72;
-  const statusHeight = 24;
-  const byWidth = (width - 2 * pad - 6 * gap) / 7;
-  const byHeight = (height - 2 * pad - 4 * gap - displayMin - statusHeight) / 5;
-  return Math.min(byWidth, byHeight);
-}
-
-describe("CALC-21: critérios de aceite do layout mobile", () => {
-  test("no mobile a calculadora ocupa a viewport inteira: fundo preto na página, 100% de largura e altura, sem cantos", () => {
-    assert.ok(MOBILE_CSS.length > 0, "precisa existir um bloco @media (max-width: 767px)");
-    assert.match(MOBILE_CSS, /body\s*\{[^}]*background:\s*#000000;[^}]*\}/);
-    assert.match(MOBILE_CSS, /\.layout\s*\{[^}]*height:\s*100dvh;[^}]*\}/);
-    assert.match(MOBILE_CSS, /\.calculator\s*\{[^}]*width:\s*100%;[^}]*height:\s*100%;[^}]*border-radius:\s*0;[^}]*\}/);
+describe("CALC-76: cartão de tamanho fixo (235 x 505) e teclas de 44px, sem tela cheia", () => {
+  test("o cartão não ocupa a tela: 235 px de largura, e a altura nunca passa da janela (max-height)", () => {
+    assert.match(CSS_SOURCE, /\.calculator\s*\{[^}]*width:\s*235px;[^}]*max-height:\s*calc\(100dvh - 2rem\);[^}]*\}/);
+    assert.doesNotMatch(CSS_SOURCE, /@media \(max-width: 767px\)/);
   });
 
-  test("botões são quadrados do mesmo lado (--cell), a grade científica e o teclado usam o mesmo lado, e o 0 ocupa duas colunas", () => {
-    assert.match(MOBILE_CSS, /\.calculator\s*\{[^}]*--cell:\s*min\(/);
+  test("botões são círculos do mesmo lado (--cell 44px), a grade científica e o teclado usam o mesmo lado, sem tecla larga", () => {
+    assert.match(CSS_SOURCE, /:root\s*\{[^}]*--cell:\s*44px;[^}]*\}/);
+    assert.match(CSS_SOURCE, /\.btn\s*\{[^}]*width:\s*var\(--cell\);[^}]*height:\s*var\(--cell\);[^}]*border-radius:\s*50%;[^}]*\}/);
     assert.match(CSS_SOURCE, /\.keypad\s*\{[^}]*grid-template-columns:\s*repeat\(4,\s*var\(--cell\)\);[^}]*\}/);
     assert.match(CSS_SOURCE, /\.keypad\s*\{[^}]*grid-auto-rows:\s*var\(--cell\);[^}]*\}/);
     assert.match(CSS_SOURCE, /\.scientific\s*\{[^}]*grid-template-columns:\s*repeat\(3,\s*var\(--cell\)\);[^}]*\}/);
     assert.match(CSS_SOURCE, /\.scientific\s*\{[^}]*grid-auto-rows:\s*var\(--cell\);[^}]*\}/);
-    assert.match(CSS_SOURCE, /\.btn-zero\s*\{[^}]*grid-column:\s*span 2;[^}]*\}/);
+    assert.doesNotMatch(CSS_SOURCE, /\.btn-zero\b/);
   });
 
-  test("em 360x640, 390x844, 414x896 e na paisagem 844x390, o teclado cabe na tela e os botões têm pelo menos 44px", () => {
-    for (const [width, height] of [
-      [360, 640],
-      [390, 844],
-      [414, 896],
-      [844, 390],
-    ]) {
-      const side = mobileButtonSide(width, height);
-      const keypadHeight = 5 * side + 4 * 4;
-      assert.ok(side >= 44, `${width}x${height}: botão de ${side}px`);
-      // Padding 14 nos dois lados, linha de status 24, visor mínimo 72 e o teclado (5 linhas).
-      assert.ok(2 * 14 + 24 + 72 + keypadHeight <= height, `${width}x${height}: teclado não cabe na altura`);
-    }
-  });
-
-  test("o botão Histórico aparece só no mobile: escondido na base e visível no bloco mobile", () => {
+  test("o botão Histórico aparece só no modo expandido: escondido na base e visível com .is-expanded", () => {
     assert.match(CSS_SOURCE, /\.history-open,\s*\.history-close\s*\{\s*display:\s*none;\s*\}/);
-    assert.match(MOBILE_CSS, /\.history-open\s*\{[^}]*display:\s*inline-flex;[^}]*\}/);
+    assert.match(CSS_SOURCE, /\.calculator\.is-expanded \.history-open\s*\{[^}]*display:\s*inline-flex;[^}]*\}/);
   });
 
   test("index.html tem o botão Histórico ligado ao painel e o × com rótulo para leitor de tela", () => {
@@ -2212,8 +2177,8 @@ describe("CALC-22: estrutura e estilo do M+ e do indicador", () => {
     assert.match(CSS_SOURCE, /\.scientific > button:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
   });
 
-  test("no mobile a grade científica e o teclado não encolhem com o visor: .panel com flex: none", () => {
-    assert.match(MOBILE_CSS, /\.panel\s*\{\s*flex:\s*none;/);
+  test("a área do teclado não encolhe com o visor: .panel com flex: none", () => {
+    assert.match(CSS_SOURCE, /\.panel\s*\{[^}]*flex:\s*none;[^}]*\}/);
   });
 });
 
@@ -2248,14 +2213,10 @@ describe("CALC-66: critérios de aceite do indicador M no display", () => {
     assert.ok(HTML_SOURCE.indexOf('class="status"') < HTML_SOURCE.indexOf('id="memory-indicator"'));
   });
 
-  test("no desktop o indicador aparece: .status é flex na base e nenhuma regra do desktop esconde .status ou .memory-indicator", () => {
-    assert.match(CSS_BASE, /\.status\s*\{[^}]*display:\s*flex;[^}]*\}/);
-    assert.doesNotMatch(CSS_DESKTOP, /\.(status|memory-indicator)\s*\{[^}]*display:\s*none/);
-  });
-
-  test("no mobile o indicador aparece: a linha de status não encolhe (flex: none) e nenhuma regra do mobile esconde .status ou .memory-indicator", () => {
-    assert.match(MOBILE_CSS, /\.status\s*\{\s*flex:\s*none;\s*min-height:\s*var\(--status-height\);\s*\}/);
-    assert.doesNotMatch(MOBILE_CSS, /\.(status|memory-indicator)\s*\{[^}]*display:\s*none/);
+  test("no modo expandido o indicador aparece: .status é flex, e só o cartão recolhido o esconde; a linha não encolhe (flex: none)", () => {
+    assert.match(CSS_SOURCE, /\.status\s*\{[^}]*display:\s*flex;[^}]*flex:\s*none;[^}]*\}/);
+    assert.match(CSS_SOURCE, /\.calculator:not\(\.is-expanded\) \.status\s*\{\s*display:\s*none;\s*\}/);
+    assert.doesNotMatch(CSS_SOURCE, /\.memory-indicator\s*\{[^}]*display:\s*none/);
   });
 });
 
@@ -2859,10 +2820,10 @@ describe("CALC-69: a tecla 2nd na interface", () => {
 });
 
 describe("CALC-41: estrutura e foco do botão DEG/RAD", () => {
-  test("o botão DEG/RAD fica na linha de status, acima do visor (fora do teclado), como um botão nativo", () => {
+  test("o botão DEG/RAD fica na linha de status, acima da expressão e do visor (fora do teclado), como um botão nativo", () => {
     assert.match(
       HTML_SOURCE,
-      /<div class="status">[\s\S]*?<button type="button" id="angle-unit" class="angle-unit" data-action="angle-unit"[^>]*>DEG<\/button>\s*<\/div>\s*<output id="display"/,
+      /<div class="status">[\s\S]*?<button type="button" id="angle-unit" class="angle-unit" data-action="angle-unit"[^>]*>DEG<\/button>\s*<\/div>\s*<div id="expression" class="expression" aria-hidden="true"><\/div>\s*<output id="display"/,
     );
   });
 
@@ -3892,10 +3853,10 @@ describe("CALC-42: critérios de aceite dos atalhos das funções avançadas", (
     }
   });
 
-  test("a lista fica dentro da calculadora, depois do teclado, e some no mobile", () => {
+  test("a lista fica dentro da calculadora, depois do teclado, e só aparece no modo expandido", () => {
     assert.match(HTML_SOURCE, /<\/div>\s*<section class="shortcuts"[\s\S]*<\/section>\s*<\/main>/);
     assert.match(CSS_SOURCE, /\.shortcuts\s*\{[^}]*color:\s*#a5a5a5;[^}]*\}/);
-    assert.match(MOBILE_CSS, /\.shortcuts\s*\{\s*display:\s*none;\s*\}/);
+    assert.match(CSS_SOURCE, /\.calculator:not\(\.is-expanded\) \.shortcuts\s*\{\s*display:\s*none;\s*\}/);
   });
 });
 
@@ -4115,10 +4076,10 @@ describe("CALC-30: teclado e indicador de parênteses abertos", () => {
 });
 
 describe("CALC-30: estrutura e foco dos botões ( e )", () => {
-  test("index.html tem os botões ( e ) na linha da memória, fora do teclado, com rótulo que traz o símbolo", () => {
+  test("o botão ( ) abre parêntese na grade do teclado, com rótulo que traz o símbolo; ) fica na linha de funções", () => {
     assert.match(
       HTML_SOURCE,
-      /<button type="button" id="open-paren-button" class="paren-add" data-action="open-paren" aria-label="Abrir parêntese \(">\(<\/button>/,
+      /<button type="button" class="btn btn-operator" data-action="open-paren" aria-label="Abrir parêntese \( \)">\( \)<\/button>/,
     );
     assert.match(
       HTML_SOURCE,

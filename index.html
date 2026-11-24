@@ -12,7 +12,10 @@
   <body>
     <div class="layout">
       <main class="calculator" id="calculator">
-        <h1>Calculadora Pro</h1>
+        <header class="header">
+          <h1 class="title">Calculator</h1>
+          <button type="button" id="more-toggle" class="more-toggle" aria-controls="calculator" aria-expanded="false" aria-label="Mostrar funções extras, histórico e atalhos">⋯</button>
+        </header>
         <button type="button" id="history-open" class="history-open" aria-controls="history-panel" aria-expanded="false">Histórico</button>
         <div class="status">
           <span id="memory-indicator" class="memory-indicator" hidden><span aria-hidden="true">M</span><span class="sr-only">Memória com valor guardado</span></span>
@@ -20,6 +23,7 @@
           <button type="button" id="secondary-toggle" class="secondary-toggle" data-action="secondary" aria-pressed="false" aria-label="Funções secundárias (2nd)">2nd</button>
           <button type="button" id="angle-unit" class="angle-unit" data-action="angle-unit" aria-label="DEG (graus), trocar para radianos">DEG</button>
         </div>
+        <div id="expression" class="expression" aria-hidden="true"></div>
         <output id="display" class="display" aria-live="polite">0</output>
         <div class="panel">
           <div class="scientific"></div>

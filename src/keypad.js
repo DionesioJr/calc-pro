@@ -24,17 +24,20 @@ const FUNCTION_ROW = [
   { id: "inverse", className: "inverse-add", ariaLabel: "Inverso (1/x)" },
   { id: "factorial", className: "factorial-add", ariaLabel: "Fatorial (x!)" },
   { id: "sqrt", className: "sqrt-add", ariaLabel: "Raiz quadrada (√x)" },
-  { id: "open-paren", className: "paren-add", ariaLabel: "Abrir parêntese (" },
   { id: "close-paren", className: "paren-add", ariaLabel: "Fechar parêntese )" },
   { id: "ans", className: "ans-add", ariaLabel: "Último resultado (Ans)" },
+  { id: "backspace", className: "backspace-add", ariaLabel: "Apagar último dígito (⌫, Backspace)" },
 ];
 
-// Teclado numérico, linha a linha (4 colunas no CSS): 20 botões. O ⌫ fica no fim, para não deslocar os demais.
+// Teclado numérico, linha a linha (4 colunas no CSS), na ordem da referência: 20 botões, todos do mesmo tamanho.
+// label troca o rótulo do registro quando a tela mostra outro símbolo: C (AC) e ( ) (abrir parêntese).
+// noId: o botão não leva o id do registro (open-paren-button). main.js liga por id todo buttonId do registro, então com o id
+// o clique do ( ) seria registrado duas vezes (pela grade e pela ligação por id).
 // O aria-label contém o símbolo visível (WCAG 2.5.3): quem usa controle por voz fala o que está escrito no botão.
 const KEYPAD = [
-  { id: "all-clear", className: "btn btn-function", ariaLabel: "Limpar (AC)" },
-  { id: "toggle-sign", className: "btn btn-function", ariaLabel: "Inverter sinal (+/-)" },
-  { id: "percent", className: "btn btn-function", ariaLabel: "Porcentagem (%)" },
+  { id: "all-clear", className: "btn btn-clear", label: "C", ariaLabel: "Limpar (C)" },
+  { id: "open-paren", className: "btn btn-operator", label: "( )", ariaLabel: "Abrir parêntese ( )", noId: true },
+  { id: "percent", className: "btn btn-operator", ariaLabel: "Porcentagem (%)" },
   { id: "divide", className: "btn btn-operator", ariaLabel: "Dividir (÷)" },
   { id: "7", className: DIGIT_CLASS },
   { id: "8", className: DIGIT_CLASS },
@@ -48,22 +51,24 @@ const KEYPAD = [
   { id: "2", className: DIGIT_CLASS },
   { id: "3", className: DIGIT_CLASS },
   { id: "add", className: "btn btn-operator", ariaLabel: "Somar (+)" },
-  { id: "0", className: "btn btn-digit btn-zero" },
+  { id: "toggle-sign", className: "btn btn-function", ariaLabel: "Inverter sinal (+/-)" },
+  { id: "0", className: DIGIT_CLASS },
   { id: ".", className: DIGIT_CLASS, ariaLabel: "Ponto decimal (.)" },
-  { id: "equals", className: "btn btn-operator", ariaLabel: "Igual (=)" },
-  { id: "backspace", className: "btn btn-function", ariaLabel: "Apagar último dígito (⌫, Backspace)" },
+  { id: "equals", className: "btn btn-equals", ariaLabel: "Igual (=)" },
 ];
 
-// Marcação de um botão: type, id (só se a ação tem buttonId), class, data-value ou data-action, aria-label (se houver), e o rótulo do registro.
+// Marcação de um botão: type, id (se a ação tem buttonId e a entrada não pede noId), class, data-value ou data-action,
+// aria-label (se houver), e o rótulo (o da entrada, se houver; senão o do registro).
 function buttonMarkup(entry) {
   const action = ACTION_BY_ID.get(entry.id);
   if (action === undefined) {
     throw new Error(`teclado: ${entry.id} não existe no registro ACTIONS`);
   }
   const [name, value] = Object.entries(datasetOf(action))[0];
-  const id = action.buttonId === undefined ? "" : ` id="${action.buttonId}"`;
+  const id = action.buttonId === undefined || entry.noId ? "" : ` id="${action.buttonId}"`;
   const ariaLabel = entry.ariaLabel === undefined ? "" : ` aria-label="${entry.ariaLabel}"`;
-  return `<button type="button"${id} class="${entry.className}" data-${name}="${value}"${ariaLabel}>${action.label}</button>`;
+  const label = entry.label ?? action.label;
+  return `<button type="button"${id} class="${entry.className}" data-${name}="${value}"${ariaLabel}>${label}</button>`;
 }
 
 // HTML das duas colunas do teclado, sem o contêiner: { scientific, keypad }.

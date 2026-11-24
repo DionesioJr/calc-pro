@@ -1,12 +1,16 @@
-/* Lado a lado: grade científica à esquerda e teclado básico à direita, com a mesma linha de botões. */
+/* Área do teclado: faixa de fundo levemente diferente do visor, com linha divisória fina. Grade de 4 colunas (.keypad). */
 .panel {
   display: flex;
   justify-content: center;
   gap: var(--gap);
-  margin-top: 0.5rem;
+  flex: none;
+  margin: 0 calc(-1 * var(--pad-x));
+  padding: 4px var(--pad-x) 3px;
+  background: var(--keys-area);
+  border-top: 1px solid var(--divider);
 }
 
-/* Grade científica: 3 colunas, na ordem do DOM (MC, MR, M+, M-, x², log, sen, cos, tan, xʸ, π, e, EXP, 1/x, x!, √x). */
+/* Grade científica (modo expandido): 3 colunas, na ordem do DOM (MC, MR, M+, M-, x², log, ln, sen, cos, tan, xʸ, π, e, EXP, 1/x, x!, √x, ), Ans, ⌫). */
 .scientific {
   display: grid;
   grid-template-columns: repeat(3, var(--cell));
@@ -14,7 +18,7 @@
   gap: var(--gap);
 }
 
-/* Teclado básico: 4 colunas. O 0 ocupa duas (ver .btn-zero). */
+/* Teclado básico: 4 colunas de 44px, 5 linhas. Todas as teclas do mesmo tamanho (0 incluso). */
 .keypad {
   display: grid;
   grid-template-columns: repeat(4, var(--cell));
@@ -22,10 +26,22 @@
   gap: var(--gap);
 }
 
-/* Botões científicos: cinza escuro, como os dígitos do teclado. Mesmo formato e tamanho dos botões básicos. */
+/* Fora do modo expandido, a grade científica não aparece: o cartão mostra só o visor e o teclado. */
+.calculator:not(.is-expanded) .scientific {
+  display: none;
+}
+
+/* Modo expandido: as funções extras ficam em cima do teclado (o cartão rola), porque 3 + 4 colunas não cabem em 235 px. */
+.calculator.is-expanded .panel {
+  flex-direction: column;
+  align-items: center;
+}
+
+/* Botões científicos: cinza escuro, como as teclas do teclado no tema escuro. Mesmo formato e tamanho dos básicos. */
 .scientific > button {
   width: 100%;
   height: 100%;
+  padding: 0;
   border: 0;
   border-radius: 999px;
   background: #333333;
@@ -567,43 +583,53 @@
   color: #ffffff;
 }
 
+/* Teclas circulares de 44px (--cell), todas do mesmo tamanho. Fundo e texto vêm do tema (--key, --key-ink). */
 .btn {
-  width: 100%;
-  height: 100%;
+  width: var(--cell);
+  height: var(--cell);
+  padding: 0;
   border: 0;
-  border-radius: 999px;
+  border-radius: 50%;
+  background: var(--key);
+  color: var(--key-ink);
+  box-shadow: var(--key-shadow);
   font: inherit;
-  font-size: min(2rem, calc(var(--cell) * 0.5));
+  font-size: 18px;
+  font-weight: 600;
   line-height: 1;
   cursor: pointer;
 }
 
-.btn-zero {
-  grid-column: span 2;
-  padding-left: 1.5rem;
-  text-align: left;
-  border-radius: 999px;
+.btn-digit {
+  font-weight: 500;
 }
 
-.btn-digit {
-  background: #333333;
+/* Símbolos de operação (÷ × − + %, e o parêntese): texto verde e negrito. */
+.btn-operator {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+/* Operação pendente, até o segundo número começar: a tecla fica verde cheia, com texto branco. */
+.btn-operator[aria-pressed="true"] {
+  background: var(--accent);
   color: #ffffff;
 }
 
-.btn-function {
-  background: #a5a5a5;
-  color: #000000;
+/* C (limpar): vermelho, texto branco. */
+.btn-clear {
+  background: var(--clear);
+  color: #ffffff;
+  font-weight: 700;
+  box-shadow: none;
 }
 
-.btn-operator {
-  background: #ff9f0a;
-  color: #000000;
-}
-
-/* Operador da operação pendente, até o segundo número começar: fundo branco e texto laranja. */
-.btn-operator[aria-pressed="true"] {
-  background: #ffffff;
-  color: #b35c00;
+/* =: gradiente verde, texto branco. */
+.btn-equals {
+  background: linear-gradient(180deg, var(--equals-top), var(--equals-bottom));
+  color: #ffffff;
+  font-weight: 700;
+  box-shadow: none;
 }
 
 /* Escurece enquanto o mouse ou o toque estiver pressionado (:active) e enquanto a tecla física estiver baixada (is-pressed). */
@@ -612,20 +638,13 @@
   filter: brightness(0.8);
 }
 
+/* Foco na cor do texto do tema: branco no tema escuro e no modo expandido, preto no claro (o contorno branco sumiria no cartão claro). */
 .btn:focus-visible {
-  outline: 3px solid #ffffff;
+  outline: 3px solid var(--ink);
   outline-offset: 2px;
 }
 
-/* Mobile (até 767px): painel e atalhos. O painel não encolhe com o visor. */
-@media (max-width: 767px) {
-  .panel {
-    flex: none;
-    margin-top: 0;
-  }
-
-  /* Atalhos (CALC-42) só no desktop: no mobile a calculadora ocupa a altura toda e não há espaço para a lista. */
-  .shortcuts {
-    display: none;
-  }
+/* Atalhos (CALC-42): lista só no modo expandido. */
+.calculator:not(.is-expanded) .shortcuts {
+  display: none;
 }

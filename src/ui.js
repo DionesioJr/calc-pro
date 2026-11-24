@@ -1,7 +1,8 @@
 "use strict";
 
-// Interface: desenha o visor e os indicadores a partir do estado, e controla o painel do histórico no mobile.
-// Tamanho do display pelo número de caracteres exibidos (sinal e ponto contam).
+// Interface: desenha o visor e os indicadores a partir do estado, e controla o modo expandido (funções extras) e o painel do histórico.
+// Tamanho do display pelo número de caracteres exibidos (sinal e ponto contam). Os nomes display-64/48/40 são herdados:
+// a faixa de tamanho continua a mesma, e o CSS (display.css) define os pixels de cada uma.
 const DISPLAY_SIZES = [
   { maxLength: 6, className: "display-64" },
   { maxLength: 8, className: "display-48" },
@@ -31,10 +32,57 @@ const ANGLE_UNITS = {
 };
 // Botões de operador (destacados enquanto a operação espera o segundo número).
 let operatorButtons = [];
+// Linha de expressão acima do resultado (ex.: 8000+65) e o botão ⋯ que expande o cartão.
+let expressionElement = null;
+let moreToggle = null;
+// Símbolos de operador na expressão, tirados do registro ACTIONS (rótulo das binárias e a função 2nd do xʸ, ʸ√x): saem em verde (ver .expression-operator em display.css).
+const OPERATOR_TEXTS = ACTIONS.filter((action) => action.type === "binary").flatMap((action) => [
+  action.label,
+  ...(action.secondary === undefined ? [] : [action.secondary.label]),
+]);
 
-// Liga a interface ao documento: visor, indicadores, botões de operador e o painel do histórico (abrir, fechar, desktop).
-function bindUi(doc, win) {
+// Separador de milhar com vírgula, só na exibição (o estado guarda o número sem separador): 8065 → 8,065.
+// Textos que não são número (Erro, notação científica) voltam iguais.
+function groupThousands(text) {
+  const match = /^(-?)(\d+)(\.\d*)?$/.exec(text);
+  if (!match) {
+    return text;
+  }
+  const [, sign, integer, fraction = ""] = match;
+  return sign + integer.replace(/\B(?=(\d{3})+(?!\d))/g, ",") + fraction;
+}
+
+// Modo expandido: o cartão mostra as funções extras, o status, o Histórico e os atalhos (classe is-expanded, em tema.css).
+function toggleMorePanel() {
+  if (!calculatorElement || !moreToggle) {
+    return;
+  }
+  const expanded = !calculatorElement.classList.contains("is-expanded");
+  if (expanded) {
+    calculatorElement.classList.add("is-expanded");
+  } else {
+    calculatorElement.classList.remove("is-expanded");
+  }
+  moreToggle.setAttribute("aria-expanded", String(expanded));
+}
+
+// Expressão em curso, parte por parte, sem o "=" do fim. Operadores saem em span próprio, para ganhar a cor de operador.
+function renderExpression(parts) {
+  const escape = (text) => text.replace(/[&<>"']/g, (char) => `&#${char.charCodeAt(0)};`);
+  expressionElement.innerHTML = parts
+    .filter((part) => part !== "=")
+    .map((part) => {
+      const operator = OPERATOR_TEXTS.includes(part) ? ' class="expression-operator"' : "";
+      return `<span${operator}>${escape(part)}</span>`;
+    })
+    .join("");
+}
+
+// Liga a interface ao documento: visor, indicadores, botões de operador, o botão ⋯ e o painel do histórico (abrir e fechar).
+function bindUi(doc) {
   display = doc.getElementById("display");
+  expressionElement = doc.getElementById("expression");
+  moreToggle = doc.getElementById("more-toggle");
   calculatorElement = doc.getElementById("calculator");
   historyOpen = doc.getElementById("history-open");
   historyPanel = doc.getElementById("history-panel");
@@ -63,25 +111,15 @@ function bindUi(doc, win) {
     operatorButtons.push(powerButton);
   }
 
-  // Mobile: o histórico vira painel em tela cheia, aberto pelo botão Histórico e fechado pelo × ou por Escape.
+  // O histórico é um painel por cima do cartão, aberto pelo botão Histórico (modo expandido) e fechado pelo × ou por Escape.
   if (historyOpen) {
     historyOpen.addEventListener("click", showHistoryPanel);
   }
   if (historyClose) {
     historyClose.addEventListener("click", hideHistoryPanel);
   }
-
-  // Ao passar para o desktop, o histórico volta a ser coluna ao lado: se o painel estava aberto, fecha para
-  // não deixar a calculadora inerte.
-  if (win && typeof win.matchMedia === "function") {
-    const desktopQuery = win.matchMedia("(min-width: 768px)");
-    if (desktopQuery && typeof desktopQuery.addEventListener === "function") {
-      desktopQuery.addEventListener("change", (event) => {
-        if (event.matches) {
-          hideHistoryPanel();
-        }
-      });
-    }
+  if (moreToggle) {
+    moreToggle.addEventListener("click", toggleMorePanel);
   }
 }
 
@@ -93,11 +131,14 @@ function displaySizeClass(text) {
 // Desenha o visor e os indicadores a partir do estado recebido (quem chama guarda o estado).
 function render(state) {
   if (display) {
-    display.textContent = state.current;
+    display.textContent = groupThousands(state.current);
     for (const size of DISPLAY_SIZES) {
       display.classList.remove(size.className);
     }
     display.classList.add(displaySizeClass(state.current));
+  }
+  if (expressionElement) {
+    renderExpression(state.expression);
   }
 
   // Operador destacado (aria-pressed="true", estilizado no CSS): só enquanto o segundo número não começou.

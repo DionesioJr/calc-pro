@@ -31,7 +31,7 @@ function buttonValues(markup) {
 }
 
 describe("CALC-59: a linha de funções vem do registro, na ordem da tela", () => {
-  test("os 20 botões com buttonId aparecem na ordem MC, MR, M+, M-, x², log, ln, sen, cos, tan, xʸ, π, e, EXP, 1/x, x!, √x, (, ), Ans", () => {
+  test("os 20 botões com buttonId aparecem na ordem MC, MR, M+, M-, x², log, ln, sen, cos, tan, xʸ, π, e, EXP, 1/x, x!, √x, ), Ans, ⌫", () => {
     assert.deepEqual(buttonIds(keypadMarkup().scientific), [
       "memory-clear",
       "memory-recall",
@@ -50,15 +50,15 @@ describe("CALC-59: a linha de funções vem do registro, na ordem da tela", () =
       "inverse-button",
       "factorial-button",
       "sqrt-button",
-      "open-paren-button",
       "close-paren-button",
       "ans-button",
+      "backspace-button",
     ]);
   });
 
-  test("cada botão da linha de funções tem o buttonId da própria ação do registro", () => {
+  test("cada botão da linha de funções tem o buttonId da própria ação do registro, menos o ( da grade (ver KEYPAD)", () => {
     const withButtonId = ACTIONS.filter(
-      (action) => action.buttonId !== undefined && !STATIC_IN_STATUS_BAR.includes(action.id),
+      (action) => action.buttonId !== undefined && !STATIC_IN_STATUS_BAR.includes(action.id) && action.id !== "open-paren",
     );
     assert.equal(buttonIds(keypadMarkup().scientific).length, withButtonId.length);
     for (const action of withButtonId) {
@@ -71,7 +71,7 @@ describe("CALC-59: a linha de funções vem do registro, na ordem da tela", () =
 });
 
 describe("CALC-59: o teclado numérico e a linha de funções cobrem o registro sem repetição", () => {
-  test("o teclado tem 20 botões (com ⌫) e a linha de funções 20 (com EXP e Ans): 40 no total, um por ação do registro exceto angle-unit e secondary", () => {
+  test("o teclado tem 20 botões (com ( ) e C) e a linha de funções 20 (com EXP, Ans e ⌫): 40 no total, um por ação do registro exceto angle-unit e secondary", () => {
     const { scientific, keypad } = keypadMarkup();
     assert.equal((keypad.match(/<button /g) ?? []).length, 20);
     assert.equal((scientific.match(/<button /g) ?? []).length, 20);
@@ -100,16 +100,29 @@ describe("CALC-59: o teclado numérico e a linha de funções cobrem o registro 
     }
   });
 
-  test("0 leva a classe btn-zero e os dígitos não têm aria-label (o rótulo visível já é o nome)", () => {
+  test("0 é uma tecla comum, do mesmo tamanho das outras (sem classe de largura dupla), e os dígitos não têm aria-label", () => {
     const { keypad } = keypadMarkup();
-    assert.ok(keypad.includes('<button type="button" class="btn btn-digit btn-zero" data-value="0">0</button>'));
+    assert.ok(keypad.includes('<button type="button" class="btn btn-digit" data-value="0">0</button>'));
     assert.ok(keypad.includes('<button type="button" class="btn btn-digit" data-value="7">7</button>'));
+    assert.doesNotMatch(keypad, /btn-zero/);
   });
 
-  test("⌫ sai no teclado com data-action backspace, classe de função e aria-label que diz o que faz (CALC-65)", () => {
+  test("( ) abre parêntese na grade sem id (o id do registro é o da linha de funções), e C limpa com aria-label que diz (C)", () => {
+    const { keypad } = keypadMarkup();
     assert.ok(
-      keypadMarkup().keypad.includes(
-        '<button type="button" class="btn btn-function" data-action="backspace" aria-label="Apagar último dígito (⌫, Backspace)">⌫</button>',
+      keypad.includes(
+        '<button type="button" class="btn btn-operator" data-action="open-paren" aria-label="Abrir parêntese ( )">( )</button>',
+      ),
+    );
+    assert.ok(
+      keypad.includes('<button type="button" class="btn btn-clear" data-action="all-clear" aria-label="Limpar (C)">C</button>'),
+    );
+  });
+
+  test("⌫ sai na linha de funções com id backspace-button, data-action backspace e aria-label que diz o que faz (CALC-65)", () => {
+    assert.ok(
+      keypadMarkup().scientific.includes(
+        '<button type="button" id="backspace-button" class="backspace-add" data-action="backspace" aria-label="Apagar último dígito (⌫, Backspace)">⌫</button>',
       ),
     );
   });
@@ -135,7 +148,7 @@ describe("CALC-59: o HTML final e o documento recebem o teclado gerado", () => {
   test("fillKeypadMarkup põe o markup nas duas colunas vazias de index.html", () => {
     const html = fillKeypadMarkup('<div class="scientific"></div>\n<div class="keypad"></div>');
     assert.ok(html.includes('<div class="scientific"><button type="button" id="memory-clear"'));
-    assert.ok(html.includes('<div class="keypad"><button type="button" class="btn btn-function" data-action="all-clear"'));
+    assert.ok(html.includes('<div class="keypad"><button type="button" class="btn btn-clear" data-action="all-clear"'));
   });
 
   test("renderKeypad preenche os dois contêineres do documento", () => {

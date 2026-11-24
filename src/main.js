@@ -76,7 +76,7 @@ function start(doc, win, storage) {
   // Botões primeiro: o teclado e a ligação de eventos abaixo procuram os botões no documento.
   renderKeypad(doc);
   bindHistory(doc, storage, recallFromHistory);
-  bindUi(doc, win);
+  bindUi(doc);
   bindKeyboard(doc, win, { press });
   bindClipboard(doc, win);
 

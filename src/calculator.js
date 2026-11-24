@@ -326,6 +326,7 @@ const ACTIONS = [
     type: "control",
     label: "⌫",
     keys: ["Backspace"],
+    buttonId: "backspace-button",
     // deleteDigit devolve um estado novo; applyButton não usa o retorno, então o resultado é copiado para s.
     apply: (s) => Object.assign(s, deleteDigit(s)),
   },
