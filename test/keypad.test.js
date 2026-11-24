@@ -117,7 +117,7 @@ describe("CALC-59: o teclado numérico e a linha de funções cobrem o registro 
   test("Ans da linha de funções sai com id, classe, data-action, aria-label e o rótulo do registro (CALC-67)", () => {
     assert.ok(
       keypadMarkup().scientific.includes(
-        '<button type="button" id="ans-button" class="ans-add" data-action="ans" aria-label="Último resultado (Ans)">Ans</button>',
+        '<button type="button" id="ans-button" class="btn-sci" data-action="ans" aria-label="Último resultado (Ans)">Ans</button>',
       ),
     );
   });
@@ -125,7 +125,7 @@ describe("CALC-59: o teclado numérico e a linha de funções cobrem o registro 
   test("MC da linha de funções sai com id, classe, data-action, aria-label e o rótulo do registro", () => {
     assert.ok(
       keypadMarkup().scientific.includes(
-        '<button type="button" id="memory-clear" class="memory-clear" data-action="memory-clear" aria-label="Limpar memória (MC)">MC</button>',
+        '<button type="button" id="memory-clear" class="btn-sci" data-action="memory-clear" aria-label="Limpar memória (MC)">MC</button>',
       ),
     );
   });

@@ -4,29 +4,31 @@
 // Script clássico, carregado depois de calculator.js (usa ACTIONS, ACTION_BY_ID e datasetOf de lá). Sem import/export.
 
 const DIGIT_CLASS = "btn btn-digit";
+// Todos os botões da linha de funções usam esta classe; o estilo fica num só bloco em css/teclado.css.
+const SCI_CLASS = "btn-sci";
 
 // Linha de funções, na ordem da tela. aria-label é o nome completo para leitor de tela; sem ele, o rótulo visível serve.
 const FUNCTION_ROW = [
-  { id: "memory-clear", className: "memory-clear", ariaLabel: "Limpar memória (MC)" },
-  { id: "memory-recall", className: "memory-recall", ariaLabel: "Recuperar memória (MR)" },
-  { id: "memory-add", className: "memory-add", ariaLabel: "Somar à memória (M+)" },
-  { id: "memory-subtract", className: "memory-subtract", ariaLabel: "Subtrair da memória (M-)" },
-  { id: "square", className: "square-add", ariaLabel: "Elevar ao quadrado (x²)" },
-  { id: "log", className: "log-button", ariaLabel: "Logaritmo na base 10 (log)" },
-  { id: "ln", className: "ln-add", ariaLabel: "Logaritmo natural (ln)" },
-  { id: "sine", className: "sine-add", ariaLabel: "Seno (sen)" },
-  { id: "cos", className: "cos-add", ariaLabel: "Cosseno (cos)" },
-  { id: "tan", className: "tan-add", ariaLabel: "Tangente (tan)" },
-  { id: "power", className: "power-add", ariaLabel: "Elevar à potência (xʸ)" },
-  { id: "pi", className: "pi-add", ariaLabel: "Inserir pi (π)" },
-  { id: "euler", className: "e-add", ariaLabel: "Inserir número de Euler (e)" },
-  { id: "exp", className: "exp-add", ariaLabel: "Expoente de base 10 (EXP, ×10ˣ)" },
-  { id: "inverse", className: "inverse-add", ariaLabel: "Inverso (1/x)" },
-  { id: "factorial", className: "factorial-add", ariaLabel: "Fatorial (x!)" },
-  { id: "sqrt", className: "sqrt-add", ariaLabel: "Raiz quadrada (√x)" },
-  { id: "open-paren", className: "paren-add", ariaLabel: "Abrir parêntese (" },
-  { id: "close-paren", className: "paren-add", ariaLabel: "Fechar parêntese )" },
-  { id: "ans", className: "ans-add", ariaLabel: "Último resultado (Ans)" },
+  { id: "memory-clear", className: SCI_CLASS, ariaLabel: "Limpar memória (MC)" },
+  { id: "memory-recall", className: SCI_CLASS, ariaLabel: "Recuperar memória (MR)" },
+  { id: "memory-add", className: SCI_CLASS, ariaLabel: "Somar à memória (M+)" },
+  { id: "memory-subtract", className: SCI_CLASS, ariaLabel: "Subtrair da memória (M-)" },
+  { id: "square", className: SCI_CLASS, ariaLabel: "Elevar ao quadrado (x²)" },
+  { id: "log", className: SCI_CLASS, ariaLabel: "Logaritmo na base 10 (log)" },
+  { id: "ln", className: SCI_CLASS, ariaLabel: "Logaritmo natural (ln)" },
+  { id: "sine", className: SCI_CLASS, ariaLabel: "Seno (sen)" },
+  { id: "cos", className: SCI_CLASS, ariaLabel: "Cosseno (cos)" },
+  { id: "tan", className: SCI_CLASS, ariaLabel: "Tangente (tan)" },
+  { id: "power", className: SCI_CLASS, ariaLabel: "Elevar à potência (xʸ)" },
+  { id: "pi", className: SCI_CLASS, ariaLabel: "Inserir pi (π)" },
+  { id: "euler", className: SCI_CLASS, ariaLabel: "Inserir número de Euler (e)" },
+  { id: "exp", className: SCI_CLASS, ariaLabel: "Expoente de base 10 (EXP, ×10ˣ)" },
+  { id: "inverse", className: SCI_CLASS, ariaLabel: "Inverso (1/x)" },
+  { id: "factorial", className: SCI_CLASS, ariaLabel: "Fatorial (x!)" },
+  { id: "sqrt", className: SCI_CLASS, ariaLabel: "Raiz quadrada (√x)" },
+  { id: "open-paren", className: SCI_CLASS, ariaLabel: "Abrir parêntese (" },
+  { id: "close-paren", className: SCI_CLASS, ariaLabel: "Fechar parêntese )" },
+  { id: "ans", className: SCI_CLASS, ariaLabel: "Último resultado (Ans)" },
 ];
 
 // Teclado numérico, linha a linha (4 colunas no CSS): 20 botões. O ⌫ fica no fim, para não deslocar os demais.

@@ -2197,7 +2197,7 @@ describe("CALC-22: estrutura e estilo do M+ e do indicador", () => {
   test("index.html tem o botão M+ com rótulo que contém M+, fora do teclado, e o indicador começa escondido", () => {
     assert.match(
       HTML_SOURCE,
-      /<button type="button" id="memory-add" class="memory-add" data-action="memory-add" aria-label="Somar à memória \(M\+\)">M\+<\/button>/,
+      /<button type="button" id="memory-add" class="btn-sci" data-action="memory-add" aria-label="Somar à memória \(M\+\)">M\+<\/button>/,
     );
     assert.match(HTML_SOURCE, /<span id="memory-indicator" class="memory-indicator" hidden>/);
     assert.match(HTML_SOURCE, /class="sr-only">Memória com valor guardado</);
@@ -2209,7 +2209,7 @@ describe("CALC-22: estrutura e estilo do M+ e do indicador", () => {
   });
 
   test("o M+ tem foco visível com contorno branco, sem remover o outline", () => {
-    assert.match(CSS_SOURCE, /\.scientific > button:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
+    assert.match(CSS_SOURCE, /\.btn-sci:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
   });
 
   test("no mobile a grade científica e o teclado não encolhem com o visor: .panel com flex: none", () => {
@@ -2370,12 +2370,12 @@ describe("CALC-26: teclado, foco e estrutura do x²", () => {
   test("index.html tem o botão x² na linha da memória (fora do teclado), com rótulo que anuncia a operação", () => {
     assert.match(
       HTML_SOURCE,
-      /<div class="scientific">[\s\S]*?<button type="button" id="square-button" class="square-add" data-action="square" aria-label="Elevar ao quadrado \(x²\)">x²<\/button>[\s\S]*?<\/div>\s*<div class="keypad">/,
+      /<div class="scientific">[\s\S]*?<button type="button" id="square-button" class="btn-sci" data-action="square" aria-label="Elevar ao quadrado \(x²\)">x²<\/button>[\s\S]*?<\/div>\s*<div class="keypad">/,
     );
   });
 
   test("o x² tem foco visível com contorno branco, sem remover o outline", () => {
-    assert.match(CSS_SOURCE, /\.scientific > button:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
+    assert.match(CSS_SOURCE, /\.btn-sci:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
   });
 });
 
@@ -2473,12 +2473,12 @@ describe("CALC-34: histórico, teclado, foco e estrutura do log", () => {
   test("index.html tem o botão log na linha da memória (fora do teclado), com rótulo que anuncia a operação", () => {
     assert.match(
       HTML_SOURCE,
-      /<div class="scientific">[\s\S]*?<button type="button" id="log-button" class="log-button" data-action="log" aria-label="Logaritmo na base 10 \(log\)">log<\/button>[\s\S]*?<\/div>\s*<div class="keypad">/,
+      /<div class="scientific">[\s\S]*?<button type="button" id="log-button" class="btn-sci" data-action="log" aria-label="Logaritmo na base 10 \(log\)">log<\/button>[\s\S]*?<\/div>\s*<div class="keypad">/,
     );
   });
 
   test("o log tem foco visível com contorno branco, sem remover o outline", () => {
-    assert.match(CSS_SOURCE, /\.scientific > button:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
+    assert.match(CSS_SOURCE, /\.btn-sci:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
   });
 });
 
@@ -2578,12 +2578,12 @@ describe("CALC-31: teclado, foco e estrutura do sen", () => {
   test("index.html tem o botão sen na linha da memória (fora do teclado), com rótulo que anuncia a operação", () => {
     assert.match(
       HTML_SOURCE,
-      /<div class="scientific">[\s\S]*?<button type="button" id="sine-button" class="sine-add" data-action="sine" aria-label="Seno \(sen\)">sen<\/button>[\s\S]*?<\/div>\s*<div class="keypad">/,
+      /<div class="scientific">[\s\S]*?<button type="button" id="sine-button" class="btn-sci" data-action="sine" aria-label="Seno \(sen\)">sen<\/button>[\s\S]*?<\/div>\s*<div class="keypad">/,
     );
   });
 
   test("o sen tem foco visível com contorno branco, sem remover o outline", () => {
-    assert.match(CSS_SOURCE, /\.scientific > button:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
+    assert.match(CSS_SOURCE, /\.btn-sci:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
   });
 });
 
@@ -2887,13 +2887,13 @@ describe("CALC-32: teclado, foco e estrutura do cos", () => {
   test("index.html tem o botão cos na grade científica, entre sen e tan, fora do teclado, com rótulo que anuncia a operação", () => {
     assert.match(
       HTML_SOURCE,
-      /<div class="scientific">[\s\S]*?<button type="button" id="sine-button"[^>]*>sen<\/button>\s*<button type="button" id="cos-button" class="cos-add" data-action="cos" aria-label="Cosseno \(cos\)">cos<\/button>\s*<button type="button" id="tan-button"[\s\S]*?<\/div>\s*<div class="keypad">/,
+      /<div class="scientific">[\s\S]*?<button type="button" id="sine-button"[^>]*>sen<\/button>\s*<button type="button" id="cos-button" class="btn-sci" data-action="cos" aria-label="Cosseno \(cos\)">cos<\/button>\s*<button type="button" id="tan-button"[\s\S]*?<\/div>\s*<div class="keypad">/,
     );
   });
 
   test("o cos usa o mesmo estilo de pílula cinza escuro da grade científica e foco visível com contorno branco", () => {
-    assert.match(CSS_SOURCE, /\.scientific > button\s*\{[^}]*border-radius:\s*999px;[^}]*background:\s*#333333;[^}]*\}/);
-    assert.match(CSS_SOURCE, /\.scientific > button:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
+    assert.match(CSS_SOURCE, /\.btn-sci\s*\{[^}]*border-radius:\s*999px;[^}]*background:\s*#333333;[^}]*\}/);
+    assert.match(CSS_SOURCE, /\.btn-sci:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
   });
 });
 
@@ -2965,12 +2965,12 @@ describe("CALC-36: teclado, foco e estrutura do π", () => {
   test("index.html tem o botão π na linha da memória (fora do teclado), com rótulo que anuncia a operação", () => {
     assert.match(
       HTML_SOURCE,
-      /<div class="scientific">[\s\S]*?<button type="button" id="pi-button" class="pi-add" data-action="pi" aria-label="Inserir pi \(π\)">π<\/button>[\s\S]*?<\/div>\s*<div class="keypad">/,
+      /<div class="scientific">[\s\S]*?<button type="button" id="pi-button" class="btn-sci" data-action="pi" aria-label="Inserir pi \(π\)">π<\/button>[\s\S]*?<\/div>\s*<div class="keypad">/,
     );
   });
 
   test("o π tem foco visível com contorno branco, sem remover o outline", () => {
-    assert.match(CSS_SOURCE, /\.scientific > button:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
+    assert.match(CSS_SOURCE, /\.btn-sci:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
   });
 });
 
@@ -3071,12 +3071,12 @@ describe("CALC-37: teclado, foco e estrutura do e", () => {
   test("index.html tem o botão e na linha da memória (fora do teclado), com rótulo que anuncia a operação", () => {
     assert.match(
       HTML_SOURCE,
-      /<div class="scientific">[\s\S]*?<button type="button" id="e-button" class="e-add" data-action="euler" aria-label="Inserir número de Euler \(e\)">e<\/button>[\s\S]*?<\/div>\s*<div class="keypad">/,
+      /<div class="scientific">[\s\S]*?<button type="button" id="e-button" class="btn-sci" data-action="euler" aria-label="Inserir número de Euler \(e\)">e<\/button>[\s\S]*?<\/div>\s*<div class="keypad">/,
     );
   });
 
   test("o e tem foco visível com contorno branco, sem remover o outline", () => {
-    assert.match(CSS_SOURCE, /\.scientific > button:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
+    assert.match(CSS_SOURCE, /\.btn-sci:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
   });
 });
 
@@ -3173,12 +3173,12 @@ describe("CALC-38: teclado, foco e estrutura do 1/x", () => {
   test("index.html tem o botão 1/x na linha da memória (fora do teclado), com rótulo que anuncia a operação", () => {
     assert.match(
       HTML_SOURCE,
-      /<div class="scientific">[\s\S]*?<button type="button" id="inverse-button" class="inverse-add" data-action="inverse" aria-label="Inverso \(1\/x\)">1\/x<\/button>[\s\S]*?<\/div>\s*<div class="keypad">/,
+      /<div class="scientific">[\s\S]*?<button type="button" id="inverse-button" class="btn-sci" data-action="inverse" aria-label="Inverso \(1\/x\)">1\/x<\/button>[\s\S]*?<\/div>\s*<div class="keypad">/,
     );
   });
 
   test("o 1/x tem foco visível com contorno branco, sem remover o outline", () => {
-    assert.match(CSS_SOURCE, /\.scientific > button:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
+    assert.match(CSS_SOURCE, /\.btn-sci:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
   });
 });
 
@@ -3306,12 +3306,12 @@ describe("CALC-27: teclado, foco e estrutura do √x", () => {
   test("index.html tem o botão √x na linha da memória (fora do teclado), com rótulo que anuncia a operação", () => {
     assert.match(
       HTML_SOURCE,
-      /<div class="scientific">[\s\S]*?<button type="button" id="sqrt-button" class="sqrt-add" data-action="sqrt" aria-label="Raiz quadrada \(√x\)">√x<\/button>[\s\S]*?<\/div>\s*<div class="keypad">/,
+      /<div class="scientific">[\s\S]*?<button type="button" id="sqrt-button" class="btn-sci" data-action="sqrt" aria-label="Raiz quadrada \(√x\)">√x<\/button>[\s\S]*?<\/div>\s*<div class="keypad">/,
     );
   });
 
   test("o √x tem foco visível com contorno branco, sem remover o outline", () => {
-    assert.match(CSS_SOURCE, /\.scientific > button:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
+    assert.match(CSS_SOURCE, /\.btn-sci:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
   });
 });
 
@@ -3419,13 +3419,13 @@ describe("CALC-23: teclado, foco e estrutura do M-", () => {
   test("index.html tem o botão M- ao lado do M+, na linha da memória, fora do teclado, com rótulo que anuncia a operação", () => {
     assert.match(
       HTML_SOURCE,
-      /<div class="scientific">\s*(?:<button type="button" id="memory-clear"[^>]*>MC<\/button>\s*)?<button type="button" id="memory-recall"[^>]*>MR<\/button>\s*<button type="button" id="memory-add"[^>]*>M\+<\/button>\s*<button type="button" id="memory-subtract" class="memory-subtract" data-action="memory-subtract" aria-label="Subtrair da memória \(M-\)">M-<\/button>\s*<button type="button" id="square-button"[\s\S]*?<\/div>\s*<div class="keypad">/,
+      /<div class="scientific">\s*(?:<button type="button" id="memory-clear"[^>]*>MC<\/button>\s*)?<button type="button" id="memory-recall"[^>]*>MR<\/button>\s*<button type="button" id="memory-add"[^>]*>M\+<\/button>\s*<button type="button" id="memory-subtract" class="btn-sci" data-action="memory-subtract" aria-label="Subtrair da memória \(M-\)">M-<\/button>\s*<button type="button" id="square-button"[\s\S]*?<\/div>\s*<div class="keypad">/,
     );
   });
 
   test("o M- usa o estilo da grade científica (cinza escuro, formato redondo) e foco visível com contorno branco", () => {
-    assert.match(CSS_SOURCE, /\.scientific > button\s*\{[^}]*border-radius:\s*999px;[^}]*background:\s*#333333;[^}]*\}/);
-    assert.match(CSS_SOURCE, /\.scientific > button:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
+    assert.match(CSS_SOURCE, /\.btn-sci\s*\{[^}]*border-radius:\s*999px;[^}]*background:\s*#333333;[^}]*\}/);
+    assert.match(CSS_SOURCE, /\.btn-sci:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
   });
 
   test("a grade científica tem 3 colunas do mesmo lado dos botões do teclado, à esquerda dele: .scientific antes de .keypad no DOM", () => {
@@ -3528,13 +3528,13 @@ describe("CALC-24: teclado, foco e estrutura do MR", () => {
   test("index.html tem o botão MR antes do M+, na linha da memória, fora do teclado, com rótulo que anuncia a operação", () => {
     assert.match(
       HTML_SOURCE,
-      /<div class="scientific">\s*(?:<button type="button" id="memory-clear"[^>]*>MC<\/button>\s*)?<button type="button" id="memory-recall" class="memory-recall" data-action="memory-recall" aria-label="Recuperar memória \(MR\)">MR<\/button>\s*<button type="button" id="memory-add"/,
+      /<div class="scientific">\s*(?:<button type="button" id="memory-clear"[^>]*>MC<\/button>\s*)?<button type="button" id="memory-recall" class="btn-sci" data-action="memory-recall" aria-label="Recuperar memória \(MR\)">MR<\/button>\s*<button type="button" id="memory-add"/,
     );
   });
 
   test("o MR usa o estilo da grade científica (cinza escuro, formato redondo) e foco visível com contorno branco", () => {
-    assert.match(CSS_SOURCE, /\.scientific > button\s*\{[^}]*border-radius:\s*999px;[^}]*background:\s*#333333;[^}]*\}/);
-    assert.match(CSS_SOURCE, /\.scientific > button:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
+    assert.match(CSS_SOURCE, /\.btn-sci\s*\{[^}]*border-radius:\s*999px;[^}]*background:\s*#333333;[^}]*\}/);
+    assert.match(CSS_SOURCE, /\.btn-sci:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
   });
 });
 
@@ -3692,12 +3692,12 @@ describe("CALC-33: teclado, foco e estrutura do tan", () => {
   test("index.html tem o botão tan na linha da memória (fora do teclado), com rótulo que anuncia a operação", () => {
     assert.match(
       HTML_SOURCE,
-      /<div class="scientific">[\s\S]*?<button type="button" id="tan-button" class="tan-add" data-action="tan" aria-label="Tangente \(tan\)">tan<\/button>[\s\S]*?<\/div>\s*<div class="keypad">/,
+      /<div class="scientific">[\s\S]*?<button type="button" id="tan-button" class="btn-sci" data-action="tan" aria-label="Tangente \(tan\)">tan<\/button>[\s\S]*?<\/div>\s*<div class="keypad">/,
     );
   });
 
   test("o tan tem foco visível com contorno branco, sem remover o outline", () => {
-    assert.match(CSS_SOURCE, /\.scientific > button:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
+    assert.match(CSS_SOURCE, /\.btn-sci:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
   });
 });
 
@@ -3778,13 +3778,13 @@ describe("CALC-25: teclado, foco e estrutura do MC", () => {
   test("index.html tem o botão MC antes do MR, na linha da memória, fora do teclado, com rótulo que anuncia a operação", () => {
     assert.match(
       HTML_SOURCE,
-      /<div class="scientific">\s*<button type="button" id="memory-clear" class="memory-clear" data-action="memory-clear" aria-label="Limpar memória \(MC\)">MC<\/button>\s*<button type="button" id="memory-recall"/,
+      /<div class="scientific">\s*<button type="button" id="memory-clear" class="btn-sci" data-action="memory-clear" aria-label="Limpar memória \(MC\)">MC<\/button>\s*<button type="button" id="memory-recall"/,
     );
   });
 
   test("o MC usa o estilo da grade científica (cinza escuro, formato redondo) e foco visível com contorno branco", () => {
-    assert.match(CSS_SOURCE, /\.scientific > button\s*\{[^}]*border-radius:\s*999px;[^}]*background:\s*#333333;[^}]*\}/);
-    assert.match(CSS_SOURCE, /\.scientific > button:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
+    assert.match(CSS_SOURCE, /\.btn-sci\s*\{[^}]*border-radius:\s*999px;[^}]*background:\s*#333333;[^}]*\}/);
+    assert.match(CSS_SOURCE, /\.btn-sci:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
   });
 });
 
@@ -4118,17 +4118,17 @@ describe("CALC-30: estrutura e foco dos botões ( e )", () => {
   test("index.html tem os botões ( e ) na linha da memória, fora do teclado, com rótulo que traz o símbolo", () => {
     assert.match(
       HTML_SOURCE,
-      /<button type="button" id="open-paren-button" class="paren-add" data-action="open-paren" aria-label="Abrir parêntese \(">\(<\/button>/,
+      /<button type="button" id="open-paren-button" class="btn-sci" data-action="open-paren" aria-label="Abrir parêntese \(">\(<\/button>/,
     );
     assert.match(
       HTML_SOURCE,
-      /<button type="button" id="close-paren-button" class="paren-add" data-action="close-paren" aria-label="Fechar parêntese \)">\)<\/button>/,
+      /<button type="button" id="close-paren-button" class="btn-sci" data-action="close-paren" aria-label="Fechar parêntese \)">\)<\/button>/,
     );
   });
 
   test("os botões ( e ) têm o mesmo estilo de pílula cinza e foco visível com contorno branco", () => {
-    assert.match(CSS_SOURCE, /\.paren-add\s*\{[^}]*border-radius:\s*999px;[^}]*color:\s*#a5a5a5;[^}]*\}/);
-    assert.match(CSS_SOURCE, /\.paren-add:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
+    assert.match(CSS_SOURCE, /\.btn-sci\s*\{[^}]*border-radius:\s*999px;[^}]*color:\s*#ffffff;[^}]*\}/);
+    assert.match(CSS_SOURCE, /\.btn-sci:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
   });
 
   test("o indicador de parênteses tem os símbolos escondidos do leitor de tela e o texto só para ele", () => {
@@ -4292,13 +4292,13 @@ describe("CALC-39: teclado, foco e estrutura do x!", () => {
   test("index.html tem o botão x! na grade científica (fora do teclado), com rótulo que anuncia a operação", () => {
     assert.match(
       HTML_SOURCE,
-      /<div class="scientific">[\s\S]*?<button type="button" id="factorial-button" class="factorial-add" data-action="factorial" aria-label="Fatorial \(x!\)">x!<\/button>[\s\S]*?<\/div>\s*<div class="keypad">/,
+      /<div class="scientific">[\s\S]*?<button type="button" id="factorial-button" class="btn-sci" data-action="factorial" aria-label="Fatorial \(x!\)">x!<\/button>[\s\S]*?<\/div>\s*<div class="keypad">/,
     );
   });
 
   test("o x! usa o mesmo estilo de pílula cinza escuro da grade científica e foco visível com contorno branco", () => {
-    assert.match(CSS_SOURCE, /\.scientific > button\s*\{[^}]*border-radius:\s*999px;[^}]*background:\s*#333333;[^}]*\}/);
-    assert.match(CSS_SOURCE, /\.scientific > button:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
+    assert.match(CSS_SOURCE, /\.btn-sci\s*\{[^}]*border-radius:\s*999px;[^}]*background:\s*#333333;[^}]*\}/);
+    assert.match(CSS_SOURCE, /\.btn-sci:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
   });
 });
 
@@ -4450,16 +4450,16 @@ describe("CALC-29: teclado, foco e estrutura do xʸ", () => {
   test("index.html tem o botão xʸ na linha da memória (fora do teclado), depois do tan, com rótulo que anuncia a operação", () => {
     assert.match(
       HTML_SOURCE,
-      /<div class="scientific">[\s\S]*?<button type="button" id="tan-button"[^>]*>tan<\/button>\s*<button type="button" id="power-button" class="power-add" data-action="power" aria-label="Elevar à potência \(xʸ\)">xʸ<\/button>[\s\S]*?<\/div>\s*<div class="keypad">/,
+      /<div class="scientific">[\s\S]*?<button type="button" id="tan-button"[^>]*>tan<\/button>\s*<button type="button" id="power-button" class="btn-sci" data-action="power" aria-label="Elevar à potência \(xʸ\)">xʸ<\/button>[\s\S]*?<\/div>\s*<div class="keypad">/,
     );
   });
 
   test("o xʸ tem foco visível com contorno branco, sem remover o outline", () => {
-    assert.match(CSS_SOURCE, /\.scientific > button:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
+    assert.match(CSS_SOURCE, /\.btn-sci:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
   });
 
   test("o xʸ pendente tem o destaque de operador do teclado (texto laranja sobre branco)", () => {
-    assert.match(CSS_SOURCE, /\.power-add\[aria-pressed="true"\]\s*\{[^}]*background:\s*#ffffff;[^}]*color:\s*#b35c00;/);
+    assert.match(CSS_SOURCE, /\.btn-sci\[aria-pressed="true"\]\s*\{[^}]*background:\s*#ffffff;[^}]*color:\s*#b35c00;/);
   });
 });
 
@@ -4489,14 +4489,14 @@ describe("CALC-68: EXP no teclado físico, na tela e no CSS", () => {
   test("index.html tem o botão EXP na linha de funções, logo depois do e, com rótulo que anuncia a operação", () => {
     assert.match(
       HTML_SOURCE,
-      /<div class="scientific">[\s\S]*?<button type="button" id="e-button"[^>]*>e<\/button>\s*<button type="button" id="exp-button" class="exp-add" data-action="exp" aria-label="Expoente de base 10 \(EXP, ×10ˣ\)">EXP<\/button>[\s\S]*?<\/div>\s*<div class="keypad">/,
+      /<div class="scientific">[\s\S]*?<button type="button" id="e-button"[^>]*>e<\/button>\s*<button type="button" id="exp-button" class="btn-sci" data-action="exp" aria-label="Expoente de base 10 \(EXP, ×10ˣ\)">EXP<\/button>[\s\S]*?<\/div>\s*<div class="keypad">/,
     );
   });
 
   test("o EXP tem contorno cinza como o e, cor branca ao passar o mouse e foco visível com contorno branco", () => {
-    assert.match(CSS_SOURCE, /\.exp-add\s*\{[^}]*border-radius:\s*999px;[^}]*color:\s*#a5a5a5;[^}]*\}/);
-    assert.match(CSS_SOURCE, /\.exp-add:hover\s*\{[^}]*color:\s*#ffffff;[^}]*\}/);
-    assert.match(CSS_SOURCE, /\.exp-add:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
+    assert.match(CSS_SOURCE, /\.btn-sci\s*\{[^}]*border-radius:\s*999px;[^}]*color:\s*#ffffff;[^}]*\}/);
+    assert.match(CSS_SOURCE, /\.btn-sci:hover\s*\{[^}]*color:\s*#ffffff;[^}]*\}/);
+    assert.match(CSS_SOURCE, /\.btn-sci:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
   });
 });
 
@@ -4773,12 +4773,12 @@ describe("CALC-35: histórico, teclado, foco e estrutura do ln", () => {
   test("index.html tem o botão ln na linha da memória (fora do teclado), logo depois do log, com rótulo que anuncia a operação", () => {
     assert.match(
       HTML_SOURCE,
-      /<div class="scientific">[\s\S]*?<button type="button" id="log-button"[^>]*>log<\/button>\s*<button type="button" id="ln-button" class="ln-add" data-action="ln" aria-label="Logaritmo natural \(ln\)">ln<\/button>[\s\S]*?<\/div>\s*<div class="keypad">/,
+      /<div class="scientific">[\s\S]*?<button type="button" id="log-button"[^>]*>log<\/button>\s*<button type="button" id="ln-button" class="btn-sci" data-action="ln" aria-label="Logaritmo natural \(ln\)">ln<\/button>[\s\S]*?<\/div>\s*<div class="keypad">/,
     );
   });
 
   test("o ln tem foco visível com contorno branco, sem remover o outline", () => {
-    assert.match(CSS_SOURCE, /\.ln-add:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
+    assert.match(CSS_SOURCE, /\.btn-sci:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
   });
 });
 
