@@ -2850,7 +2850,10 @@ describe("CALC-69: a tecla 2nd na interface", () => {
       CSS_SOURCE,
       /\.secondary-toggle\[aria-pressed="true"\]\s*\{\s*background:\s*#ffffff;[^}]*color:\s*#b35c00;/,
     );
-    assert.match(CSS_SOURCE, /\.secondary-toggle:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
+    assert.match(
+      CSS_SOURCE,
+      /\.angle-unit:focus-visible,\s*\.secondary-toggle:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/,
+    );
   });
 
   test("a barra de status não quebra linha: o botão 2nd tem white-space: nowrap", () => {
@@ -2867,7 +2870,19 @@ describe("CALC-41: estrutura e foco do botão DEG/RAD", () => {
   });
 
   test("o botão DEG/RAD tem foco visível com contorno branco, sem remover o outline", () => {
-    assert.match(CSS_SOURCE, /\.angle-unit:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/);
+    assert.match(
+      CSS_SOURCE,
+      /\.angle-unit:focus-visible,\s*\.secondary-toggle:focus-visible\s*\{\s*outline:\s*3px solid #ffffff;/,
+    );
+  });
+
+  test("DEG/RAD e 2nd compartilham um único bloco de base, hover e active", () => {
+    assert.match(
+      CSS_SOURCE,
+      /\.angle-unit,\s*\.secondary-toggle\s*\{\s*background:\s*transparent;[^}]*color:\s*#a5a5a5;[^}]*\}/,
+    );
+    assert.match(CSS_SOURCE, /\.angle-unit:hover,\s*\.secondary-toggle:hover\s*\{\s*color:\s*#ffffff;/);
+    assert.match(CSS_SOURCE, /\.angle-unit:active,\s*\.secondary-toggle:active\s*\{\s*filter:\s*brightness\(0\.8\);/);
   });
 
   test("o botão DEG/RAD fica à direita da linha de status: .status com justify-content: flex-end", () => {
